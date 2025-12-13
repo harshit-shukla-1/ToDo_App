@@ -8,7 +8,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Loader2, User as UserIcon, Calendar, ArrowLeft, Ruler, Weight, Mail } from "lucide-react";
-import { Separator } from "@/components/ui/separator";
 
 interface PublicSettings {
   show_email: boolean;
@@ -37,25 +36,25 @@ const PublicProfile = () => {
       setError(null);
       
       // Clean up username if it starts with @ (just in case)
-      // If the route was /u/:username, we just get 'username'
-      // If the route was /@:username, we just get 'username' (the @ is in the path)
-      // But if there's any weirdness, we clean it.
       let cleanUsername = username || "";
       if (cleanUsername.startsWith('@')) {
         cleanUsername = cleanUsername.substring(1);
       }
       
-      // Ensure lowercase for query
-      cleanUsername = cleanUsername.toLowerCase();
+      // We don't force lowercase here anymore for the query value, 
+      // instead we rely on ilike to handle the matching.
+
+      console.log("Fetching profile for:", cleanUsername);
 
       const { data, error } = await supabase
         .from("profiles")
         .select("*")
-        .eq("username", cleanUsername)
+        .ilike("username", cleanUsername) // Case-insensitive match
         .eq("is_public", true)
         .single();
 
       if (error) {
+        console.error("Supabase error:", error);
         if (error.code === 'PGRST116') {
              throw new Error("Profile not found or is set to private.");
         }
@@ -77,9 +76,9 @@ const PublicProfile = () => {
 
   if (error || !profile) {
     return (
-      <div className="flex flex-col items-center justify-center h-screen space-y-4">
+      <div className="flex flex-col items-center justify-center h-screen space-y-4 p-4 text-center">
         <h1 className="text-2xl font-bold">Profile Unavailable</h1>
-        <p className="text-muted-foreground">{error}</p>
+        <p className="text-muted-foreground max-w-md">{error}</p>
         <Link to="/">
           <Button variant="outline"><ArrowLeft className="mr-2 h-4 w-4" /> Go Home</Button>
         </Link>
