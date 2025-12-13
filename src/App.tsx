@@ -9,6 +9,7 @@ import Todos from "./pages/Todos";
 import TodoEditor from "./pages/TodoEditor";
 import Settings from "./pages/Settings";
 import Profile from "./pages/Profile";
+import PublicProfile from "./pages/PublicProfile";
 import NotFound from "./pages/NotFound";
 import { SessionContextProvider, useSession } from "./integrations/supabase/auth";
 import { ThemeProvider } from "./components/ThemeProvider";
@@ -85,6 +86,10 @@ const AppContent = () => (
           </ProtectedRoute>
         }
       />
+      
+      {/* Public Profile Route - Accessible without login */}
+      <Route path="/@:username" element={<PublicProfile />} />
+
       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
       <Route path="*" element={<NotFound />} />
     </Routes>

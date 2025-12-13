@@ -1,0 +1,215 @@
+"use client";
+
+import React, { useEffect, useState } from "react";
+import { useParams, Link } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Loader2, User as UserIcon, Calendar, ArrowLeft, Ruler, Weight, Mail } from "lucide-react";
+import { Separator } from "@/components/ui/separator";
+
+interface PublicSettings {
+  show_email: boolean;
+  show_about: boolean;
+  show_stats: boolean;
+  show_hobbies: boolean;
+  show_custom: boolean;
+}
+
+const PublicProfile = () => {
+  const { username } = useParams();
+  const [loading, setLoading] = useState(true);
+  const [profile, setProfile] = useState<any>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (username) {
+      fetchPublicProfile();
+    }
+  }, [username]);
+
+  const fetchPublicProfile = async () => {
+    try {
+      setLoading(true);
+      
+      // Clean up username if it starts with @
+      const cleanUsername = username?.startsWith('@') ? username.substring(1) : username;
+
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("username", cleanUsername)
+        .eq("is_public", true)
+        .single();
+
+      if (error) throw error;
+      setProfile(data);
+    } catch (err: any) {
+      console.error("Error fetching public profile:", err);
+      setError("User not found or profile is private.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return <div className="flex justify-center items-center h-screen"><Loader2 className="animate-spin h-8 w-8 text-primary" /></div>;
+  }
+
+  if (error || !profile) {
+    return (
+      <div className="flex flex-col items-center justify-center h-screen space-y-4">
+        <h1 className="text-2xl font-bold">Profile Unavailable</h1>
+        <p className="text-muted-foreground">{error}</p>
+        <Link to="/">
+          <Button variant="outline"><ArrowLeft className="mr-2 h-4 w-4" /> Go Home</Button>
+        </Link>
+      </div>
+    );
+  }
+
+  const settings = (profile.public_settings || {}) as PublicSettings;
+  const customProperties = profile.custom_properties || {};
+
+  return (
+    <div className="min-h-screen bg-background py-10 px-4">
+      <div className="max-w-3xl mx-auto space-y-6">
+        {/* Header / Avatar */}
+        <Card className="overflow-hidden">
+          <div className="h-32 bg-gradient-to-r from-blue-500 to-purple-600"></div>
+          <div className="px-6 pb-6 relative">
+            <Avatar className="h-32 w-32 border-4 border-background absolute -top-16">
+              <AvatarImage src={profile.avatar_url} />
+              <AvatarFallback><UserIcon className="h-16 w-16" /></AvatarFallback>
+            </Avatar>
+            <div className="mt-20 flex flex-col items-start">
+              <h1 className="text-3xl font-bold">{profile.first_name} {profile.last_name}</h1>
+              <p className="text-muted-foreground font-medium text-lg">@{profile.username}</p>
+              
+              {settings.show_email && (
+                 <div className="flex items-center text-sm text-muted-foreground mt-2">
+                   <Mail className="w-4 h-4 mr-1" />
+                   {/* In a real app we might fetch email from auth table via edge function, 
+                       but since we don't have that link easily accessible in a public read query 
+                       without joining tables which is secure, we'll assume email isn't in profiles table.
+                       
+                       Wait, auth.users isn't joinable easily. 
+                       If we want to show email, we should have stored it in profiles.
+                       If it's not in profiles, we can't show it here.
+                       Assuming we rely on what's in 'profiles'. 
+                   */}
+                   <span className="italic">Email hidden (not in public profile data)</span>
+                 </div>
+              )}
+            </div>
+          </div>
+        </Card>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* Main Info */}
+          <div className="md:col-span-2 space-y-6">
+            {settings.show_about && profile.about && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>About</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="whitespace-pre-line leading-relaxed">{profile.about}</p>
+                </CardContent>
+              </Card>
+            )}
+
+            {settings.show_hobbies && profile.hobbies && profile.hobbies.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Hobbies</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex flex-wrap gap-2">
+                    {profile.hobbies.map((hobby: string, i: number) => (
+                      <Badge key={i} variant="secondary">{hobby}</Badge>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+             {settings.show_custom && Object.keys(customProperties).length > 0 && (
+               <Card>
+                 <CardHeader>
+                   <CardTitle>More Info</CardTitle>
+                 </CardHeader>
+                 <CardContent>
+                   <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-4">
+                     {Object.entries(customProperties).map(([key, value]) => (
+                       <div key={key} className="border-b pb-2 last:border-0">
+                         <dt className="text-sm font-medium text-muted-foreground">{key}</dt>
+                         <dd className="text-base">{String(value)}</dd>
+                       </div>
+                     ))}
+                   </dl>
+                 </CardContent>
+               </Card>
+             )}
+          </div>
+
+          {/* Sidebar Stats */}
+          <div className="space-y-6">
+            {settings.show_stats && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Personal Details</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {profile.birthday && (
+                    <div className="flex items-center gap-3">
+                      <div className="h-8 w-8 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center text-blue-600 dark:text-blue-300">
+                        <Calendar className="h-4 w-4" />
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Birthday</p>
+                        <p className="font-medium">{new Date(profile.birthday).toLocaleDateString()}</p>
+                      </div>
+                    </div>
+                  )}
+                  {profile.height && (
+                     <div className="flex items-center gap-3">
+                      <div className="h-8 w-8 rounded-full bg-green-100 dark:bg-green-900 flex items-center justify-center text-green-600 dark:text-green-300">
+                        <Ruler className="h-4 w-4" />
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Height</p>
+                        <p className="font-medium">{profile.height} cm</p>
+                      </div>
+                    </div>
+                  )}
+                  {profile.weight && (
+                     <div className="flex items-center gap-3">
+                      <div className="h-8 w-8 rounded-full bg-orange-100 dark:bg-orange-900 flex items-center justify-center text-orange-600 dark:text-orange-300">
+                        <Weight className="h-4 w-4" />
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Weight</p>
+                        <p className="font-medium">{profile.weight} kg</p>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+            
+            <div className="flex justify-center">
+              <Link to="/">
+                 <Button variant="ghost" size="sm">Create your own profile</Button>
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default PublicProfile;

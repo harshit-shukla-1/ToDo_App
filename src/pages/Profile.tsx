@@ -10,10 +10,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { showSuccess, showError } from "@/utils/toast";
-import { Loader2, Plus, Trash2, Save, Upload, User as UserIcon } from "lucide-react";
+import { Loader2, Plus, Trash2, Save, Upload, User as UserIcon, Lock, Globe, Shuffle, Eye, Copy } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Link } from "react-router-dom";
 
 // Predefined anime/character avatars using DiceBear
 const PREDEFINED_AVATARS = [
@@ -28,6 +30,14 @@ const PREDEFINED_AVATARS = [
 interface CustomProperty {
   key: string;
   value: string;
+}
+
+interface PublicSettings {
+  show_email: boolean;
+  show_about: boolean;
+  show_stats: boolean; // For height/weight/birthday
+  show_hobbies: boolean;
+  show_custom: boolean;
 }
 
 const Profile = () => {
@@ -47,6 +57,18 @@ const Profile = () => {
   const [avatarUrl, setAvatarUrl] = useState("");
   const [email, setEmail] = useState("");
   
+  // Username & Public Profile
+  const [username, setUsername] = useState("");
+  const [isUsernameSet, setIsUsernameSet] = useState(false); // To lock it
+  const [isPublic, setIsPublic] = useState(false);
+  const [publicSettings, setPublicSettings] = useState<PublicSettings>({
+    show_email: false,
+    show_about: true,
+    show_stats: true,
+    show_hobbies: true,
+    show_custom: true,
+  });
+
   // Custom Properties State
   const [customProperties, setCustomProperties] = useState<CustomProperty[]>([]);
   const [newPropKey, setNewPropKey] = useState("");
@@ -61,7 +83,7 @@ const Profile = () => {
 
   useEffect(() => {
     calculateCompletion();
-  }, [firstName, lastName, about, birthday, height, weight, hobbies, avatarUrl]);
+  }, [firstName, lastName, about, birthday, height, weight, hobbies, avatarUrl, username]);
 
   const fetchProfile = async () => {
     try {
@@ -84,6 +106,16 @@ const Profile = () => {
         setHobbies(data.hobbies ? data.hobbies.join(", ") : "");
         setAvatarUrl(data.avatar_url || "");
         
+        if (data.username) {
+          setUsername(data.username);
+          setIsUsernameSet(true);
+        }
+        
+        setIsPublic(data.is_public || false);
+        if (data.public_settings) {
+          setPublicSettings(data.public_settings as PublicSettings);
+        }
+
         // Parse custom properties
         if (data.custom_properties) {
           const props = Object.entries(data.custom_properties).map(([key, value]) => ({
@@ -101,16 +133,29 @@ const Profile = () => {
   };
 
   const calculateCompletion = () => {
-    const fields = [firstName, lastName, about, birthday, height, weight, hobbies, avatarUrl];
+    const fields = [firstName, lastName, about, birthday, height, weight, hobbies, avatarUrl, username];
     const filledFields = fields.filter(field => field && field.trim() !== "").length;
     const totalFields = fields.length;
     setCompletion(Math.round((filledFields / totalFields) * 100));
+  };
+
+  const generateRandomUsername = () => {
+    if (isUsernameSet) return;
+    const randomSuffix = Math.random().toString(36).substring(2, 8);
+    setUsername(`user_${randomSuffix}`);
   };
 
   const handleUpdateProfile = async () => {
     try {
       setUpdating(true);
       
+      // Basic validation
+      if (!isUsernameSet && username.trim().length < 3) {
+        showError("Username must be at least 3 characters long");
+        setUpdating(false);
+        return;
+      }
+
       // Convert hobbies string to array
       const hobbiesArray = hobbies.split(",").map(h => h.trim()).filter(h => h !== "");
       
@@ -122,7 +167,7 @@ const Profile = () => {
         return acc;
       }, {} as Record<string, string>);
 
-      const updates = {
+      const updates: any = {
         id: user?.id,
         first_name: firstName,
         last_name: lastName,
@@ -133,12 +178,26 @@ const Profile = () => {
         hobbies: hobbiesArray,
         avatar_url: avatarUrl,
         custom_properties: customPropsObj,
+        is_public: isPublic,
+        public_settings: publicSettings,
         updated_at: new Date().toISOString(),
       };
 
+      // Only update username if it wasn't set before
+      if (!isUsernameSet && username) {
+        updates.username = username;
+      }
+
       const { error } = await supabase.from("profiles").upsert(updates);
 
-      if (error) throw error;
+      if (error) {
+        if (error.code === '23505') { // Unique violation
+          throw new Error("Username already taken. Please choose another.");
+        }
+        throw error;
+      }
+      
+      setIsUsernameSet(true);
       showSuccess("Profile updated successfully!");
     } catch (error: any) {
       showError("Error updating profile: " + error.message);
@@ -191,7 +250,6 @@ const Profile = () => {
         .upload(filePath, file);
 
       if (uploadError) {
-        // If bucket doesn't exist or other error, fallback to just error message
         throw uploadError;
       }
 
@@ -200,10 +258,16 @@ const Profile = () => {
       setAvatarUrl(data.publicUrl);
       showSuccess("Image uploaded successfully!");
     } catch (error: any) {
-      showError("Upload failed: " + error.message + ". Make sure 'avatars' bucket exists.");
+      showError("Upload failed: " + error.message);
     } finally {
       setUpdating(false);
     }
+  };
+
+  const copyPublicLink = () => {
+    const url = `${window.location.origin}/@${username}`;
+    navigator.clipboard.writeText(url);
+    showSuccess("Public profile link copied to clipboard!");
   };
 
   if (loading) {
@@ -265,6 +329,95 @@ const Profile = () => {
               </div>
             </CardContent>
           </Card>
+
+          {/* Public Profile Settings */}
+           <Card className="border-primary/20 bg-primary/5">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Globe className="h-5 w-5" /> Public Profile
+              </CardTitle>
+              <CardDescription>Manage your public presence</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="username">Username</Label>
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <span className="absolute left-3 top-2.5 text-muted-foreground">@</span>
+                    <Input 
+                      id="username" 
+                      value={username} 
+                      onChange={e => !isUsernameSet && setUsername(e.target.value)} 
+                      className="pl-7"
+                      placeholder="username"
+                      readOnly={isUsernameSet}
+                      disabled={isUsernameSet}
+                    />
+                    {isUsernameSet && <Lock className="absolute right-3 top-2.5 h-4 w-4 text-muted-foreground" />}
+                  </div>
+                  {!isUsernameSet && (
+                    <Button variant="outline" size="icon" onClick={generateRandomUsername} title="Generate Random">
+                      <Shuffle className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+                <p className="text-[10px] text-muted-foreground">
+                  {isUsernameSet 
+                    ? "Username cannot be changed." 
+                    : "Choose carefully! Cannot be changed later."}
+                </p>
+              </div>
+
+              {isUsernameSet && (
+                <>
+                  <Separator />
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="isPublic" className="cursor-pointer">Public Profile</Label>
+                    <Switch id="isPublic" checked={isPublic} onCheckedChange={setIsPublic} />
+                  </div>
+
+                  {isPublic && (
+                    <div className="space-y-3 pt-2">
+                      <div className="flex items-center justify-between bg-background p-2 rounded border">
+                        <Link to={`/@${username}`} target="_blank" className="text-sm text-blue-500 hover:underline flex items-center gap-1">
+                          View Profile <Eye className="h-3 w-3" />
+                        </Link>
+                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={copyPublicLink}>
+                          <Copy className="h-3 w-3" />
+                        </Button>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label className="text-xs text-muted-foreground">Publicly Visible Fields</Label>
+                        <div className="grid grid-cols-1 gap-2">
+                          <div className="flex items-center space-x-2">
+                            <Checkbox id="show_about" checked={publicSettings.show_about} onCheckedChange={(c) => setPublicSettings({...publicSettings, show_about: !!c})} />
+                            <label htmlFor="show_about" className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">About</label>
+                          </div>
+                           <div className="flex items-center space-x-2">
+                            <Checkbox id="show_stats" checked={publicSettings.show_stats} onCheckedChange={(c) => setPublicSettings({...publicSettings, show_stats: !!c})} />
+                            <label htmlFor="show_stats" className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Details (Birthday, Height, Weight)</label>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <Checkbox id="show_hobbies" checked={publicSettings.show_hobbies} onCheckedChange={(c) => setPublicSettings({...publicSettings, show_hobbies: !!c})} />
+                            <label htmlFor="show_hobbies" className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Hobbies</label>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <Checkbox id="show_custom" checked={publicSettings.show_custom} onCheckedChange={(c) => setPublicSettings({...publicSettings, show_custom: !!c})} />
+                            <label htmlFor="show_custom" className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Custom Properties</label>
+                          </div>
+                           <div className="flex items-center space-x-2">
+                            <Checkbox id="show_email" checked={publicSettings.show_email} onCheckedChange={(c) => setPublicSettings({...publicSettings, show_email: !!c})} />
+                            <label htmlFor="show_email" className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Email Address</label>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </CardContent>
+          </Card>
         </div>
 
         {/* Right Column: Details Form */}
@@ -272,7 +425,7 @@ const Profile = () => {
           <Card>
             <CardHeader>
               <CardTitle>Personal Information</CardTitle>
-              <CardDescription>Manage your public profile details</CardDescription>
+              <CardDescription>Manage your profile details</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
