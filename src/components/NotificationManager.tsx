@@ -3,7 +3,7 @@
 import React, { useEffect, useRef } from 'react';
 import { useSession } from '@/integrations/supabase/auth';
 import { supabase } from '@/integrations/supabase/client';
-import { showSuccess } from '@/utils/toast';
+import { showSuccess, showError } from '@/utils/toast';
 
 const NotificationManager: React.FC = () => {
   const { user } = useSession();
@@ -12,14 +12,24 @@ const NotificationManager: React.FC = () => {
   useEffect(() => {
     if (!user) return;
 
-    // Request permission if not already granted/denied
-    if ("Notification" in window && Notification.permission === "default") {
-      Notification.requestPermission();
-    }
+    const requestPermission = async () => {
+      if ("Notification" in window && Notification.permission === "default") {
+        try {
+          await Notification.requestPermission();
+        } catch (e) {
+          console.error("Failed to request notification permission", e);
+        }
+      }
+    };
+    
+    // Only try to request permission once on mount
+    requestPermission();
 
     const checkReminders = async () => {
       try {
         const now = new Date();
+        
+        // Fetch todos that have a due date and a reminder set, and are not completed
         const { data: todos, error } = await supabase
           .from('todos')
           .select('*')
@@ -32,31 +42,48 @@ const NotificationManager: React.FC = () => {
           return;
         }
 
-        if (!todos) return;
+        if (!todos || todos.length === 0) return;
 
         todos.forEach(todo => {
-          const dueDate = new Date(todo.due_date);
-          const reminderTime = new Date(dueDate.getTime() - (todo.reminder_minutes_before * 60 * 1000));
-          
-          // Identify this specific notification instance
-          const notificationId = `${todo.id}-${reminderTime.toISOString()}`;
+          if (!todo.due_date || todo.reminder_minutes_before === null) return;
 
-          // Check if it's time to notify (within the last minute)
-          // and we haven't processed this one yet
+          const dueDate = new Date(todo.due_date);
+          const reminderMinutes = parseInt(String(todo.reminder_minutes_before));
+          
+          if (isNaN(reminderMinutes) || reminderMinutes <= 0) return;
+
+          const reminderTime = new Date(dueDate.getTime() - (reminderMinutes * 60 * 1000));
+          
+          // Unique ID for this specific reminder instance
+          const notificationId = `${todo.id}-remind-${reminderTime.toISOString()}`;
+
+          // Logic:
+          // 1. Current time (now) is PAST the reminder time (now >= reminderTime)
+          // 2. Current time (now) is BEFORE the actual due date (now < dueDate) - preventing very old overdue reminders
+          // 3. We haven't shown this exact reminder yet
           if (now >= reminderTime && now < dueDate && !processedRef.current.has(notificationId)) {
+            
+            console.log(`Triggering reminder for todo: ${todo.text}`);
             
             // Send browser notification
             if ("Notification" in window && Notification.permission === "granted") {
-              new Notification(`Upcoming Todo: ${todo.text}`, {
-                body: `Due in ${todo.reminder_minutes_before} minutes at ${dueDate.toLocaleTimeString()}`,
-                icon: '/favicon.ico'
-              });
+              try {
+                new Notification(`Reminder: ${todo.text}`, {
+                  body: `Due in ${reminderMinutes} minutes at ${dueDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
+                  icon: '/favicon.ico',
+                  tag: notificationId // Prevent duplicate notifications in OS center
+                });
+              } catch (e) {
+                console.error("Notification API error:", e);
+                // Fallback to toast on error
+                showSuccess(`Reminder: "${todo.text}" is due soon!`);
+              }
             } else {
               // Fallback to toast if notifications aren't allowed/supported
-              showSuccess(`Reminder: "${todo.text}" is due in ${todo.reminder_minutes_before} minutes!`);
+              showSuccess(`Reminder: "${todo.text}" is due in ${reminderMinutes} minutes!`);
             }
 
-            // Mark as processed so we don't spam
+            // Mark as processed
             processedRef.current.add(notificationId);
           }
         });
@@ -66,14 +93,14 @@ const NotificationManager: React.FC = () => {
       }
     };
 
-    // Check immediately and then every 30 seconds
+    // Check immediately and then every 10 seconds
     checkReminders();
-    const intervalId = setInterval(checkReminders, 30 * 1000);
+    const intervalId = setInterval(checkReminders, 10 * 1000);
 
     return () => clearInterval(intervalId);
   }, [user]);
 
-  return null; // This component doesn't render anything visible
+  return null;
 };
 
 export default NotificationManager;
