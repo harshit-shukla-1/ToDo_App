@@ -3,10 +3,15 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import Index from "./pages/Index";
-import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
+import Dashboard from "./pages/Dashboard";
+import Todos from "./pages/Todos";
+import TodoEditor from "./pages/TodoEditor";
+import Settings from "./pages/Settings";
+import NotFound from "./pages/NotFound";
 import { SessionContextProvider, useSession } from "./integrations/supabase/auth";
+import { ThemeProvider } from "./components/ThemeProvider";
+import Layout from "./components/Layout";
 import React from "react";
 
 const queryClient = new QueryClient();
@@ -23,7 +28,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
     return <Navigate to="/login" replace />;
   }
 
-  return <>{children}</>;
+  return <Layout>{children}</Layout>;
 };
 
 const AppContent = () => (
@@ -34,7 +39,39 @@ const AppContent = () => (
         path="/"
         element={
           <ProtectedRoute>
-            <Index />
+            <Dashboard />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/todos"
+        element={
+          <ProtectedRoute>
+            <Todos />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/todos/new"
+        element={
+          <ProtectedRoute>
+            <TodoEditor />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/todos/:id"
+        element={
+          <ProtectedRoute>
+            <TodoEditor />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/settings"
+        element={
+          <ProtectedRoute>
+            <Settings />
           </ProtectedRoute>
         }
       />
@@ -46,13 +83,15 @@ const AppContent = () => (
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <SessionContextProvider>
-        <AppContent />
-      </SessionContextProvider>
-    </TooltipProvider>
+    <ThemeProvider defaultTheme="system" storageKey="mazda-todo-theme">
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <SessionContextProvider>
+          <AppContent />
+        </SessionContextProvider>
+      </TooltipProvider>
+    </ThemeProvider>
   </QueryClientProvider>
 );
 
