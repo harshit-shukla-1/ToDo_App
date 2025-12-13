@@ -288,9 +288,7 @@ const Profile = () => {
   };
 
   const copyPublicLink = () => {
-    // We use the new /@username format or fallback to /u/username if needed
-    // Using /@ for display preference
-    const url = `${window.location.origin}/@${username}`;
+    const url = `${window.location.origin}/u/${username}`;
     navigator.clipboard.writeText(url);
     showSuccess("Public profile link copied to clipboard!");
   };
@@ -404,7 +402,7 @@ const Profile = () => {
                   {isPublic && (
                     <div className="space-y-3 pt-2">
                       <div className="flex items-center justify-between bg-background p-2 rounded border">
-                        <Link to={`/@${username}`} target="_blank" className="text-sm text-blue-500 hover:underline flex items-center gap-1">
+                        <Link to={`/u/${username}`} target="_blank" className="text-sm text-blue-500 hover:underline flex items-center gap-1">
                           View Profile <Eye className="h-3 w-3" />
                         </Link>
                         <Button variant="ghost" size="icon" className="h-6 w-6" onClick={copyPublicLink}>
