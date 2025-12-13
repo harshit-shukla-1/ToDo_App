@@ -23,7 +23,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/integrations/supabase/auth";
 import { format } from "date-fns";
-import { Calendar as CalendarIcon, Save, ArrowLeft, Loader2, Clock } from "lucide-react";
+import { Calendar as CalendarIcon, Save, ArrowLeft, Loader2, Bell } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { showSuccess, showError } from "@/utils/toast";
 
@@ -39,6 +39,7 @@ const TodoEditor = () => {
     category: "Personal",
     due_date: undefined as Date | undefined,
     completed: false,
+    reminder_minutes_before: "0", // String for Select compatibility
   });
 
   useEffect(() => {
@@ -64,6 +65,9 @@ const TodoEditor = () => {
           category: data.category || "Personal",
           due_date: data.due_date ? new Date(data.due_date) : undefined,
           completed: data.completed,
+          reminder_minutes_before: data.reminder_minutes_before 
+            ? data.reminder_minutes_before.toString() 
+            : "0",
         });
       }
     } catch (error: any) {
@@ -83,11 +87,17 @@ const TodoEditor = () => {
 
     try {
       setLoading(true);
+      
+      const reminderValue = formData.reminder_minutes_before === "0" 
+        ? null 
+        : parseInt(formData.reminder_minutes_before);
+
       const payload = {
         user_id: user?.id,
         text: formData.text,
         category: formData.category,
         due_date: formData.due_date ? formData.due_date.toISOString() : null,
+        reminder_minutes_before: reminderValue
       };
 
       if (isEditing) {
@@ -185,44 +195,67 @@ const TodoEditor = () => {
                 </Select>
               </div>
 
-              <div className="space-y-2 flex flex-col">
-                <Label>Due Date & Time</Label>
-                <div className="flex gap-2">
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant={"outline"}
-                        className={cn(
-                          "w-full justify-start text-left font-normal",
-                          !formData.due_date && "text-muted-foreground"
-                        )}
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {formData.due_date ? (
-                          format(formData.due_date, "PPP")
-                        ) : (
-                          <span>Pick a date</span>
-                        )}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={formData.due_date}
-                        onSelect={handleDateSelect}
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
-                  
-                  <Input
-                    type="time"
-                    aria-label="Time"
-                    className="w-[120px]"
-                    value={formData.due_date ? format(formData.due_date, "HH:mm") : ""}
-                    onChange={handleTimeChange}
-                  />
-                </div>
+              <div className="space-y-2">
+                 <Label>Reminder</Label>
+                 <Select
+                  value={formData.reminder_minutes_before}
+                  onValueChange={(value) =>
+                    setFormData({ ...formData, reminder_minutes_before: value })
+                  }
+                >
+                  <SelectTrigger>
+                    <Bell className="w-4 h-4 mr-2 text-muted-foreground"/>
+                    <SelectValue placeholder="No reminder" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="0">No reminder</SelectItem>
+                    <SelectItem value="5">5 minutes before</SelectItem>
+                    <SelectItem value="15">15 minutes before</SelectItem>
+                    <SelectItem value="30">30 minutes before</SelectItem>
+                    <SelectItem value="60">1 hour before</SelectItem>
+                    <SelectItem value="1440">1 day before</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-2 flex flex-col">
+              <Label>Due Date & Time</Label>
+              <div className="flex gap-2">
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant={"outline"}
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !formData.due_date && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {formData.due_date ? (
+                        format(formData.due_date, "PPP")
+                      ) : (
+                        <span>Pick a date</span>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={formData.due_date}
+                      onSelect={handleDateSelect}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+                
+                <Input
+                  type="time"
+                  aria-label="Time"
+                  className="w-[120px]"
+                  value={formData.due_date ? format(formData.due_date, "HH:mm") : ""}
+                  onChange={handleTimeChange}
+                />
               </div>
             </div>
 

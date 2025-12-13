@@ -13,6 +13,7 @@ import { SessionContextProvider, useSession } from "./integrations/supabase/auth
 import { ThemeProvider } from "./components/ThemeProvider";
 import Layout from "./components/Layout";
 import React from "react";
+import NotificationManager from "./components/NotificationManager";
 
 const queryClient = new QueryClient();
 
@@ -88,6 +89,7 @@ const App = () => (
         <Toaster />
         <Sonner />
         <SessionContextProvider>
+          <NotificationManager />
           <AppContent />
         </SessionContextProvider>
       </TooltipProvider>
