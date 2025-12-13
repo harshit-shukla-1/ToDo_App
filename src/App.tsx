@@ -8,6 +8,7 @@ import Dashboard from "./pages/Dashboard";
 import Todos from "./pages/Todos";
 import TodoEditor from "./pages/TodoEditor";
 import Settings from "./pages/Settings";
+import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
 import { SessionContextProvider, useSession } from "./integrations/supabase/auth";
 import { ThemeProvider } from "./components/ThemeProvider";
@@ -65,6 +66,14 @@ const AppContent = () => (
         element={
           <ProtectedRoute>
             <TodoEditor />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/profile"
+        element={
+          <ProtectedRoute>
+            <Profile />
           </ProtectedRoute>
         }
       />

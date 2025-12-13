@@ -11,6 +11,7 @@ import {
   Menu,
   Sun,
   Moon,
+  User
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -66,6 +67,16 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           >
             <ListTodo className="mr-2 h-4 w-4" />
             My Todos
+          </Button>
+        </Link>
+        <Link to="/profile">
+          <Button
+            variant={location.pathname === "/profile" ? "secondary" : "ghost"}
+            className="w-full justify-start"
+            onClick={() => setIsMobileOpen(false)}
+          >
+            <User className="mr-2 h-4 w-4" />
+            Profile
           </Button>
         </Link>
         <Link to="/settings">
