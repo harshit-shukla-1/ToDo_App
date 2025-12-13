@@ -107,13 +107,15 @@ const PublicProfile = () => {
         {/* Header / Avatar */}
         <Card className="overflow-hidden">
           <div className="h-32 bg-gradient-to-r from-blue-500 to-purple-600"></div>
-          <div className="px-6 pb-6 relative">
-            <Avatar className="h-32 w-32 border-4 border-background absolute -top-16">
-              <AvatarImage src={profile.avatar_url} />
-              <AvatarFallback><UserIcon className="h-16 w-16" /></AvatarFallback>
-            </Avatar>
-            <div className="mt-20 flex flex-col items-start">
-              <h1 className="text-3xl font-bold">{profile.first_name} {profile.last_name}</h1>
+          <div className="px-6 pb-6">
+            <div className="-mt-16 mb-4 inline-block">
+              <Avatar className="h-32 w-32 border-4 border-background shadow-sm">
+                <AvatarImage src={profile.avatar_url} className="object-cover" />
+                <AvatarFallback><UserIcon className="h-16 w-16" /></AvatarFallback>
+              </Avatar>
+            </div>
+            <div className="flex flex-col items-start space-y-1">
+              <h1 className="text-3xl font-bold break-words">{profile.first_name} {profile.last_name}</h1>
               <p className="text-muted-foreground font-medium text-lg">@{profile.username}</p>
               
               {settings.show_email && (
