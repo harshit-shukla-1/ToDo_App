@@ -10,6 +10,7 @@ import TodoEditor from "./pages/TodoEditor";
 import Settings from "./pages/Settings";
 import Profile from "./pages/Profile";
 import PublicProfile from "./pages/PublicProfile";
+import AuthCallback from "./pages/AuthCallback";
 import NotFound from "./pages/NotFound";
 import { SessionContextProvider, useSession } from "./integrations/supabase/auth";
 import { ThemeProvider } from "./components/ThemeProvider";
@@ -38,6 +39,8 @@ const AppContent = () => (
   <BrowserRouter>
     <Routes>
       <Route path="/login" element={<Login />} />
+      <Route path="/auth/callback" element={<AuthCallback />} />
+      
       <Route
         path="/"
         element={

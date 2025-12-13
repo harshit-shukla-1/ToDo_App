@@ -11,15 +11,20 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { showSuccess, showError } from "@/utils/toast";
-import { Loader2, Plus, Trash2, Save, Upload, User as UserIcon, Lock, Globe, Shuffle, Eye, Copy, Calendar as CalendarIcon } from "lucide-react";
+import { Loader2, Plus, Trash2, Save, Upload, User as UserIcon, Lock, Globe, Shuffle, Eye, Copy } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Link } from "react-router-dom";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { format } from "date-fns";
+import { format, getDaysInMonth } from "date-fns";
 import { cn } from "@/lib/utils";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 // Predefined anime/character avatars using DiceBear
 const PREDEFINED_AVATARS = [
@@ -45,6 +50,11 @@ interface PublicSettings {
   show_custom: boolean;
 }
 
+const MONTHS = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December"
+];
+
 const Profile = () => {
   const { user } = useSession();
   const [loading, setLoading] = useState(true);
@@ -61,6 +71,12 @@ const Profile = () => {
   const [hobbies, setHobbies] = useState(""); // Comma separated string
   const [avatarUrl, setAvatarUrl] = useState("");
   const [email, setEmail] = useState("");
+  
+  // Birthday Select State
+  const currentYear = new Date().getFullYear();
+  const [bdYear, setBdYear] = useState<string>("");
+  const [bdMonth, setBdMonth] = useState<string>("");
+  const [bdDay, setBdDay] = useState<string>("");
   
   // Username & Public Profile
   const [username, setUsername] = useState("");
@@ -87,6 +103,57 @@ const Profile = () => {
     }
   }, [user]);
 
+  // Sync birthday date object with selector state
+  useEffect(() => {
+    if (birthday) {
+      setBdYear(birthday.getFullYear().toString());
+      setBdMonth(birthday.getMonth().toString());
+      setBdDay(birthday.getDate().toString());
+    }
+  }, [birthday]);
+
+  // Update birthday date object when selectors change
+  const updateBirthday = (year: string, month: string, day: string) => {
+    if (year && month && day) {
+      const newDate = new Date(parseInt(year), parseInt(month), parseInt(day));
+      setBirthday(newDate);
+    } else {
+      // If any field is cleared (though select usually prevents this), we could clear birthday
+      // But we'll keep the logic simple for now
+    }
+  };
+
+  const handleYearChange = (val: string) => {
+    setBdYear(val);
+    // Adjust day if needed (e.g. going from leap year to non-leap year on Feb 29)
+    if (bdMonth && bdDay) validateAndSetDate(val, bdMonth, bdDay);
+  };
+  
+  const handleMonthChange = (val: string) => {
+    setBdMonth(val);
+    if (bdYear && bdDay) validateAndSetDate(bdYear, val, bdDay);
+  };
+  
+  const handleDayChange = (val: string) => {
+    setBdDay(val);
+    if (bdYear && bdMonth) validateAndSetDate(bdYear, bdMonth, val);
+  };
+
+  const validateAndSetDate = (y: string, m: string, d: string) => {
+    const year = parseInt(y);
+    const month = parseInt(m);
+    let day = parseInt(d);
+    
+    // Check max days in this month
+    const maxDays = getDaysInMonth(new Date(year, month));
+    if (day > maxDays) {
+      day = maxDays;
+      setBdDay(day.toString()); // Update state to reflect clamping
+    }
+    
+    setBirthday(new Date(year, month, day));
+  };
+
   useEffect(() => {
     calculateCompletion();
   }, [firstName, lastName, about, birthday, height, weight, hobbies, avatarUrl, username]);
@@ -106,7 +173,11 @@ const Profile = () => {
         setFirstName(data.first_name || "");
         setLastName(data.last_name || "");
         setAbout(data.about || "");
-        setBirthday(data.birthday ? new Date(data.birthday) : undefined);
+        if (data.birthday) {
+          const bd = new Date(data.birthday);
+          setBirthday(bd);
+          // State sync handled by useEffect
+        }
         setHeight(data.height?.toString() || "");
         setWeight(data.weight?.toString() || "");
         setHobbies(data.hobbies ? data.hobbies.join(", ") : "");
@@ -234,7 +305,10 @@ const Profile = () => {
     
     try {
       setUpdating(true);
-      const { error } = await supabase.auth.updateUser({ email });
+      const { error } = await supabase.auth.updateUser(
+        { email },
+        { emailRedirectTo: window.location.origin + '/auth/callback' }
+      );
       if (error) throw error;
       showSuccess("Confirmation email sent to both old and new addresses.");
     } catch (error: any) {
@@ -296,6 +370,17 @@ const Profile = () => {
   if (loading) {
     return <div className="flex justify-center p-12"><Loader2 className="animate-spin h-8 w-8 text-primary" /></div>;
   }
+
+  // Generate Year options (1900 -> Current)
+  const years = Array.from({ length: currentYear - 1900 + 1 }, (_, i) => (currentYear - i).toString());
+  
+  // Generate Days (1-31)
+  // Dynamic based on month/year ideally, but 1-31 is safe with validation
+  const daysInSelectedMonth = (bdYear && bdMonth) 
+    ? getDaysInMonth(new Date(parseInt(bdYear), parseInt(bdMonth))) 
+    : 31;
+    
+  const days = Array.from({ length: daysInSelectedMonth }, (_, i) => (i + 1).toString());
 
   return (
     <div className="max-w-4xl mx-auto space-y-8 pb-10">
@@ -493,36 +578,41 @@ const Profile = () => {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2 flex flex-col">
-                  <Label htmlFor="birthday">Birthday</Label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant={"outline"}
-                        className={cn(
-                          "w-full pl-3 text-left font-normal",
-                          !birthday && "text-muted-foreground"
-                        )}
-                      >
-                        {birthday ? (
-                          format(birthday, "PPP")
-                        ) : (
-                          <span>Pick a date</span>
-                        )}
-                        <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={birthday}
-                        onSelect={setBirthday}
-                        disabled={(date) =>
-                          date > new Date() || date < new Date("1900-01-01")
-                        }
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
+                  <Label>Birthday</Label>
+                  <div className="flex gap-2">
+                    <Select value={bdYear} onValueChange={handleYearChange}>
+                      <SelectTrigger className="w-[100px]">
+                        <SelectValue placeholder="Year" />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-[300px]">
+                        {years.map(y => (
+                          <SelectItem key={y} value={y}>{y}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    
+                    <Select value={bdMonth} onValueChange={handleMonthChange}>
+                      <SelectTrigger className="flex-1">
+                        <SelectValue placeholder="Month" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {MONTHS.map((m, i) => (
+                          <SelectItem key={i} value={i.toString()}>{m}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    
+                    <Select value={bdDay} onValueChange={handleDayChange}>
+                      <SelectTrigger className="w-[80px]">
+                        <SelectValue placeholder="Day" />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-[300px]">
+                        {days.map(d => (
+                          <SelectItem key={d} value={d}>{d}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="hobbies">Hobbies</Label>

@@ -44,6 +44,7 @@ const Login: React.FC = () => {
           <Auth
             supabaseClient={supabase}
             providers={[]}
+            redirectTo={window.location.origin + '/auth/callback'}
             appearance={{
               theme: ThemeSupa,
               variables: {
