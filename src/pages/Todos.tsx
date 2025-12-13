@@ -194,7 +194,7 @@ const Todos = () => {
                     {todo.due_date && (
                       <span className="flex items-center gap-1 text-xs">
                         <CalendarIcon className="h-3 w-3" />
-                        {format(new Date(todo.due_date), "PPP")}
+                        {format(new Date(todo.due_date), "PPP p")}
                       </span>
                     )}
                   </div>

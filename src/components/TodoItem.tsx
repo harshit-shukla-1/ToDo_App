@@ -56,7 +56,7 @@ const TodoItem: React.FC<TodoItemProps> = ({
             {dueDate && (
               <span className="flex items-center gap-1">
                 <CalendarIcon className="h-3 w-3" />
-                {format(new Date(dueDate), "PPP")}
+                {format(new Date(dueDate), "PPP p")}
               </span>
             )}
           </div>

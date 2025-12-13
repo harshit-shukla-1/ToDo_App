@@ -23,7 +23,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/integrations/supabase/auth";
 import { format } from "date-fns";
-import { Calendar as CalendarIcon, Save, ArrowLeft, Loader2 } from "lucide-react";
+import { Calendar as CalendarIcon, Save, ArrowLeft, Loader2, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { showSuccess, showError } from "@/utils/toast";
 
@@ -110,6 +110,28 @@ const TodoEditor = () => {
     }
   };
 
+  const handleDateSelect = (date: Date | undefined) => {
+    if (date && formData.due_date) {
+      // Preserve the time from the existing due_date
+      date.setHours(formData.due_date.getHours());
+      date.setMinutes(formData.due_date.getMinutes());
+    }
+    setFormData({ ...formData, due_date: date });
+  };
+
+  const handleTimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const timeStr = e.target.value;
+    if (!timeStr) return;
+    
+    const [hours, minutes] = timeStr.split(':').map(Number);
+    const newDate = formData.due_date ? new Date(formData.due_date) : new Date();
+    newDate.setHours(hours);
+    newDate.setMinutes(minutes);
+    newDate.setSeconds(0);
+    
+    setFormData({ ...formData, due_date: newDate });
+  };
+
   if (loading && isEditing) {
     return <div className="flex justify-center p-8"><Loader2 className="animate-spin" /></div>;
   }
@@ -164,35 +186,43 @@ const TodoEditor = () => {
               </div>
 
               <div className="space-y-2 flex flex-col">
-                <Label>Due Date</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant={"outline"}
-                      className={cn(
-                        "w-full justify-start text-left font-normal",
-                        !formData.due_date && "text-muted-foreground"
-                      )}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {formData.due_date ? (
-                        format(formData.due_date, "PPP")
-                      ) : (
-                        <span>Pick a date</span>
-                      )}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={formData.due_date}
-                      onSelect={(date) =>
-                        setFormData({ ...formData, due_date: date })
-                      }
-                      initialFocus
-                    />
-                  </PopoverContent>
-                </Popover>
+                <Label>Due Date & Time</Label>
+                <div className="flex gap-2">
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant={"outline"}
+                        className={cn(
+                          "w-full justify-start text-left font-normal",
+                          !formData.due_date && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {formData.due_date ? (
+                          format(formData.due_date, "PPP")
+                        ) : (
+                          <span>Pick a date</span>
+                        )}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={formData.due_date}
+                        onSelect={handleDateSelect}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  
+                  <Input
+                    type="time"
+                    aria-label="Time"
+                    className="w-[120px]"
+                    value={formData.due_date ? format(formData.due_date, "HH:mm") : ""}
+                    onChange={handleTimeChange}
+                  />
+                </div>
               </div>
             </div>
 

@@ -37,6 +37,7 @@ const TodoList: React.FC = () => {
   // New Todo State
   const [newTodoText, setNewTodoText] = useState<string>("");
   const [date, setDate] = useState<Date | undefined>(undefined);
+  const [time, setTime] = useState<string>("");
   const [category, setCategory] = useState<string>("Personal");
 
   // Filters
@@ -77,6 +78,20 @@ const TodoList: React.FC = () => {
     }
 
     try {
+      let finalDate = date;
+      if (date && time) {
+        const [hours, minutes] = time.split(':').map(Number);
+        finalDate = new Date(date);
+        finalDate.setHours(hours);
+        finalDate.setMinutes(minutes);
+      } else if (time && !date) {
+        // If time is set but date isn't, assume today
+        finalDate = new Date();
+        const [hours, minutes] = time.split(':').map(Number);
+        finalDate.setHours(hours);
+        finalDate.setMinutes(minutes);
+      }
+
       const { data, error } = await supabase
         .from("todos")
         .insert([
@@ -84,7 +99,7 @@ const TodoList: React.FC = () => {
             user_id: user.id,
             text: newTodoText.trim(),
             completed: false,
-            due_date: date ? date.toISOString() : null,
+            due_date: finalDate ? finalDate.toISOString() : null,
             category: category,
           },
         ])
@@ -96,8 +111,7 @@ const TodoList: React.FC = () => {
       setTodos((prev) => [data, ...prev]);
       setNewTodoText("");
       setDate(undefined);
-      // Keep category selection or reset? Resetting to default seems safer.
-      // setCategory("Personal"); 
+      setTime("");
       showSuccess("Todo added successfully!");
     } catch (error: any) {
       showError("Failed to add todo: " + error.message);
@@ -199,9 +213,9 @@ const TodoList: React.FC = () => {
             </Button>
           </div>
           
-          <div className="flex gap-2">
+          <div className="flex flex-col sm:flex-row gap-2">
             <Select value={category} onValueChange={setCategory}>
-              <SelectTrigger className="w-[140px]">
+              <SelectTrigger className="w-full sm:w-[140px]">
                 <SelectValue placeholder="Category" />
               </SelectTrigger>
               <SelectContent>
@@ -215,7 +229,7 @@ const TodoList: React.FC = () => {
                 <Button
                   variant={"outline"}
                   className={cn(
-                    "w-[240px] justify-start text-left font-normal",
+                    "w-full sm:w-[180px] justify-start text-left font-normal",
                     !date && "text-muted-foreground"
                   )}
                 >
@@ -232,6 +246,13 @@ const TodoList: React.FC = () => {
                 />
               </PopoverContent>
             </Popover>
+
+            <Input 
+              type="time"
+              className="w-full sm:w-auto"
+              value={time}
+              onChange={(e) => setTime(e.target.value)}
+            />
           </div>
         </div>
 
