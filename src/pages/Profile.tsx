@@ -11,11 +11,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { showSuccess, showError } from "@/utils/toast";
-import { Loader2, Plus, Trash2, Save, Upload, User as UserIcon, Lock, Globe, Shuffle, Eye, Copy } from "lucide-react";
+import { Loader2, Plus, Trash2, Save, Upload, User as UserIcon, Lock, Globe, Shuffle, Eye, Copy, Calendar as CalendarIcon } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Link } from "react-router-dom";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { format } from "date-fns";
+import { cn } from "@/lib/utils";
 
 // Predefined anime/character avatars using DiceBear
 const PREDEFINED_AVATARS = [
@@ -35,7 +39,8 @@ interface CustomProperty {
 interface PublicSettings {
   show_email: boolean;
   show_about: boolean;
-  show_stats: boolean; // For height/weight/birthday
+  show_birthday: boolean;
+  show_measurements: boolean; // Height & Weight
   show_hobbies: boolean;
   show_custom: boolean;
 }
@@ -50,7 +55,7 @@ const Profile = () => {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [about, setAbout] = useState("");
-  const [birthday, setBirthday] = useState("");
+  const [birthday, setBirthday] = useState<Date | undefined>(undefined);
   const [height, setHeight] = useState("");
   const [weight, setWeight] = useState("");
   const [hobbies, setHobbies] = useState(""); // Comma separated string
@@ -64,7 +69,8 @@ const Profile = () => {
   const [publicSettings, setPublicSettings] = useState<PublicSettings>({
     show_email: false,
     show_about: true,
-    show_stats: true,
+    show_birthday: true,
+    show_measurements: true,
     show_hobbies: true,
     show_custom: true,
   });
@@ -100,7 +106,7 @@ const Profile = () => {
         setFirstName(data.first_name || "");
         setLastName(data.last_name || "");
         setAbout(data.about || "");
-        setBirthday(data.birthday || "");
+        setBirthday(data.birthday ? new Date(data.birthday) : undefined);
         setHeight(data.height?.toString() || "");
         setWeight(data.weight?.toString() || "");
         setHobbies(data.hobbies ? data.hobbies.join(", ") : "");
@@ -113,7 +119,16 @@ const Profile = () => {
         
         setIsPublic(data.is_public || false);
         if (data.public_settings) {
-          setPublicSettings(data.public_settings as PublicSettings);
+          // Migration/Fallback logic for old settings structure
+          const settings = data.public_settings as any;
+          setPublicSettings({
+            show_email: settings.show_email ?? false,
+            show_about: settings.show_about ?? true,
+            show_birthday: settings.show_birthday ?? settings.show_stats ?? true,
+            show_measurements: settings.show_measurements ?? settings.show_stats ?? true,
+            show_hobbies: settings.show_hobbies ?? true,
+            show_custom: settings.show_custom ?? true,
+          });
         }
 
         // Parse custom properties
@@ -134,7 +149,7 @@ const Profile = () => {
 
   const calculateCompletion = () => {
     const fields = [firstName, lastName, about, birthday, height, weight, hobbies, avatarUrl, username];
-    const filledFields = fields.filter(field => field && field.trim() !== "").length;
+    const filledFields = fields.filter(field => field && (typeof field === 'string' ? field.trim() !== "" : true)).length;
     const totalFields = fields.length;
     setCompletion(Math.round((filledFields / totalFields) * 100));
   };
@@ -172,7 +187,7 @@ const Profile = () => {
         first_name: firstName,
         last_name: lastName,
         about,
-        birthday: birthday || null,
+        birthday: birthday ? format(birthday, 'yyyy-MM-dd') : null,
         height: height ? parseFloat(height) : null,
         weight: weight ? parseFloat(weight) : null,
         hobbies: hobbiesArray,
@@ -394,10 +409,17 @@ const Profile = () => {
                             <Checkbox id="show_about" checked={publicSettings.show_about} onCheckedChange={(c) => setPublicSettings({...publicSettings, show_about: !!c})} />
                             <label htmlFor="show_about" className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">About</label>
                           </div>
+                          
                            <div className="flex items-center space-x-2">
-                            <Checkbox id="show_stats" checked={publicSettings.show_stats} onCheckedChange={(c) => setPublicSettings({...publicSettings, show_stats: !!c})} />
-                            <label htmlFor="show_stats" className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Details (Birthday, Height, Weight)</label>
+                            <Checkbox id="show_birthday" checked={publicSettings.show_birthday} onCheckedChange={(c) => setPublicSettings({...publicSettings, show_birthday: !!c})} />
+                            <label htmlFor="show_birthday" className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Birthday</label>
                           </div>
+                          
+                           <div className="flex items-center space-x-2">
+                            <Checkbox id="show_measurements" checked={publicSettings.show_measurements} onCheckedChange={(c) => setPublicSettings({...publicSettings, show_measurements: !!c})} />
+                            <label htmlFor="show_measurements" className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Measurements (Height/Weight)</label>
+                          </div>
+                          
                           <div className="flex items-center space-x-2">
                             <Checkbox id="show_hobbies" checked={publicSettings.show_hobbies} onCheckedChange={(c) => setPublicSettings({...publicSettings, show_hobbies: !!c})} />
                             <label htmlFor="show_hobbies" className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Hobbies</label>
@@ -462,9 +484,37 @@ const Profile = () => {
               </div>
 
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
+                <div className="space-y-2 flex flex-col">
                   <Label htmlFor="birthday">Birthday</Label>
-                  <Input type="date" id="birthday" value={birthday} onChange={e => setBirthday(e.target.value)} />
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant={"outline"}
+                        className={cn(
+                          "w-full pl-3 text-left font-normal",
+                          !birthday && "text-muted-foreground"
+                        )}
+                      >
+                        {birthday ? (
+                          format(birthday, "PPP")
+                        ) : (
+                          <span>Pick a date</span>
+                        )}
+                        <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={birthday}
+                        onSelect={setBirthday}
+                        disabled={(date) =>
+                          date > new Date() || date < new Date("1900-01-01")
+                        }
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="hobbies">Hobbies</Label>

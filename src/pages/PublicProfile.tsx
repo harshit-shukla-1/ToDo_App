@@ -13,7 +13,8 @@ import { Separator } from "@/components/ui/separator";
 interface PublicSettings {
   show_email: boolean;
   show_about: boolean;
-  show_stats: boolean;
+  show_birthday: boolean;
+  show_measurements: boolean;
   show_hobbies: boolean;
   show_custom: boolean;
 }
@@ -70,8 +71,20 @@ const PublicProfile = () => {
     );
   }
 
-  const settings = (profile.public_settings || {}) as PublicSettings;
+  // Fallback defaults in case older profiles haven't updated
+  const rawSettings = profile.public_settings || {};
+  const settings: PublicSettings = {
+    show_email: rawSettings.show_email ?? false,
+    show_about: rawSettings.show_about ?? true,
+    show_birthday: rawSettings.show_birthday ?? rawSettings.show_stats ?? true,
+    show_measurements: rawSettings.show_measurements ?? rawSettings.show_stats ?? true,
+    show_hobbies: rawSettings.show_hobbies ?? true,
+    show_custom: rawSettings.show_custom ?? true,
+  };
+
   const customProperties = profile.custom_properties || {};
+  const hasVisibleMeasurements = settings.show_measurements && (profile.height || profile.weight);
+  const hasVisibleBirthday = settings.show_birthday && profile.birthday;
 
   return (
     <div className="min-h-screen bg-background py-10 px-4">
@@ -91,15 +104,6 @@ const PublicProfile = () => {
               {settings.show_email && (
                  <div className="flex items-center text-sm text-muted-foreground mt-2">
                    <Mail className="w-4 h-4 mr-1" />
-                   {/* In a real app we might fetch email from auth table via edge function, 
-                       but since we don't have that link easily accessible in a public read query 
-                       without joining tables which is secure, we'll assume email isn't in profiles table.
-                       
-                       Wait, auth.users isn't joinable easily. 
-                       If we want to show email, we should have stored it in profiles.
-                       If it's not in profiles, we can't show it here.
-                       Assuming we rely on what's in 'profiles'. 
-                   */}
                    <span className="italic">Email hidden (not in public profile data)</span>
                  </div>
               )}
@@ -157,13 +161,13 @@ const PublicProfile = () => {
 
           {/* Sidebar Stats */}
           <div className="space-y-6">
-            {settings.show_stats && (
+            {(hasVisibleBirthday || hasVisibleMeasurements) && (
               <Card>
                 <CardHeader>
                   <CardTitle className="text-base">Personal Details</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {profile.birthday && (
+                  {settings.show_birthday && profile.birthday && (
                     <div className="flex items-center gap-3">
                       <div className="h-8 w-8 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center text-blue-600 dark:text-blue-300">
                         <Calendar className="h-4 w-4" />
@@ -174,7 +178,7 @@ const PublicProfile = () => {
                       </div>
                     </div>
                   )}
-                  {profile.height && (
+                  {settings.show_measurements && profile.height && (
                      <div className="flex items-center gap-3">
                       <div className="h-8 w-8 rounded-full bg-green-100 dark:bg-green-900 flex items-center justify-center text-green-600 dark:text-green-300">
                         <Ruler className="h-4 w-4" />
@@ -185,7 +189,7 @@ const PublicProfile = () => {
                       </div>
                     </div>
                   )}
-                  {profile.weight && (
+                  {settings.show_measurements && profile.weight && (
                      <div className="flex items-center gap-3">
                       <div className="h-8 w-8 rounded-full bg-orange-100 dark:bg-orange-900 flex items-center justify-center text-orange-600 dark:text-orange-300">
                         <Weight className="h-4 w-4" />
