@@ -28,13 +28,30 @@ const NotificationBell = () => {
     if (user) {
       fetchAll();
       
-      // Subscribe to both tables
-      const msgChannel = supabase.channel('public:messages:bell')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'messages', filter: `receiver_id=eq.${user.id}` }, fetchAll)
+      // Subscribe to messages
+      const msgChannel = supabase.channel('bell-messages')
+        .on('postgres_changes', { 
+          event: '*', 
+          schema: 'public', 
+          table: 'messages', 
+          filter: `receiver_id=eq.${user.id}` 
+        }, (payload) => {
+          console.log("Bell: Message update received", payload);
+          fetchAll();
+        })
         .subscribe();
         
-      const notifChannel = supabase.channel('public:notifications:bell')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` }, fetchAll)
+      // Subscribe to system notifications
+      const notifChannel = supabase.channel('bell-notifications')
+        .on('postgres_changes', { 
+          event: '*', 
+          schema: 'public', 
+          table: 'notifications', 
+          filter: `user_id=eq.${user.id}` 
+        }, (payload) => {
+          console.log("Bell: Notification update received", payload);
+          fetchAll();
+        })
         .subscribe();
 
       return () => {
@@ -72,7 +89,6 @@ const NotificationBell = () => {
 
   const markAsRead = async (id: string) => {
     await supabase.from('notifications').update({ read: true }).eq('id', id);
-    // State updates via subscription automatically, or we can optimistic update:
     setSystemNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
     setUnreadCount(prev => Math.max(0, prev - 1));
   };
@@ -121,7 +137,35 @@ const NotificationBell = () => {
                 </div>
               ) : (
                 <div className="flex flex-col">
-                  {/* System Notifications First */}
+                  {/* Message Notifications mixed in or top */}
+                  {messageNotifications.map((msg) => (
+                    <button
+                      key={msg.id}
+                      onClick={handleMessageClick}
+                      className="p-3 text-left hover:bg-muted/50 transition-colors border-b last:border-0 w-full bg-blue-50/50 dark:bg-blue-900/10"
+                    >
+                      <div className="flex gap-3">
+                        <div className="mt-1">
+                          <Mail className="h-4 w-4 text-green-500" />
+                        </div>
+                        <div className="flex-1 overflow-hidden">
+                           <div className="flex justify-between items-start mb-1">
+                            <span className="font-medium text-sm truncate">
+                              {msg.sender?.first_name || 'User'}
+                            </span>
+                            <span className="text-[10px] text-muted-foreground shrink-0 ml-1">
+                              {format(new Date(msg.created_at), 'h:mm a')}
+                            </span>
+                          </div>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {msg.content}
+                          </p>
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+
+                  {/* System Notifications */}
                   {systemNotifications.map((notif) => (
                     <div
                       key={notif.id}
@@ -131,9 +175,9 @@ const NotificationBell = () => {
                         <div className="mt-1">
                           <Info className="h-4 w-4 text-blue-500" />
                         </div>
-                        <div className="flex-1 space-y-1">
-                          <p className={`text-sm ${!notif.read ? 'font-semibold' : ''}`}>{notif.title}</p>
-                          <p className="text-xs text-muted-foreground">{notif.message}</p>
+                        <div className="flex-1 space-y-1 overflow-hidden">
+                          <p className={`text-sm truncate ${!notif.read ? 'font-semibold' : ''}`}>{notif.title}</p>
+                          <p className="text-xs text-muted-foreground break-words">{notif.message}</p>
                           <p className="text-[10px] text-muted-foreground pt-1">
                             {format(new Date(notif.created_at), 'MMM d, h:mm a')}
                           </p>
@@ -150,34 +194,6 @@ const NotificationBell = () => {
                         </div>
                       </div>
                     </div>
-                  ))}
-
-                  {/* Message Notifications */}
-                  {messageNotifications.map((msg) => (
-                    <button
-                      key={msg.id}
-                      onClick={handleMessageClick}
-                      className="p-3 text-left hover:bg-muted/50 transition-colors border-b last:border-0 w-full"
-                    >
-                      <div className="flex gap-3">
-                        <div className="mt-1">
-                          <Mail className="h-4 w-4 text-green-500" />
-                        </div>
-                        <div className="flex-1">
-                           <div className="flex justify-between items-start mb-1">
-                            <span className="font-medium text-sm">
-                              {msg.sender?.first_name || 'User'}
-                            </span>
-                            <span className="text-[10px] text-muted-foreground">
-                              {format(new Date(msg.created_at), 'h:mm a')}
-                            </span>
-                          </div>
-                          <p className="text-xs text-muted-foreground line-clamp-1">
-                            {msg.content}
-                          </p>
-                        </div>
-                      </div>
-                    </button>
                   ))}
                 </div>
               )}

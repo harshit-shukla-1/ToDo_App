@@ -3,12 +3,28 @@
 import React, { useEffect, useState, useRef } from "react";
 import { useSession } from "@/integrations/supabase/auth";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { User, Send, Search, MessageSquare, ArrowLeft, Loader2 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { 
+  User, 
+  Send, 
+  Search, 
+  MessageSquare, 
+  ArrowLeft, 
+  Loader2, 
+  MoreVertical, 
+  Pencil, 
+  Trash2, 
+  X 
+} from "lucide-react";
 import { format } from "date-fns";
 import { showSuccess, showError } from "@/utils/toast";
 import { cn } from "@/lib/utils";
@@ -39,27 +55,35 @@ const Messages = () => {
   const [loading, setLoading] = useState(true);
   const [searchResults, setSearchResults] = useState<Profile[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const scrollRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  
+  // Editing State
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
 
   // Fetch conversations list
   useEffect(() => {
     if (user) {
       fetchConversations();
       
-      // Subscribe to new messages
       const channel = supabase
         .channel('public:messages')
         .on('postgres_changes', { 
-          event: 'INSERT', 
+          event: '*', // Listen to all events to catch updates/deletes too
           schema: 'public', 
           table: 'messages',
           filter: `receiver_id=eq.${user.id}` 
         }, (payload) => {
-          fetchConversations(); // Refresh list on new message
-          if (selectedUserId && payload.new.sender_id === selectedUserId) {
-            setMessages(prev => [...prev, payload.new as Message]);
-            markAsRead([payload.new.id]);
+          fetchConversations();
+          // If we are looking at this chat
+          if (selectedUserId && (payload.new as any).sender_id === selectedUserId) {
+            if (payload.eventType === 'INSERT') {
+               setMessages(prev => [...prev, payload.new as Message]);
+               markAsRead([payload.new.id]);
+            } else if (payload.eventType === 'UPDATE') {
+               setMessages(prev => prev.map(m => m.id === payload.new.id ? payload.new as Message : m));
+            } else if (payload.eventType === 'DELETE') {
+               setMessages(prev => prev.filter(m => m.id !== payload.old.id));
+            }
           }
         })
         .subscribe();
@@ -74,19 +98,18 @@ const Messages = () => {
   useEffect(() => {
     if (selectedUserId && user) {
       fetchMessages(selectedUserId);
-      const interval = setInterval(() => fetchMessages(selectedUserId), 5000); // Polling backup
-      return () => clearInterval(interval);
+      setEditingMessageId(null);
+      setNewMessage("");
     }
   }, [selectedUserId, user]);
 
   // Auto-scroll to bottom of chat
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [messages, selectedUserId]);
 
   const fetchConversations = async () => {
     try {
-      // Get all messages where user is sender or receiver
       const { data: msgs, error } = await supabase
         .from('messages')
         .select('*')
@@ -106,7 +129,6 @@ const Messages = () => {
         }
       });
 
-      // Fetch profiles for these users
       if (userIdsToFetch.size > 0) {
         const { data: profiles } = await supabase
           .from('profiles')
@@ -143,7 +165,6 @@ const Messages = () => {
 
     setMessages(data || []);
 
-    // Mark unread messages as read
     const unreadIds = data
       ?.filter((m: Message) => m.receiver_id === user?.id && !m.read)
       .map((m: Message) => m.id);
@@ -155,28 +176,67 @@ const Messages = () => {
 
   const markAsRead = async (ids: string[]) => {
     await supabase.from('messages').update({ read: true }).in('id', ids);
-    fetchConversations(); // Update unread indicators
+    fetchConversations();
   };
 
-  const sendMessage = async () => {
+  const handleSend = async () => {
     if (!newMessage.trim() || !selectedUserId || !user) return;
 
-    const msg = {
-      sender_id: user.id,
-      receiver_id: selectedUserId,
-      content: newMessage.trim(),
-    };
+    if (editingMessageId) {
+      // Update existing message
+      const { error } = await supabase
+        .from('messages')
+        .update({ content: newMessage.trim() })
+        .eq('id', editingMessageId);
 
-    const { data, error } = await supabase.from('messages').insert([msg]).select().single();
+      if (error) {
+        showError("Failed to update message");
+        return;
+      }
+      
+      setMessages(prev => prev.map(m => m.id === editingMessageId ? { ...m, content: newMessage.trim() } : m));
+      setEditingMessageId(null);
+      setNewMessage("");
+    } else {
+      // Send new message
+      const msg = {
+        sender_id: user.id,
+        receiver_id: selectedUserId,
+        content: newMessage.trim(),
+      };
 
+      const { data, error } = await supabase.from('messages').insert([msg]).select().single();
+
+      if (error) {
+        showError("Failed to send");
+        return;
+      }
+
+      setMessages([...messages, data]);
+      setNewMessage("");
+      fetchConversations();
+    }
+  };
+
+  const deleteMessage = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this message?")) return;
+    
+    const { error } = await supabase.from('messages').delete().eq('id', id);
     if (error) {
-      showError("Failed to send");
+      showError("Failed to delete message");
       return;
     }
+    setMessages(prev => prev.filter(m => m.id !== id));
+  };
 
-    setMessages([...messages, data]);
+  const startEditing = (msg: Message) => {
+    setEditingMessageId(msg.id);
+    setNewMessage(msg.content);
+  };
+
+  const cancelEditing = () => {
+    setEditingMessageId(null);
     setNewMessage("");
-    fetchConversations();
   };
 
   const searchUsers = async (query: string) => {
@@ -201,7 +261,6 @@ const Messages = () => {
     setSearchQuery("");
     setSearchResults([]);
     
-    // Optimistically add to list if not exists
     if (!conversations.has(profile.id)) {
       setConversations(new Map(conversations).set(profile.id, { 
         profile, 
@@ -220,12 +279,13 @@ const Messages = () => {
     <div className="flex flex-col h-full w-full md:p-4">
       <div className="flex flex-1 overflow-hidden bg-background md:gap-4 h-full">
         
-        {/* Sidebar / List - Hidden on mobile if chat is selected */}
+        {/* Sidebar / List */}
         <div className={cn(
           "w-full md:w-1/3 flex-col border-r md:border bg-card md:rounded-lg overflow-hidden",
           selectedUserId ? "hidden md:flex" : "flex"
         )}>
-          <div className="p-3 border-b">
+          {/* ... Sidebar Content (Unchanged functionality) ... */}
+          <div className="p-3 border-b flex-none">
             <h2 className="text-lg font-semibold mb-2 px-1">Messages</h2>
             <div className="relative">
               <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -305,9 +365,9 @@ const Messages = () => {
           </ScrollArea>
         </div>
 
-        {/* Chat Area - Full screen on mobile */}
+        {/* Chat Area - Full screen layout fixed */}
         <div className={cn(
-          "w-full md:w-2/3 flex-col bg-card md:border md:rounded-lg overflow-hidden",
+          "w-full md:w-2/3 flex-col bg-card md:border md:rounded-lg overflow-hidden h-full",
           !selectedUserId ? "hidden md:flex" : "flex"
         )}>
           {!selectedUserId ? (
@@ -317,8 +377,8 @@ const Messages = () => {
             </div>
           ) : (
             <>
-              {/* Chat Header */}
-              <div className="p-3 border-b flex items-center gap-3 bg-card z-10 shadow-sm">
+              {/* FIXED Header - flex-none */}
+              <div className="p-3 border-b flex items-center gap-3 bg-card z-10 shadow-sm flex-none">
                 <Button variant="ghost" size="icon" className="md:hidden -ml-2" onClick={() => setSelectedUserId(null)}>
                   <ArrowLeft className="h-5 w-5" />
                 </Button>
@@ -334,7 +394,7 @@ const Messages = () => {
                 </div>
               </div>
 
-              {/* Messages List - This scrolls */}
+              {/* SCROLLABLE Messages Area - flex-1 overflow-y-auto */}
               <div className="flex-1 overflow-y-auto bg-slate-50 dark:bg-black/20 p-4 space-y-4">
                 {messages.length === 0 ? (
                   <p className="text-center text-xs text-muted-foreground mt-10">No messages yet. Say hello!</p>
@@ -344,13 +404,38 @@ const Messages = () => {
                     return (
                       <div key={msg.id} className={cn("flex", isMe ? "justify-end" : "justify-start")}>
                         <div className={cn(
-                          "max-w-[80%] px-4 py-2 rounded-2xl text-sm shadow-sm",
-                          isMe ? "bg-primary text-primary-foreground rounded-tr-none" : "bg-card text-card-foreground border rounded-tl-none"
+                          "max-w-[80%] relative group",
+                          isMe ? "items-end" : "items-start"
                         )}>
-                          <p>{msg.content}</p>
-                          <p className={cn("text-[9px] mt-1 text-right opacity-70", isMe ? "text-primary-foreground" : "text-muted-foreground")}>
-                            {format(new Date(msg.created_at), 'h:mm a')}
-                          </p>
+                          <div className={cn(
+                            "px-4 py-2 rounded-2xl text-sm shadow-sm",
+                            isMe ? "bg-primary text-primary-foreground rounded-tr-none" : "bg-card text-card-foreground border rounded-tl-none"
+                          )}>
+                            <p>{msg.content}</p>
+                            <div className="flex items-center justify-end gap-1 mt-1">
+                               <p className={cn("text-[9px] opacity-70", isMe ? "text-primary-foreground" : "text-muted-foreground")}>
+                                {format(new Date(msg.created_at), 'h:mm a')}
+                              </p>
+                              {/* Dropdown Menu Trigger for Edit/Delete */}
+                              {isMe && (
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="h-4 w-4 p-0 opacity-0 group-hover:opacity-100 transition-opacity ml-1">
+                                      <MoreVertical className="h-3 w-3" />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end">
+                                    <DropdownMenuItem onClick={() => startEditing(msg)}>
+                                      <Pencil className="mr-2 h-3 w-3" /> Edit
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => deleteMessage(msg.id)} className="text-destructive">
+                                      <Trash2 className="mr-2 h-3 w-3" /> Delete
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              )}
+                            </div>
+                          </div>
                         </div>
                       </div>
                     );
@@ -359,18 +444,28 @@ const Messages = () => {
                 <div ref={messagesEndRef} />
               </div>
 
-              {/* Input Area - Fixed at bottom of chat container */}
-              <div className="p-3 bg-card border-t flex gap-2">
-                <Input 
-                  value={newMessage}
-                  onChange={(e) => setNewMessage(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
-                  placeholder="Type a message..."
-                  className="flex-1 bg-muted/50 rounded-full px-4"
-                />
-                <Button size="icon" onClick={sendMessage} disabled={!newMessage.trim()} className="rounded-full h-10 w-10 shrink-0">
-                  <Send className="h-4 w-4" />
-                </Button>
+              {/* FIXED Footer - flex-none */}
+              <div className="p-3 bg-card border-t flex flex-col gap-2 flex-none">
+                 {editingMessageId && (
+                   <div className="flex items-center justify-between text-xs text-muted-foreground bg-muted/30 p-2 rounded">
+                     <span>Editing message...</span>
+                     <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={cancelEditing}>
+                       <X className="h-3 w-3" />
+                     </Button>
+                   </div>
+                 )}
+                <div className="flex gap-2">
+                  <Input 
+                    value={newMessage}
+                    onChange={(e) => setNewMessage(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && handleSend()}
+                    placeholder={editingMessageId ? "Update message..." : "Type a message..."}
+                    className="flex-1 bg-muted/50 rounded-full px-4"
+                  />
+                  <Button size="icon" onClick={handleSend} disabled={!newMessage.trim()} className="rounded-full h-10 w-10 shrink-0">
+                    <Send className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
             </>
           )}
