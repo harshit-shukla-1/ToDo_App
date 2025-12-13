@@ -8,26 +8,26 @@ import {
   ListTodo,
   Settings,
   LogOut,
-  Menu,
+  User,
+  MessageSquare,
   Sun,
-  Moon,
-  User
+  Moon
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { supabase } from "@/integrations/supabase/client";
 import { showError } from "@/utils/toast";
 import { useTheme } from "@/components/ThemeProvider";
+import BottomNav from "./BottomNav";
+import NotificationBell from "./NotificationBell";
 
 interface LayoutProps {
   children: React.ReactNode;
 }
 
-const Layout: React.FC<LayoutProps> = ({ children }) => {
+// Export NavContent so BottomNav can reuse it for the drawer
+export const NavContent = ({ setIsMobileOpen }: { setIsMobileOpen?: (open: boolean) => void }) => {
   const location = useLocation();
   const navigate = useNavigate();
-  const [isMobileOpen, setIsMobileOpen] = React.useState(false);
-  const { theme, setTheme } = useTheme();
 
   const handleLogout = async () => {
     try {
@@ -39,8 +39,12 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     }
   };
 
-  const NavContent = () => (
-    <div className="flex flex-col h-full py-4">
+  const close = () => {
+    if (setIsMobileOpen) setIsMobileOpen(false);
+  };
+
+  return (
+    <div className="flex flex-col h-full py-4 bg-card">
       <div className="px-6 mb-8">
         <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-purple-600 bg-clip-text text-transparent">
           Mazda Todo
@@ -51,7 +55,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           <Button
             variant={location.pathname === "/" ? "secondary" : "ghost"}
             className="w-full justify-start"
-            onClick={() => setIsMobileOpen(false)}
+            onClick={close}
           >
             <LayoutDashboard className="mr-2 h-4 w-4" />
             Dashboard
@@ -59,21 +63,29 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         </Link>
         <Link to="/todos">
           <Button
-            variant={
-              location.pathname.startsWith("/todos") ? "secondary" : "ghost"
-            }
+            variant={location.pathname.startsWith("/todos") ? "secondary" : "ghost"}
             className="w-full justify-start"
-            onClick={() => setIsMobileOpen(false)}
+            onClick={close}
           >
             <ListTodo className="mr-2 h-4 w-4" />
             My Todos
+          </Button>
+        </Link>
+        <Link to="/messages">
+          <Button
+            variant={location.pathname.startsWith("/messages") ? "secondary" : "ghost"}
+            className="w-full justify-start"
+            onClick={close}
+          >
+            <MessageSquare className="mr-2 h-4 w-4" />
+            Messages
           </Button>
         </Link>
         <Link to="/profile">
           <Button
             variant={location.pathname === "/profile" ? "secondary" : "ghost"}
             className="w-full justify-start"
-            onClick={() => setIsMobileOpen(false)}
+            onClick={close}
           >
             <User className="mr-2 h-4 w-4" />
             Profile
@@ -83,7 +95,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           <Button
             variant={location.pathname === "/settings" ? "secondary" : "ghost"}
             className="w-full justify-start"
-            onClick={() => setIsMobileOpen(false)}
+            onClick={close}
           >
             <Settings className="mr-2 h-4 w-4" />
             Settings
@@ -102,47 +114,43 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       </div>
     </div>
   );
+};
+
+const Layout: React.FC<LayoutProps> = ({ children }) => {
+  const [isMobileOpen, setIsMobileOpen] = React.useState(false);
+  const { theme, setTheme } = useTheme();
 
   return (
     <div className="min-h-screen bg-background flex">
       {/* Desktop Sidebar */}
-      <div className="hidden md:block w-64 border-r bg-card">
+      <div className="hidden md:block w-64 border-r bg-card h-screen sticky top-0">
         <NavContent />
       </div>
 
-      {/* Mobile Sidebar */}
-      <div className="md:hidden absolute top-4 left-4 z-50">
-        <Sheet open={isMobileOpen} onOpenChange={setIsMobileOpen}>
-          <SheetTrigger asChild>
-            <Button variant="outline" size="icon">
-              <Menu className="h-4 w-4" />
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col min-h-screen relative">
+        
+        {/* Header Bar */}
+        <header className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-4 h-16 flex items-center justify-end gap-2">
+            <NotificationBell />
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+              className="rounded-full"
+            >
+              <Sun className="h-[1.2rem] w-[1.2rem] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+              <Moon className="absolute h-[1.2rem] w-[1.2rem] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+              <span className="sr-only">Toggle theme</span>
             </Button>
-          </SheetTrigger>
-          <SheetContent side="left" className="p-0 w-64">
-            <NavContent />
-          </SheetContent>
-        </Sheet>
-      </div>
+        </header>
 
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col min-h-screen overflow-hidden relative">
-        {/* Theme Toggle Button */}
-        <div className="absolute top-4 right-4 z-50">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-            className="rounded-full"
-          >
-            <Sun className="h-[1.2rem] w-[1.2rem] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-            <Moon className="absolute h-[1.2rem] w-[1.2rem] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
-            <span className="sr-only">Toggle theme</span>
-          </Button>
-        </div>
-
-        <main className="flex-1 overflow-y-auto p-4 md:p-8 pt-16 md:pt-8">
-          <div className="max-w-5xl mx-auto">{children}</div>
+        <main className="flex-1 overflow-y-auto p-4 md:p-8 pb-20 md:pb-8">
+          <div className="max-w-5xl mx-auto h-full">{children}</div>
         </main>
+
+        {/* Mobile Bottom Navigation */}
+        <BottomNav isMobileOpen={isMobileOpen} setIsMobileOpen={setIsMobileOpen} />
       </div>
     </div>
   );
