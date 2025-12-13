@@ -375,7 +375,6 @@ const Profile = () => {
   const years = Array.from({ length: currentYear - 1900 + 1 }, (_, i) => (currentYear - i).toString());
   
   // Generate Days (1-31)
-  // Dynamic based on month/year ideally, but 1-31 is safe with validation
   const daysInSelectedMonth = (bdYear && bdMonth) 
     ? getDaysInMonth(new Date(parseInt(bdYear), parseInt(bdMonth))) 
     : 31;
@@ -543,7 +542,7 @@ const Profile = () => {
               <CardDescription>Manage your profile details</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="firstName">First Name</Label>
                   <Input id="firstName" value={firstName} onChange={e => setFirstName(e.target.value)} />
@@ -576,12 +575,13 @@ const Profile = () => {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              {/* Stacked on mobile, grid on desktop to fix overlap */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 <div className="space-y-2 flex flex-col">
                   <Label>Birthday</Label>
                   <div className="flex gap-2">
                     <Select value={bdYear} onValueChange={handleYearChange}>
-                      <SelectTrigger className="w-[100px]">
+                      <SelectTrigger className="w-[80px] sm:w-[100px]">
                         <SelectValue placeholder="Year" />
                       </SelectTrigger>
                       <SelectContent className="max-h-[300px]">
@@ -603,7 +603,7 @@ const Profile = () => {
                     </Select>
                     
                     <Select value={bdDay} onValueChange={handleDayChange}>
-                      <SelectTrigger className="w-[80px]">
+                      <SelectTrigger className="w-[60px] sm:w-[80px]">
                         <SelectValue placeholder="Day" />
                       </SelectTrigger>
                       <SelectContent className="max-h-[300px]">
@@ -658,8 +658,8 @@ const Profile = () => {
               
               <Separator />
 
-              <div className="flex gap-2 items-end">
-                <div className="space-y-2 w-1/3">
+              <div className="flex flex-col sm:flex-row gap-2 sm:items-end">
+                <div className="space-y-2 w-full sm:w-1/3">
                   <Label htmlFor="newKey">Property Name</Label>
                   <Input 
                     id="newKey" 
@@ -677,14 +677,14 @@ const Profile = () => {
                     onChange={e => setNewPropValue(e.target.value)} 
                   />
                 </div>
-                <Button variant="secondary" onClick={addCustomProperty} disabled={!newPropKey.trim()}>
+                <Button variant="secondary" onClick={addCustomProperty} disabled={!newPropKey.trim()} className="sm:w-auto w-full">
                   <Plus className="h-4 w-4" />
                 </Button>
               </div>
             </CardContent>
           </Card>
 
-          <div className="flex justify-end">
+          <div className="flex justify-end pb-12 md:pb-0">
             <Button size="lg" onClick={handleUpdateProfile} disabled={updating}>
               {updating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               <Save className="mr-2 h-4 w-4" /> Save Changes
