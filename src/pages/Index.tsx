@@ -1,6 +1,5 @@
 "use client";
 
-import { MadeWithDyad } from "@/components/made-with-dyad";
 import TodoList from "@/components/TodoList";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
@@ -32,7 +31,6 @@ const Index = () => {
         </Button>
       </div>
       <TodoList />
-      <MadeWithDyad />
     </div>
   );
 };

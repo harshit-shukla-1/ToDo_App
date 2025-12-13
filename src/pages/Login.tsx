@@ -5,7 +5,6 @@ import { Auth } from '@supabase/auth-ui-react';
 import { ThemeSupa } from '@supabase/auth-ui-shared';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { MadeWithDyad } from '@/components/made-with-dyad';
 import { useNavigate } from 'react-router-dom';
 import { useSession } from '@/integrations/supabase/auth';
 
@@ -44,7 +43,6 @@ const Login: React.FC = () => {
           />
         </CardContent>
       </Card>
-      <MadeWithDyad />
     </div>
   );
 };
