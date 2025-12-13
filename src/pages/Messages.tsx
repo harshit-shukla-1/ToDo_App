@@ -40,6 +40,7 @@ const Messages = () => {
   const [searchResults, setSearchResults] = useState<Profile[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Fetch conversations list
   useEffect(() => {
@@ -80,9 +81,7 @@ const Messages = () => {
 
   // Auto-scroll to bottom of chat
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
   const fetchConversations = async () => {
@@ -218,74 +217,82 @@ const Messages = () => {
   const otherProfile = selectedUserId ? getOtherProfile() : null;
 
   return (
-    <div className="flex h-[calc(100vh-140px)] md:h-[calc(100vh-100px)] gap-4">
-      {/* Sidebar / List */}
-      <Card className={cn("w-full md:w-1/3 flex flex-col", selectedUserId ? "hidden md:flex" : "flex")}>
-        <CardHeader className="pb-3">
-          <CardTitle>Messages</CardTitle>
-          <div className="relative">
-            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input 
-              placeholder="Search users by username..." 
-              className="pl-8" 
-              value={searchQuery}
-              onChange={(e) => searchUsers(e.target.value)}
-            />
-          </div>
-          {searchResults.length > 0 && (
-            <div className="absolute top-[85px] z-10 w-[calc(100%-48px)] bg-popover border rounded-md shadow-md p-2">
-              {searchResults.map(p => (
-                <div 
-                  key={p.id} 
-                  className="flex items-center gap-2 p-2 hover:bg-muted rounded-md cursor-pointer"
-                  onClick={() => startConversation(p)}
-                >
-                  <Avatar className="h-8 w-8">
-                    <AvatarImage src={p.avatar_url} />
-                    <AvatarFallback><User className="h-4 w-4" /></AvatarFallback>
-                  </Avatar>
-                  <div className="flex flex-col">
-                    <span className="text-sm font-medium">@{p.username}</span>
-                    <span className="text-xs text-muted-foreground">{p.first_name} {p.last_name}</span>
-                  </div>
-                </div>
-              ))}
+    <div className="flex flex-col h-full w-full md:p-4">
+      <div className="flex flex-1 overflow-hidden bg-background md:gap-4 h-full">
+        
+        {/* Sidebar / List - Hidden on mobile if chat is selected */}
+        <div className={cn(
+          "w-full md:w-1/3 flex-col border-r md:border bg-card md:rounded-lg overflow-hidden",
+          selectedUserId ? "hidden md:flex" : "flex"
+        )}>
+          <div className="p-3 border-b">
+            <h2 className="text-lg font-semibold mb-2 px-1">Messages</h2>
+            <div className="relative">
+              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input 
+                placeholder="Search users..." 
+                className="pl-8 bg-muted/50" 
+                value={searchQuery}
+                onChange={(e) => searchUsers(e.target.value)}
+              />
             </div>
-          )}
-        </CardHeader>
-        <CardContent className="flex-1 overflow-hidden p-0">
-          <ScrollArea className="h-full">
-            <div className="flex flex-col gap-1 p-2">
+            {searchResults.length > 0 && (
+              <div className="absolute top-[120px] left-0 z-20 w-full px-2">
+                <div className="bg-popover border rounded-md shadow-md p-2">
+                  {searchResults.map(p => (
+                    <div 
+                      key={p.id} 
+                      className="flex items-center gap-2 p-2 hover:bg-muted rounded-md cursor-pointer"
+                      onClick={() => startConversation(p)}
+                    >
+                      <Avatar className="h-8 w-8">
+                        <AvatarImage src={p.avatar_url} />
+                        <AvatarFallback><User className="h-4 w-4" /></AvatarFallback>
+                      </Avatar>
+                      <div className="flex flex-col">
+                        <span className="text-sm font-medium">@{p.username}</span>
+                        <span className="text-xs text-muted-foreground">{p.first_name} {p.last_name}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+          
+          <ScrollArea className="flex-1">
+            <div className="flex flex-col">
               {loading ? (
                 <div className="flex justify-center p-4"><Loader2 className="animate-spin" /></div>
               ) : Array.from(conversations.entries()).length === 0 ? (
-                <p className="text-center text-muted-foreground p-4 text-sm">No conversations yet. Search for a user to start chatting.</p>
+                <p className="text-center text-muted-foreground p-8 text-sm">No conversations yet.</p>
               ) : (
                 Array.from(conversations.entries()).map(([id, data]) => (
                   <button
                     key={id}
                     onClick={() => setSelectedUserId(id)}
                     className={cn(
-                      "flex items-center gap-3 p-3 rounded-lg transition-colors text-left",
-                      selectedUserId === id ? "bg-secondary" : "hover:bg-muted/50",
-                      // Highlight unread messages
-                      (data.lastMessage.receiver_id === user?.id && !data.lastMessage.read) && "bg-primary/5 border-l-4 border-primary"
+                      "flex items-center gap-3 p-4 transition-colors text-left border-b last:border-0",
+                      selectedUserId === id ? "bg-muted" : "hover:bg-muted/50",
+                      (data.lastMessage.receiver_id === user?.id && !data.lastMessage.read) && "bg-blue-50 dark:bg-blue-950/20"
                     )}
                   >
-                    <Avatar>
+                    <Avatar className="h-10 w-10">
                       <AvatarImage src={data.profile?.avatar_url} />
-                      <AvatarFallback><User className="h-4 w-4" /></AvatarFallback>
+                      <AvatarFallback><User className="h-5 w-5" /></AvatarFallback>
                     </Avatar>
                     <div className="flex-1 overflow-hidden">
-                      <div className="flex justify-between items-center">
-                        <span className="font-medium truncate">{data.profile?.first_name || 'User'}</span>
+                      <div className="flex justify-between items-center mb-1">
+                        <span className={cn("font-medium truncate", (data.lastMessage.receiver_id === user?.id && !data.lastMessage.read) && "font-bold")}>
+                          {data.profile?.first_name || 'User'}
+                        </span>
                         <span className="text-[10px] text-muted-foreground shrink-0">
                           {format(new Date(data.lastMessage.created_at), 'MMM d')}
                         </span>
                       </div>
                       <p className={cn(
                         "text-xs truncate",
-                        (data.lastMessage.receiver_id === user?.id && !data.lastMessage.read) ? "font-bold text-foreground" : "text-muted-foreground"
+                        (data.lastMessage.receiver_id === user?.id && !data.lastMessage.read) ? "font-semibold text-foreground" : "text-muted-foreground"
                       )}>
                         {data.lastMessage.sender_id === user?.id && "You: "}
                         {data.lastMessage.content}
@@ -296,75 +303,79 @@ const Messages = () => {
               )}
             </div>
           </ScrollArea>
-        </CardContent>
-      </Card>
+        </div>
 
-      {/* Chat Area */}
-      <Card className={cn("w-full md:w-2/3 flex flex-col", !selectedUserId ? "hidden md:flex" : "flex")}>
-        {!selectedUserId ? (
-          <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground">
-            <MessageSquare className="h-12 w-12 mb-4 opacity-20" />
-            <p>Select a conversation to start messaging</p>
-          </div>
-        ) : (
-          <>
-            <CardHeader className="py-3 border-b flex flex-row items-center gap-3 space-y-0">
-               <Button variant="ghost" size="icon" className="md:hidden -ml-2" onClick={() => setSelectedUserId(null)}>
-                <ArrowLeft className="h-5 w-5" />
-              </Button>
-              <Avatar className="h-8 w-8">
-                <AvatarImage src={otherProfile?.avatar_url} />
-                <AvatarFallback><User className="h-4 w-4" /></AvatarFallback>
-              </Avatar>
-              <div className="flex flex-col">
-                <span className="font-medium text-sm">
-                  {otherProfile?.first_name || 'Unknown User'} 
-                  {otherProfile?.username && <span className="text-muted-foreground font-normal ml-1">@{otherProfile.username}</span>}
-                </span>
+        {/* Chat Area - Full screen on mobile */}
+        <div className={cn(
+          "w-full md:w-2/3 flex-col bg-card md:border md:rounded-lg overflow-hidden",
+          !selectedUserId ? "hidden md:flex" : "flex"
+        )}>
+          {!selectedUserId ? (
+            <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground p-4 text-center">
+              <MessageSquare className="h-12 w-12 mb-4 opacity-20" />
+              <p>Select a conversation to start messaging</p>
+            </div>
+          ) : (
+            <>
+              {/* Chat Header */}
+              <div className="p-3 border-b flex items-center gap-3 bg-card z-10 shadow-sm">
+                <Button variant="ghost" size="icon" className="md:hidden -ml-2" onClick={() => setSelectedUserId(null)}>
+                  <ArrowLeft className="h-5 w-5" />
+                </Button>
+                <Avatar className="h-8 w-8">
+                  <AvatarImage src={otherProfile?.avatar_url} />
+                  <AvatarFallback><User className="h-4 w-4" /></AvatarFallback>
+                </Avatar>
+                <div className="flex flex-col">
+                  <span className="font-medium text-sm">
+                    {otherProfile?.first_name || 'User'} 
+                  </span>
+                  {otherProfile?.username && <span className="text-[10px] text-muted-foreground">@{otherProfile.username}</span>}
+                </div>
               </div>
-            </CardHeader>
-            <CardContent className="flex-1 overflow-hidden p-0 flex flex-col">
-              <div 
-                ref={scrollRef} 
-                className="flex-1 overflow-y-auto p-4 space-y-4"
-              >
+
+              {/* Messages List - This scrolls */}
+              <div className="flex-1 overflow-y-auto bg-slate-50 dark:bg-black/20 p-4 space-y-4">
                 {messages.length === 0 ? (
-                  <p className="text-center text-sm text-muted-foreground mt-10">No messages yet. Say hello!</p>
+                  <p className="text-center text-xs text-muted-foreground mt-10">No messages yet. Say hello!</p>
                 ) : (
-                  messages.map((msg) => {
+                  messages.map((msg, index) => {
                     const isMe = msg.sender_id === user?.id;
                     return (
                       <div key={msg.id} className={cn("flex", isMe ? "justify-end" : "justify-start")}>
                         <div className={cn(
-                          "max-w-[75%] px-4 py-2 rounded-lg text-sm",
-                          isMe ? "bg-primary text-primary-foreground rounded-tr-none" : "bg-muted rounded-tl-none"
+                          "max-w-[80%] px-4 py-2 rounded-2xl text-sm shadow-sm",
+                          isMe ? "bg-primary text-primary-foreground rounded-tr-none" : "bg-card text-card-foreground border rounded-tl-none"
                         )}>
                           <p>{msg.content}</p>
-                          <p className={cn("text-[10px] mt-1 text-right opacity-70", isMe ? "text-primary-foreground" : "text-muted-foreground")}>
-                            {format(new Date(msg.created_at), 'p')}
+                          <p className={cn("text-[9px] mt-1 text-right opacity-70", isMe ? "text-primary-foreground" : "text-muted-foreground")}>
+                            {format(new Date(msg.created_at), 'h:mm a')}
                           </p>
                         </div>
                       </div>
                     );
                   })
                 )}
+                <div ref={messagesEndRef} />
               </div>
-              <div className="p-3 border-t bg-background flex gap-2">
+
+              {/* Input Area - Fixed at bottom of chat container */}
+              <div className="p-3 bg-card border-t flex gap-2">
                 <Input 
                   value={newMessage}
                   onChange={(e) => setNewMessage(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
                   placeholder="Type a message..."
-                  className="flex-1"
+                  className="flex-1 bg-muted/50 rounded-full px-4"
                 />
-                <Button size="icon" onClick={sendMessage} disabled={!newMessage.trim()}>
+                <Button size="icon" onClick={sendMessage} disabled={!newMessage.trim()} className="rounded-full h-10 w-10 shrink-0">
                   <Send className="h-4 w-4" />
                 </Button>
               </div>
-            </CardContent>
-          </>
-        )}
-      </Card>
+            </>
+          )}
+        </div>
+      </div>
     </div>
   );
 };

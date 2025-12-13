@@ -119,6 +119,10 @@ export const NavContent = ({ setIsMobileOpen }: { setIsMobileOpen?: (open: boole
 const Layout: React.FC<LayoutProps> = ({ children }) => {
   const [isMobileOpen, setIsMobileOpen] = React.useState(false);
   const { theme, setTheme } = useTheme();
+  const location = useLocation();
+  
+  // Messages page handles its own layout/scrolling
+  const isMessagesPage = location.pathname.startsWith("/messages");
 
   return (
     <div className="min-h-screen bg-background flex">
@@ -131,7 +135,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       <div className="flex-1 flex flex-col min-h-screen relative">
         
         {/* Header Bar */}
-        <header className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-4 h-16 flex items-center justify-end gap-2">
+        <header className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-4 h-16 flex items-center justify-end gap-2 shrink-0">
             <NotificationBell />
             <Button
               variant="ghost"
@@ -145,8 +149,16 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             </Button>
         </header>
 
-        <main className="flex-1 overflow-y-auto p-4 md:p-8 pb-20 md:pb-8">
-          <div className="max-w-5xl mx-auto h-full">{children}</div>
+        {/* Main Body */}
+        <main className={cn(
+          "flex-1 overflow-y-auto",
+          isMessagesPage ? "p-0 pb-[64px] md:pb-0 overflow-hidden flex flex-col" : "p-4 md:p-8 pb-24 md:pb-8"
+        )}>
+          {isMessagesPage ? (
+            <div className="flex-1 flex flex-col h-full w-full">{children}</div>
+          ) : (
+             <div className="max-w-5xl mx-auto h-full">{children}</div>
+          )}
         </main>
 
         {/* Mobile Bottom Navigation */}
