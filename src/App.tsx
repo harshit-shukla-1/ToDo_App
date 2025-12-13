@@ -87,8 +87,12 @@ const AppContent = () => (
         }
       />
       
-      {/* Public Profile Route - Accessible without login */}
+      {/* Public Profile Routes */}
+      {/* Supporting /@username */}
       <Route path="/@:username" element={<PublicProfile />} />
+      
+      {/* Supporting /u/username as a safer alternative */}
+      <Route path="/u/:username" element={<PublicProfile />} />
 
       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
       <Route path="*" element={<NotFound />} />

@@ -154,10 +154,18 @@ const Profile = () => {
     setCompletion(Math.round((filledFields / totalFields) * 100));
   };
 
+  const handleUsernameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!isUsernameSet) {
+      // Force lowercase and only allow alphanumeric + underscores
+      const val = e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '');
+      setUsername(val);
+    }
+  };
+
   const generateRandomUsername = () => {
     if (isUsernameSet) return;
     const randomSuffix = Math.random().toString(36).substring(2, 8);
-    setUsername(`user_${randomSuffix}`);
+    setUsername(`user_${randomSuffix}`.toLowerCase());
   };
 
   const handleUpdateProfile = async () => {
@@ -200,7 +208,7 @@ const Profile = () => {
 
       // Only update username if it wasn't set before
       if (!isUsernameSet && username) {
-        updates.username = username;
+        updates.username = username.toLowerCase(); // Ensure lowercase
       }
 
       const { error } = await supabase.from("profiles").upsert(updates);
@@ -280,6 +288,8 @@ const Profile = () => {
   };
 
   const copyPublicLink = () => {
+    // We use the new /@username format or fallback to /u/username if needed
+    // Using /@ for display preference
     const url = `${window.location.origin}/@${username}`;
     navigator.clipboard.writeText(url);
     showSuccess("Public profile link copied to clipboard!");
@@ -362,7 +372,7 @@ const Profile = () => {
                     <Input 
                       id="username" 
                       value={username} 
-                      onChange={e => !isUsernameSet && setUsername(e.target.value)} 
+                      onChange={handleUsernameChange} 
                       className="pl-7"
                       placeholder="username"
                       readOnly={isUsernameSet}
@@ -378,8 +388,8 @@ const Profile = () => {
                 </div>
                 <p className="text-[10px] text-muted-foreground">
                   {isUsernameSet 
-                    ? "Username cannot be changed." 
-                    : "Choose carefully! Cannot be changed later."}
+                    ? "Username cannot be changed. Only lowercase letters, numbers, and underscores." 
+                    : "Choose carefully! Cannot be changed later. Lowercase only."}
                 </p>
               </div>
 

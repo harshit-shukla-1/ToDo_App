@@ -34,9 +34,19 @@ const PublicProfile = () => {
   const fetchPublicProfile = async () => {
     try {
       setLoading(true);
+      setError(null);
       
-      // Clean up username if it starts with @
-      const cleanUsername = username?.startsWith('@') ? username.substring(1) : username;
+      // Clean up username if it starts with @ (just in case)
+      // If the route was /u/:username, we just get 'username'
+      // If the route was /@:username, we just get 'username' (the @ is in the path)
+      // But if there's any weirdness, we clean it.
+      let cleanUsername = username || "";
+      if (cleanUsername.startsWith('@')) {
+        cleanUsername = cleanUsername.substring(1);
+      }
+      
+      // Ensure lowercase for query
+      cleanUsername = cleanUsername.toLowerCase();
 
       const { data, error } = await supabase
         .from("profiles")
@@ -45,11 +55,17 @@ const PublicProfile = () => {
         .eq("is_public", true)
         .single();
 
-      if (error) throw error;
+      if (error) {
+        if (error.code === 'PGRST116') {
+             throw new Error("Profile not found or is set to private.");
+        }
+        throw error;
+      }
+      
       setProfile(data);
     } catch (err: any) {
       console.error("Error fetching public profile:", err);
-      setError("User not found or profile is private.");
+      setError(err.message || "User not found or profile is private.");
     } finally {
       setLoading(false);
     }
