@@ -27,8 +27,7 @@ import {
   AlertCircle,
   Eye,
   Ban,
-  Image as ImageIcon,
-  Camera
+  Image as ImageIcon
 } from "lucide-react";
 import { format } from "date-fns";
 import { showSuccess, showError } from "@/utils/toast";
@@ -474,9 +473,9 @@ const Messages = () => {
           selectedUserId ? "hidden md:flex" : "flex"
         )}>
           {/* Sidebar Header */}
-          <div className="p-3 border-b flex-none h-[60px] flex flex-col justify-center bg-card">
-             <div className="flex items-center justify-between mb-2 md:mb-0">
-               <h2 className="text-lg font-semibold px-1 hidden md:block">Messages</h2>
+          <div className="p-4 border-b flex-none flex flex-col gap-4 bg-card z-20">
+             <div className="flex items-center justify-between">
+               <h2 className="text-xl font-bold tracking-tight hidden md:block">Messages</h2>
              </div>
              <div className="relative">
               <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -488,7 +487,7 @@ const Messages = () => {
               />
             </div>
             {searchResults.length > 0 && (
-              <div className="absolute top-[120px] left-0 z-20 w-full px-2">
+              <div className="absolute top-full mt-2 left-0 z-50 w-full px-4">
                 <div className="bg-popover border rounded-md shadow-md p-2">
                   {searchResults.map(p => (
                     <div 
