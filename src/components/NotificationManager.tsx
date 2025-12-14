@@ -26,6 +26,8 @@ const NotificationManager: React.FC = () => {
     requestPermission();
 
     // --- Message Notifications ---
+    // Messages don't strictly generate database notifications in this app model yet,
+    // so we keep listening to the messages table for direct alerts.
     const messageChannel = supabase
       .channel('public:messages:notify')
       .on('postgres_changes', { 
@@ -57,49 +59,31 @@ const NotificationManager: React.FC = () => {
       })
       .subscribe();
 
-    // --- Connection Request Notifications ---
-    const connectionChannel = supabase
-      .channel('public:connections:notify')
+    // --- General Notifications Listener ---
+    // Listens for ANY new row in the notifications table.
+    // This handles Connection Requests (created via DB Trigger) and Reminders.
+    const notificationChannel = supabase
+      .channel('public:notifications:toasts')
       .on('postgres_changes', { 
         event: 'INSERT', 
         schema: 'public', 
-        table: 'connections',
-        filter: `recipient_id=eq.${user.id}` 
-      }, async (payload) => {
-        const newConnection = payload.new;
-        
-        if (newConnection.status === 'pending') {
-          const { data: requester } = await supabase
-            .from('profiles')
-            .select('first_name, username')
-            .eq('id', newConnection.requester_id)
-            .single();
+        table: 'notifications',
+        filter: `user_id=eq.${user.id}` 
+      }, (payload) => {
+         const notif = payload.new;
+         
+         // Avoid double toasting if we handled it elsewhere (though we shouldn't now)
+         if (processedRef.current.has(notif.related_entity_id)) return;
 
-          const requesterName = requester?.first_name || requester?.username || "Someone";
-          const title = "New Connection Request";
-          const message = `${requesterName} sent you a connection request.`;
-
-          // Browser Notification / Toast
-          if ("Notification" in window && Notification.permission === "granted") {
-             new Notification(title, {
-               body: message,
+         if ("Notification" in window && Notification.permission === "granted") {
+             new Notification(notif.title, { 
+               body: notif.message, 
                icon: '/favicon.ico',
-               tag: `conn-${newConnection.id}`
+               tag: `notif-${notif.id}`
              });
-          } else {
-             showSuccess(message);
-          }
-
-          // Persist to Notifications Table
-          await supabase.from('notifications').insert({
-            user_id: user.id,
-            title: title,
-            message: message,
-            type: 'connection_request',
-            related_entity_id: newConnection.id,
-            read: false
-          });
-        }
+         } else {
+             showSuccess(notif.message);
+         }
       })
       .subscribe();
 
@@ -118,7 +102,7 @@ const NotificationManager: React.FC = () => {
 
         if (error || !todos) return;
 
-        // Fetch existing notifications to avoid duplicates (persisted check)
+        // Fetch existing notifications to avoid duplicates
         const { data: existingNotifs } = await supabase
           .from('notifications')
           .select('related_entity_id')
@@ -145,22 +129,8 @@ const NotificationManager: React.FC = () => {
                continue; 
             }
 
-            // Send Browser Notification
-            if ("Notification" in window && Notification.permission === "granted") {
-              try {
-                new Notification(`Reminder: ${todo.text}`, {
-                  body: `Due in ${reminderMinutes} minutes`,
-                  icon: '/favicon.ico',
-                  tag: notificationId 
-                });
-              } catch (e) {
-                console.error("Notification API error:", e);
-              }
-            } else {
-              showSuccess(`Reminder: "${todo.text}" is due soon!`);
-            }
-
-            // Persist to Notifications Table
+            // Only INSERT the notification. 
+            // The 'notificationChannel' listener above will catch the INSERT and show the Toast.
             await supabase.from('notifications').insert({
               user_id: user.id,
               title: `Reminder: ${todo.text}`,
@@ -170,7 +140,11 @@ const NotificationManager: React.FC = () => {
               read: false
             });
 
+            // Mark as processed locally to prevent loop in this session
             processedRef.current.add(notificationId);
+            // Also mark the related_entity_id so the listener knows we "caused" it, 
+            // though the listener logic is simple enough to just show it. 
+            // We'll let the listener handle the UI part.
           }
         }
 
@@ -185,7 +159,7 @@ const NotificationManager: React.FC = () => {
     return () => {
       clearInterval(intervalId);
       supabase.removeChannel(messageChannel);
-      supabase.removeChannel(connectionChannel);
+      supabase.removeChannel(notificationChannel);
     };
   }, [user]);
 
