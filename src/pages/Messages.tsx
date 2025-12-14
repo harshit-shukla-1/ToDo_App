@@ -37,7 +37,7 @@ import { cn } from "@/lib/utils";
 import { useNavigate, useParams, Link } from "react-router-dom";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import ConfirmDialog from "@/components/ConfirmDialog";
-import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
 interface Message {
   id: string;
@@ -754,6 +754,8 @@ const Messages = () => {
       {/* Image Viewer */}
       <Dialog open={!!viewImage} onOpenChange={(open) => !open && setViewImage(null)}>
         <DialogContent className="max-w-4xl p-0 overflow-hidden bg-transparent border-none shadow-none flex items-center justify-center">
+            <DialogTitle className="sr-only">View Image</DialogTitle>
+            <DialogDescription className="sr-only">Full size view of the shared image</DialogDescription>
             {viewImage && (
               <img 
                 src={viewImage} 
