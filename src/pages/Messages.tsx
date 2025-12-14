@@ -38,6 +38,7 @@ import { useNavigate, useParams, Link } from "react-router-dom";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import ImageEditor from "@/components/ImageEditor";
 
 interface Message {
   id: string;
@@ -82,6 +83,7 @@ const Messages = () => {
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
+  const [fileToEdit, setFileToEdit] = useState<File | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
@@ -250,9 +252,10 @@ const Messages = () => {
     fetchConversations();
   };
 
-  const handleSend = async (imageUrl?: string) => {
+  const handleSend = async (imageUrl?: string, captionText?: string) => {
     // Determine if we can send (needs text OR image)
-    const hasContent = newMessage.trim().length > 0;
+    const contentToSend = captionText !== undefined ? captionText : newMessage;
+    const hasContent = contentToSend.trim().length > 0;
     const hasImage = !!imageUrl;
     
     if ((!hasContent && !hasImage) || !selectedUserId || !user) return;
@@ -267,7 +270,7 @@ const Messages = () => {
       const { error } = await supabase
         .from('messages')
         .update({ 
-          content: newMessage.trim(),
+          content: contentToSend.trim(),
           updated_at: new Date().toISOString()
         })
         .eq('id', editingMessageId);
@@ -279,7 +282,7 @@ const Messages = () => {
       
       setMessages(prev => prev.map(m => m.id === editingMessageId ? { 
         ...m, 
-        content: newMessage.trim(),
+        content: contentToSend.trim(),
         updated_at: new Date().toISOString()
       } : m));
       
@@ -290,7 +293,7 @@ const Messages = () => {
       const msg = {
         sender_id: user.id,
         receiver_id: selectedUserId,
-        content: newMessage.trim(), // Can be empty string if image is present
+        content: contentToSend.trim(), // Can be empty string if image is present
         image_url: imageUrl || null
       };
 
@@ -313,36 +316,43 @@ const Messages = () => {
     }
   };
 
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    try {
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
       const file = event.target.files?.[0];
-      if (!file || !user) return;
+      if (!file) return;
+      setFileToEdit(file);
+      // Reset input value to allow re-selecting same file
+      event.target.value = "";
+  };
 
+  const handleEditorSend = async (blob: Blob, caption: string) => {
+    try {
+      if (!user) return;
       setIsUploading(true);
-      
+      setFileToEdit(null); // Close editor immediately
+
       // Generate a unique file path
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${Math.random().toString(36).substring(2, 15)}_${Date.now()}.${fileExt}`;
+      // Note: Blob doesn't have a name, so generate one. Default to jpg as configured in canvasUtils
+      const fileName = `${Math.random().toString(36).substring(2, 15)}_${Date.now()}.jpeg`;
       const filePath = `${user.id}/${fileName}`;
 
       const { error: uploadError } = await supabase.storage
         .from('chat_bucket')
-        .upload(filePath, file);
+        .upload(filePath, blob, {
+           contentType: 'image/jpeg'
+        });
 
       if (uploadError) throw uploadError;
 
       const { data } = supabase.storage.from('chat_bucket').getPublicUrl(filePath);
       
-      // Send message immediately with the image
-      await handleSend(data.publicUrl);
+      // Send message with the image and caption
+      await handleSend(data.publicUrl, caption);
       
     } catch (error: any) {
       showError("Upload failed: " + error.message);
+      // If failed, reopen editor? Maybe just show error for now.
     } finally {
       setIsUploading(false);
-      // Reset inputs
-      if (fileInputRef.current) fileInputRef.current.value = "";
-      if (cameraInputRef.current) cameraInputRef.current.value = "";
     }
   };
 
@@ -684,18 +694,18 @@ const Messages = () => {
                     <div className="flex gap-2 items-center">
                       <input 
                         type="file" 
-                        accept="image/*" 
+                        accept="image/png, image/jpeg, image/webp" 
                         className="hidden" 
                         ref={fileInputRef} 
-                        onChange={handleFileUpload} 
+                        onChange={handleFileSelect} 
                       />
                        <input 
                         type="file" 
-                        accept="image/*"
+                        accept="image/png, image/jpeg, image/webp"
                         capture="environment"
                         className="hidden" 
                         ref={cameraInputRef} 
-                        onChange={handleFileUpload} 
+                        onChange={handleFileSelect} 
                       />
                       
                       <Button variant="ghost" size="icon" onClick={() => fileInputRef.current?.click()} disabled={isUploading} className="shrink-0 text-muted-foreground">
@@ -729,6 +739,19 @@ const Messages = () => {
           )}
         </div>
       </div>
+
+       {/* Image Editor Overlay */}
+      {fileToEdit && (
+        <ImageEditor
+          file={fileToEdit}
+          onClose={() => {
+            setFileToEdit(null);
+            if (fileInputRef.current) fileInputRef.current.value = "";
+            if (cameraInputRef.current) cameraInputRef.current.value = "";
+          }}
+          onSend={handleEditorSend}
+        />
+      )}
       
       {/* Modals/Dialogs */}
       <ConfirmDialog
