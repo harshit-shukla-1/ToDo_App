@@ -23,12 +23,15 @@ import {
   MoreVertical, 
   Pencil, 
   Trash2, 
-  X 
+  X,
+  AlertCircle,
+  Eye
 } from "lucide-react";
 import { format } from "date-fns";
 import { showSuccess, showError } from "@/utils/toast";
 import { cn } from "@/lib/utils";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, Link } from "react-router-dom";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 interface Message {
   id: string;
@@ -36,6 +39,7 @@ interface Message {
   receiver_id: string;
   content: string;
   created_at: string;
+  updated_at?: string;
   read: boolean;
 }
 
@@ -63,10 +67,35 @@ const Messages = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeProfile, setActiveProfile] = useState<Profile | null>(null); // To store profile if not in conversations map
   
+  // Current user profile state
+  const [currentUserProfile, setCurrentUserProfile] = useState<Profile | null>(null);
+  const [hasUsername, setHasUsername] = useState(true); // Optimistic default
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
   // Editing State
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+
+  // Fetch current user profile to check for username
+  useEffect(() => {
+    if (user) {
+      const fetchCurrentUser = async () => {
+        const { data } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .single();
+        
+        if (data) {
+          setCurrentUserProfile(data as Profile);
+          setHasUsername(!!data.username);
+        } else {
+          setHasUsername(false);
+        }
+      };
+      fetchCurrentUser();
+    }
+  }, [user]);
 
   // Fetch conversations list
   useEffect(() => {
@@ -209,12 +238,19 @@ const Messages = () => {
 
   const handleSend = async () => {
     if (!newMessage.trim() || !selectedUserId || !user) return;
+    if (!hasUsername) {
+      showError("Please set a username in your profile to send messages.");
+      return;
+    }
 
     if (editingMessageId) {
       // Update existing message
       const { error } = await supabase
         .from('messages')
-        .update({ content: newMessage.trim() })
+        .update({ 
+          content: newMessage.trim(),
+          updated_at: new Date().toISOString()
+        })
         .eq('id', editingMessageId);
 
       if (error) {
@@ -222,7 +258,12 @@ const Messages = () => {
         return;
       }
       
-      setMessages(prev => prev.map(m => m.id === editingMessageId ? { ...m, content: newMessage.trim() } : m));
+      setMessages(prev => prev.map(m => m.id === editingMessageId ? { 
+        ...m, 
+        content: newMessage.trim(),
+        updated_at: new Date().toISOString()
+      } : m));
+      
       setEditingMessageId(null);
       setNewMessage("");
     } else {
@@ -290,6 +331,25 @@ const Messages = () => {
     navigate(`/messages/${id}`);
   };
 
+  const getInitials = (profile: Profile | null) => {
+    if (!profile) return "U";
+    if (profile.first_name && profile.last_name) {
+      return `${profile.first_name[0]}${profile.last_name[0]}`.toUpperCase();
+    }
+    if (profile.first_name) return profile.first_name[0].toUpperCase();
+    if (profile.username) return profile.username[0].toUpperCase();
+    return "U";
+  };
+
+  // Helper to check if message was edited
+  const isEdited = (msg: Message) => {
+    if (!msg.updated_at) return false;
+    // Allow a small grace period (e.g., 1 second) where created_at and updated_at might differ slightly due to DB precision
+    const created = new Date(msg.created_at).getTime();
+    const updated = new Date(msg.updated_at).getTime();
+    return (updated - created) > 2000;
+  };
+
   return (
     <div className="flex flex-col h-full w-full md:p-4">
       <div className="flex flex-1 overflow-hidden bg-background md:gap-4 h-full">
@@ -322,7 +382,7 @@ const Messages = () => {
                     >
                       <Avatar className="h-8 w-8">
                         <AvatarImage src={p.avatar_url} />
-                        <AvatarFallback><User className="h-4 w-4" /></AvatarFallback>
+                        <AvatarFallback>{getInitials(p)}</AvatarFallback>
                       </Avatar>
                       <div className="flex flex-col">
                         <span className="text-sm font-medium">@{p.username}</span>
@@ -354,7 +414,7 @@ const Messages = () => {
                   >
                     <Avatar className="h-10 w-10">
                       <AvatarImage src={data.profile?.avatar_url} />
-                      <AvatarFallback><User className="h-5 w-5" /></AvatarFallback>
+                      <AvatarFallback>{getInitials(data.profile)}</AvatarFallback>
                     </Avatar>
                     <div className="flex-1 overflow-hidden">
                       <div className="flex justify-between items-center mb-1">
@@ -389,24 +449,54 @@ const Messages = () => {
             <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground p-4 text-center">
               <MessageSquare className="h-12 w-12 mb-4 opacity-20" />
               <p>Select a conversation to start messaging</p>
+              {!hasUsername && (
+                 <Alert className="max-w-md mt-4 text-left" variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertTitle>Action Required</AlertTitle>
+                  <AlertDescription className="flex flex-col gap-2">
+                    <p>You need to set a username before you can message anyone.</p>
+                    <Link to="/profile">
+                      <Button size="sm" variant="outline" className="w-full">Go to Profile</Button>
+                    </Link>
+                  </AlertDescription>
+                </Alert>
+              )}
             </div>
           ) : (
             <>
               {/* Header */}
-              <div className="p-3 border-b flex items-center gap-3 bg-card z-10 shadow-sm flex-none">
-                <Button variant="ghost" size="icon" className="md:hidden -ml-2" onClick={() => navigate('/messages')}>
-                  <ArrowLeft className="h-5 w-5" />
-                </Button>
-                <Avatar className="h-8 w-8">
-                  <AvatarImage src={activeProfile?.avatar_url} />
-                  <AvatarFallback><User className="h-4 w-4" /></AvatarFallback>
-                </Avatar>
-                <div className="flex flex-col">
-                  <span className="font-medium text-sm">
-                    {activeProfile?.first_name || 'User'} 
-                  </span>
-                  {activeProfile?.username && <span className="text-[10px] text-muted-foreground">@{activeProfile.username}</span>}
+              <div className="p-3 border-b flex items-center gap-3 bg-card z-10 shadow-sm flex-none justify-between">
+                <div className="flex items-center gap-3">
+                  <Button variant="ghost" size="icon" className="md:hidden -ml-2" onClick={() => navigate('/messages')}>
+                    <ArrowLeft className="h-5 w-5" />
+                  </Button>
+                  <Avatar className="h-8 w-8">
+                    <AvatarImage src={activeProfile?.avatar_url} />
+                    <AvatarFallback>{getInitials(activeProfile)}</AvatarFallback>
+                  </Avatar>
+                  <div className="flex flex-col">
+                    <span className="font-medium text-sm">
+                      {activeProfile?.first_name || 'User'} 
+                    </span>
+                    {activeProfile?.username && <span className="text-[10px] text-muted-foreground">@{activeProfile.username}</span>}
+                  </div>
                 </div>
+                
+                {/* View Profile Action */}
+                {activeProfile?.username && (
+                   <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon">
+                        <MoreVertical className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => navigate(`/u/${activeProfile.username}`)}>
+                        <Eye className="mr-2 h-4 w-4" /> View Profile
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
               </div>
 
               {/* Messages List */}
@@ -428,6 +518,11 @@ const Messages = () => {
                           )}>
                             <p>{msg.content}</p>
                             <div className="flex items-center justify-end gap-1 mt-1">
+                               {isEdited(msg) && (
+                                 <span className="text-[9px] opacity-70 italic mr-1 flex items-center">
+                                   <Pencil className="h-[8px] w-[8px] mr-0.5 inline" /> edited
+                                 </span>
+                               )}
                                <p className={cn("text-[9px] opacity-70", isMe ? "text-primary-foreground" : "text-muted-foreground")}>
                                 {format(new Date(msg.created_at), 'h:mm a')}
                               </p>
@@ -461,26 +556,41 @@ const Messages = () => {
 
               {/* Input Area */}
               <div className="p-3 bg-card border-t flex flex-col gap-2 flex-none">
-                 {editingMessageId && (
-                   <div className="flex items-center justify-between text-xs text-muted-foreground bg-muted/30 p-2 rounded">
-                     <span>Editing message...</span>
-                     <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={cancelEditing}>
-                       <X className="h-3 w-3" />
-                     </Button>
-                   </div>
+                 {!hasUsername ? (
+                    <Alert variant="destructive" className="py-2">
+                       <AlertCircle className="h-4 w-4" />
+                       <AlertTitle className="text-sm font-medium">Username Required</AlertTitle>
+                       <AlertDescription className="text-xs flex items-center justify-between">
+                         <span>You must set a username to chat.</span>
+                         <Link to="/profile">
+                            <Button size="sm" variant="secondary" className="h-6 text-xs">Set Username</Button>
+                         </Link>
+                       </AlertDescription>
+                    </Alert>
+                 ) : (
+                   <>
+                    {editingMessageId && (
+                      <div className="flex items-center justify-between text-xs text-muted-foreground bg-muted/30 p-2 rounded">
+                        <span>Editing message...</span>
+                        <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={cancelEditing}>
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    )}
+                    <div className="flex gap-2">
+                      <Input 
+                        value={newMessage}
+                        onChange={(e) => setNewMessage(e.target.value)}
+                        onKeyPress={(e) => e.key === 'Enter' && handleSend()}
+                        placeholder={editingMessageId ? "Update message..." : "Type a message..."}
+                        className="flex-1 bg-muted/50 rounded-full px-4"
+                      />
+                      <Button size="icon" onClick={handleSend} disabled={!newMessage.trim()} className="rounded-full h-10 w-10 shrink-0">
+                        <Send className="h-4 w-4" />
+                      </Button>
+                    </div>
+                   </>
                  )}
-                <div className="flex gap-2">
-                  <Input 
-                    value={newMessage}
-                    onChange={(e) => setNewMessage(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-                    placeholder={editingMessageId ? "Update message..." : "Type a message..."}
-                    className="flex-1 bg-muted/50 rounded-full px-4"
-                  />
-                  <Button size="icon" onClick={handleSend} disabled={!newMessage.trim()} className="rounded-full h-10 w-10 shrink-0">
-                    <Send className="h-4 w-4" />
-                  </Button>
-                </div>
               </div>
             </>
           )}
