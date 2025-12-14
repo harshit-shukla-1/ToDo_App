@@ -80,7 +80,7 @@ const Login: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-100 dark:bg-gray-900 p-4 relative transition-colors duration-300">
+    <div className="min-h-screen flex flex-col items-center justify-center p-4 relative transition-colors duration-300">
       <div className="absolute top-4 right-4">
         <Button
           variant="ghost"
@@ -101,7 +101,7 @@ const Login: React.FC = () => {
         <p className="text-muted-foreground">Manage your tasks efficiently</p>
       </div>
 
-      <Card className="w-full max-w-md mx-auto shadow-xl border-border/50">
+      <Card className="w-full max-w-md mx-auto shadow-xl border-border/50 bg-card/95 backdrop-blur-sm">
         <Tabs defaultValue="login" className="w-full">
           <CardHeader>
             <TabsList className="grid w-full grid-cols-2">

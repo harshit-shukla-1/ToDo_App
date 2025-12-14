@@ -135,7 +135,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   };
 
   return (
-    <div className="h-screen w-full bg-background flex overflow-hidden">
+    <div className="h-screen w-full flex overflow-hidden">
       {/* Desktop Sidebar - Fixed Width */}
       <div className="hidden md:block w-64 border-r bg-card h-full flex-none">
         <NavContent />
