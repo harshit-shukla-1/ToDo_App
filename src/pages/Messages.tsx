@@ -405,13 +405,15 @@ const Messages = () => {
           selectedUserId ? "hidden md:flex" : "flex"
         )}>
           {/* Sidebar Header */}
-          <div className="p-3 border-b flex-none">
-            <h2 className="text-lg font-semibold mb-2 px-1 hidden md:block">Messages</h2>
-            <div className="relative">
+          <div className="p-3 border-b flex-none h-[60px] flex flex-col justify-center">
+             <div className="flex items-center justify-between mb-2 md:mb-0">
+               <h2 className="text-lg font-semibold px-1 hidden md:block">Messages</h2>
+             </div>
+             <div className="relative">
               <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input 
                 placeholder="Search users..." 
-                className="pl-8 bg-muted/50" 
+                className="pl-8 bg-muted/50 h-9" 
                 value={searchQuery}
                 onChange={(e) => searchUsers(e.target.value)}
               />
@@ -454,7 +456,7 @@ const Messages = () => {
                     className={cn(
                       "flex items-center gap-3 p-4 transition-colors text-left border-b last:border-0",
                       selectedUserId === id ? "bg-muted" : "hover:bg-muted/50",
-                      (data.lastMessage.receiver_id === user?.id && !data.lastMessage.read) && "bg-blue-50 dark:bg-blue-950/20"
+                      (data.lastMessage.receiver_id === user?.id && !data.lastMessage.read) && "bg-primary/10"
                     )}
                   >
                     <Avatar className="h-10 w-10">
@@ -510,7 +512,7 @@ const Messages = () => {
           ) : (
             <>
               {/* Header */}
-              <div className="p-3 border-b flex items-center gap-3 bg-card z-10 shadow-sm flex-none justify-between">
+              <div className="p-3 border-b flex items-center gap-3 bg-card z-10 shadow-sm flex-none justify-between h-[60px]">
                 <div className="flex items-center gap-3">
                   <Button variant="ghost" size="icon" className="md:hidden -ml-2" onClick={() => navigate('/messages')}>
                     <ArrowLeft className="h-5 w-5" />
