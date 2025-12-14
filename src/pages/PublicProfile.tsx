@@ -7,13 +7,14 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Loader2, User as UserIcon, Calendar, ArrowLeft, Ruler, Weight, Mail, Home, UserPlus, Check, UserMinus } from "lucide-react";
+import { Loader2, User as UserIcon, Calendar, ArrowLeft, Ruler, Weight, Mail, Home, UserPlus, Check, UserMinus, Phone } from "lucide-react";
 import { useSession } from "@/integrations/supabase/auth";
 import { showSuccess, showError } from "@/utils/toast";
 import ConfirmDialog from "@/components/ConfirmDialog";
 
 interface PublicSettings {
   show_email: boolean;
+  show_contact: boolean;
   show_about: boolean;
   show_birthday: boolean;
   show_measurements: boolean;
@@ -195,6 +196,7 @@ const PublicProfile = () => {
   const rawSettings = profile.public_settings || {};
   const settings: PublicSettings = {
     show_email: rawSettings.show_email ?? false,
+    show_contact: rawSettings.show_contact ?? false,
     show_about: rawSettings.show_about ?? true,
     show_birthday: rawSettings.show_birthday ?? rawSettings.show_stats ?? true,
     show_measurements: rawSettings.show_measurements ?? rawSettings.show_stats ?? true,
@@ -255,12 +257,21 @@ const PublicProfile = () => {
               <h1 className="text-3xl font-bold break-words">{profile.first_name} {profile.last_name}</h1>
               <p className="text-muted-foreground font-medium text-lg">@{profile.username}</p>
               
-              {settings.show_email && (
-                 <div className="flex items-center text-sm text-muted-foreground mt-2">
-                   <Mail className="w-4 h-4 mr-1" />
-                   <span className="italic">Email hidden (not in public profile data)</span>
-                 </div>
-              )}
+              <div className="flex flex-col gap-1 mt-2">
+                {settings.show_email && profile.email && (
+                  <div className="flex items-center text-sm text-muted-foreground">
+                    <Mail className="w-4 h-4 mr-2" />
+                    <span>{profile.email}</span>
+                  </div>
+                )}
+                
+                {settings.show_contact && profile.contact && (
+                  <div className="flex items-center text-sm text-muted-foreground">
+                    <Phone className="w-4 h-4 mr-2" />
+                    <span>{profile.contact}</span>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </Card>

@@ -261,6 +261,7 @@ const Profile = () => {
         last_name: lastName,
         about,
         contact,
+        email: email, // Sync email to profile for public visibility
         birthday: birthday ? format(birthday, 'yyyy-MM-dd') : null,
         height: height ? parseFloat(height) : null,
         weight: weight ? parseFloat(weight) : null,
@@ -487,7 +488,7 @@ const Profile = () => {
                       <div className="space-y-2">
                         <Label className="text-xs text-muted-foreground">Publicly Visible Fields</Label>
                         <div className="grid grid-cols-1 gap-2">
-                          <div className="flex items-center space-x-2">
+                           <div className="flex items-center space-x-2">
                             <Checkbox id="show_about" checked={publicSettings.show_about} onCheckedChange={(c) => setPublicSettings({...publicSettings, show_about: !!c})} />
                             <label htmlFor="show_about" className="text-sm">About</label>
                           </div>
@@ -495,6 +496,11 @@ const Profile = () => {
                            <div className="flex items-center space-x-2">
                             <Checkbox id="show_birthday" checked={publicSettings.show_birthday} onCheckedChange={(c) => setPublicSettings({...publicSettings, show_birthday: !!c})} />
                             <label htmlFor="show_birthday" className="text-sm">Birthday</label>
+                          </div>
+
+                          <div className="flex items-center space-x-2">
+                            <Checkbox id="show_email" checked={publicSettings.show_email} onCheckedChange={(c) => setPublicSettings({...publicSettings, show_email: !!c})} />
+                            <label htmlFor="show_email" className="text-sm">Email Address</label>
                           </div>
 
                           <div className="flex items-center space-x-2">
