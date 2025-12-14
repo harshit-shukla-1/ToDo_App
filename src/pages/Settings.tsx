@@ -9,10 +9,12 @@ import { Input } from "@/components/ui/input";
 import { useTheme } from "@/components/ThemeProvider";
 import { supabase } from "@/integrations/supabase/client";
 import { showSuccess, showError } from "@/utils/toast";
-import { Bell, Moon, Sun, Lock, Loader2 } from "lucide-react";
+import { Bell, Moon, Sun, Lock, Loader2, Palette, Gift, Snowflake } from "lucide-react";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { cn } from "@/lib/utils";
 
 const Settings = () => {
-  const { setTheme, theme } = useTheme();
+  const { setTheme, theme, setStyle, style } = useTheme();
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -33,7 +35,6 @@ const Settings = () => {
     if (Notification.permission === "granted") {
       // We can't actually revoke permissions via JS, just update state
       showSuccess("Notifications are enabled.");
-      // In a real app, you might unsubscribe from a push service here
     } else if (Notification.permission !== "denied") {
       const permission = await Notification.requestPermission();
       if (permission === "granted") {
@@ -72,32 +73,95 @@ const Settings = () => {
     <div className="space-y-6 max-w-3xl mx-auto">
       <h2 className="text-3xl font-bold tracking-tight">Settings</h2>
 
-      <Card>
+      <Card className="card-hover-effect">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Moon className="h-5 w-5" /> Appearance
+            <Palette className="h-5 w-5" /> Appearance
           </CardTitle>
           <CardDescription>
-            Customize how Mazda Todo looks on your device
+            Customize the look and feel of your app
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label>Dark Mode</Label>
-              <div className="text-sm text-muted-foreground">
-                Enable dark mode for better viewing at night
-              </div>
-            </div>
-            <Switch
-              checked={theme === "dark"}
-              onCheckedChange={(checked) => setTheme(checked ? "dark" : "light")}
-            />
+        <CardContent className="space-y-6">
+          {/* Theme Mode Selection */}
+          <div className="space-y-3">
+             <Label className="text-base font-medium">Theme Mode</Label>
+             <div className="grid grid-cols-3 gap-2">
+                <Button 
+                  variant={theme === "light" ? "default" : "outline"} 
+                  onClick={() => setTheme("light")}
+                  className="w-full"
+                >
+                  <Sun className="mr-2 h-4 w-4" /> Light
+                </Button>
+                <Button 
+                  variant={theme === "dark" ? "default" : "outline"} 
+                  onClick={() => setTheme("dark")}
+                  className="w-full"
+                >
+                  <Moon className="mr-2 h-4 w-4" /> Dark
+                </Button>
+                <Button 
+                  variant={theme === "system" ? "default" : "outline"} 
+                  onClick={() => setTheme("system")}
+                  className="w-full"
+                >
+                  <span className="mr-2 text-xs">🖥️</span> System
+                </Button>
+             </div>
           </div>
+
+          <div className="border-t pt-4"></div>
+
+          {/* Theme Style Selection */}
+          <div className="space-y-3">
+             <Label className="text-base font-medium">Visual Style</Label>
+             <RadioGroup 
+                value={style} 
+                onValueChange={(val) => setStyle(val as any)}
+                className="grid grid-cols-1 md:grid-cols-2 gap-4"
+              >
+                <div>
+                  <RadioGroupItem value="default" id="style-default" className="peer sr-only" />
+                  <Label
+                    htmlFor="style-default"
+                    className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary peer-data-[state=checked]:text-primary cursor-pointer h-full"
+                  >
+                    <div className="mb-3 rounded-full bg-slate-200 dark:bg-slate-800 p-2">
+                      <Palette className="h-6 w-6" />
+                    </div>
+                    <div className="text-center">
+                      <div className="font-semibold">Classic</div>
+                      <div className="text-xs text-muted-foreground mt-1">Clean, minimalist standard interface</div>
+                    </div>
+                  </Label>
+                </div>
+
+                <div>
+                  <RadioGroupItem value="christmas" id="style-christmas" className="peer sr-only" />
+                  <Label
+                    htmlFor="style-christmas"
+                    className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-red-500 peer-data-[state=checked]:text-red-500 cursor-pointer h-full relative overflow-hidden"
+                  >
+                     <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-red-500 via-green-500 to-red-500" />
+                    <div className="mb-3 rounded-full bg-red-100 dark:bg-red-900/30 p-2 text-red-500">
+                      <Gift className="h-6 w-6" />
+                    </div>
+                    <div className="text-center">
+                      <div className="font-semibold flex items-center justify-center gap-1">
+                        Christmas <Snowflake className="h-3 w-3 text-blue-400 animate-spin-slow" />
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-1">Festive colors, animations & cheer</div>
+                    </div>
+                  </Label>
+                </div>
+              </RadioGroup>
+          </div>
+
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="card-hover-effect">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Bell className="h-5 w-5" /> Notifications
@@ -122,7 +186,7 @@ const Settings = () => {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="card-hover-effect">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Lock className="h-5 w-5" /> Security
