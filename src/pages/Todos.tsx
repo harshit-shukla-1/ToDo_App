@@ -31,6 +31,7 @@ import { format } from "date-fns";
 import { showSuccess, showError } from "@/utils/toast";
 import { cn } from "@/lib/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface Todo {
   id: string;
@@ -44,6 +45,8 @@ interface Todo {
 const Todos = () => {
   const navigate = useNavigate();
   const { user } = useSession();
+  const isMobile = useIsMobile();
+  
   const [todos, setTodos] = useState<Todo[]>([]);
   const [loading, setLoading] = useState(true);
   
@@ -128,100 +131,148 @@ const Todos = () => {
       <div className="flex-none space-y-4 pb-2 border-b">
         <div className="flex justify-between items-center">
           <h2 className="text-3xl font-bold tracking-tight">My Todos</h2>
-          <Button onClick={() => navigate("/todos/new")} size="sm">
-            <Plus className="mr-2 h-4 w-4" /> New
-          </Button>
+          {isMobile && (
+            <Button onClick={() => navigate("/todos/new")} size="sm">
+              <Plus className="mr-2 h-4 w-4" /> New
+            </Button>
+          )}
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Search Popover */}
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant={search ? "secondary" : "outline"} size="icon" className="h-9 w-9 shrink-0">
-                <Search className="h-4 w-4" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent align="start" className="w-60 p-2">
-               <div className="space-y-2">
-                 <h4 className="font-medium leading-none text-sm">Search</h4>
-                 <Input
-                    placeholder="Search todos..."
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    autoFocus
-                    className="h-8"
-                  />
-               </div>
-            </PopoverContent>
-          </Popover>
+          {isMobile ? (
+            /* Mobile View: Icon Popovers */
+            <>
+              {/* Search Popover */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant={search ? "secondary" : "outline"} size="icon" className="h-9 w-9 shrink-0">
+                    <Search className="h-4 w-4" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent align="start" className="w-60 p-2">
+                   <div className="space-y-2">
+                     <h4 className="font-medium leading-none text-sm">Search</h4>
+                     <Input
+                        placeholder="Search todos..."
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        autoFocus
+                        className="h-8"
+                      />
+                   </div>
+                </PopoverContent>
+              </Popover>
 
-          {/* Status Filter Popover */}
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant={statusFilter !== "all" ? "secondary" : "outline"} size="icon" className="h-9 w-9 shrink-0">
-                <Filter className="h-4 w-4" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent align="start" className="w-48 p-2">
-              <div className="space-y-2">
-                 <h4 className="font-medium leading-none text-sm">Status</h4>
-                 <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="h-8">
-                    <SelectValue placeholder="Status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Status</SelectItem>
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="completed">Completed</SelectItem>
-                  </SelectContent>
-                </Select>
-               </div>
-            </PopoverContent>
-          </Popover>
+              {/* Status Filter Popover */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant={statusFilter !== "all" ? "secondary" : "outline"} size="icon" className="h-9 w-9 shrink-0">
+                    <Filter className="h-4 w-4" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent align="start" className="w-48 p-2">
+                  <div className="space-y-2">
+                     <h4 className="font-medium leading-none text-sm">Status</h4>
+                     <Select value={statusFilter} onValueChange={setStatusFilter}>
+                      <SelectTrigger className="h-8">
+                        <SelectValue placeholder="Status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Status</SelectItem>
+                        <SelectItem value="active">Active</SelectItem>
+                        <SelectItem value="completed">Completed</SelectItem>
+                      </SelectContent>
+                    </Select>
+                   </div>
+                </PopoverContent>
+              </Popover>
 
-           {/* Category Filter Popover */}
-           <Popover>
-            <PopoverTrigger asChild>
-              <Button variant={categoryFilter !== "all" ? "secondary" : "outline"} size="icon" className="h-9 w-9 shrink-0">
-                <Tag className="h-4 w-4" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent align="start" className="w-48 p-2">
-               <div className="space-y-2">
-                 <h4 className="font-medium leading-none text-sm">Category</h4>
-                 <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                  <SelectTrigger className="h-8">
-                    <SelectValue placeholder="Category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Categories</SelectItem>
-                    <SelectItem value="Personal">Personal</SelectItem>
-                    <SelectItem value="Professional">Professional</SelectItem>
-                  </SelectContent>
-                </Select>
-               </div>
-            </PopoverContent>
-          </Popover>
+               {/* Category Filter Popover */}
+               <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant={categoryFilter !== "all" ? "secondary" : "outline"} size="icon" className="h-9 w-9 shrink-0">
+                    <Tag className="h-4 w-4" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent align="start" className="w-48 p-2">
+                   <div className="space-y-2">
+                     <h4 className="font-medium leading-none text-sm">Category</h4>
+                     <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                      <SelectTrigger className="h-8">
+                        <SelectValue placeholder="Category" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Categories</SelectItem>
+                        <SelectItem value="Personal">Personal</SelectItem>
+                        <SelectItem value="Professional">Professional</SelectItem>
+                      </SelectContent>
+                    </Select>
+                   </div>
+                </PopoverContent>
+              </Popover>
 
-          {/* Active Filter Chips */}
-          <div className="flex-1 overflow-x-auto flex gap-2 no-scrollbar">
-             {search && (
-               <Badge variant="secondary" className="gap-1 pr-1">
-                 "{search}" <X className="h-3 w-3 cursor-pointer" onClick={() => setSearch("")} />
-               </Badge>
-             )}
-             {statusFilter !== "all" && (
-               <Badge variant="secondary" className="gap-1 pr-1">
-                 {statusFilter === 'active' ? 'Active' : 'Completed'} 
-                 <X className="h-3 w-3 cursor-pointer" onClick={() => setStatusFilter("all")} />
-               </Badge>
-             )}
-              {categoryFilter !== "all" && (
-               <Badge variant="secondary" className="gap-1 pr-1">
-                 {categoryFilter} <X className="h-3 w-3 cursor-pointer" onClick={() => setCategoryFilter("all")} />
-               </Badge>
-             )}
-          </div>
+              {/* Active Filter Chips (Mobile Only) */}
+              <div className="flex-1 overflow-x-auto flex gap-2 no-scrollbar">
+                 {search && (
+                   <Badge variant="secondary" className="gap-1 pr-1 shrink-0">
+                     "{search}" <X className="h-3 w-3 cursor-pointer" onClick={() => setSearch("")} />
+                   </Badge>
+                 )}
+                 {statusFilter !== "all" && (
+                   <Badge variant="secondary" className="gap-1 pr-1 shrink-0">
+                     {statusFilter === 'active' ? 'Active' : 'Completed'} 
+                     <X className="h-3 w-3 cursor-pointer" onClick={() => setStatusFilter("all")} />
+                   </Badge>
+                 )}
+                  {categoryFilter !== "all" && (
+                   <Badge variant="secondary" className="gap-1 pr-1 shrink-0">
+                     {categoryFilter} <X className="h-3 w-3 cursor-pointer" onClick={() => setCategoryFilter("all")} />
+                   </Badge>
+                 )}
+              </div>
+            </>
+          ) : (
+            /* Desktop View: Full Inputs */
+            <>
+              <div className="relative w-64">
+                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search todos..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="pl-8 h-9"
+                />
+              </div>
+
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-[150px] h-9">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="completed">Completed</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                <SelectTrigger className="w-[150px] h-9">
+                  <SelectValue placeholder="Category" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Categories</SelectItem>
+                  <SelectItem value="Personal">Personal</SelectItem>
+                  <SelectItem value="Professional">Professional</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <div className="flex-1"></div>
+
+              <Button onClick={() => navigate("/todos/new")} size="sm">
+                <Plus className="mr-2 h-4 w-4" /> New Todo
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
