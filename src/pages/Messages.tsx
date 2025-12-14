@@ -27,7 +27,8 @@ import {
   AlertCircle,
   Eye,
   Ban,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Timer
 } from "lucide-react";
 import { format } from "date-fns";
 import { showSuccess, showError } from "@/utils/toast";
@@ -47,6 +48,7 @@ interface Message {
   created_at: string;
   updated_at?: string | null;
   read: boolean;
+  is_view_once?: boolean;
 }
 
 interface Profile {
@@ -95,6 +97,7 @@ const Messages = () => {
 
   // Enlarged Image State
   const [viewImage, setViewImage] = useState<string | null>(null);
+  const [viewingViewOnceId, setViewingViewOnceId] = useState<string | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -249,7 +252,7 @@ const Messages = () => {
     fetchConversations();
   };
 
-  const handleSend = async (imageUrl?: string, captionText?: string) => {
+  const handleSend = async (imageUrl?: string, captionText?: string, isViewOnce: boolean = false) => {
     // Determine if we can send (needs text OR image)
     const contentToSend = captionText !== undefined ? captionText : newMessage;
     const hasContent = contentToSend.trim().length > 0;
@@ -291,7 +294,8 @@ const Messages = () => {
         sender_id: user.id,
         receiver_id: selectedUserId,
         content: contentToSend.trim(), // Can be empty string if image is present
-        image_url: imageUrl || null
+        image_url: imageUrl || null,
+        is_view_once: isViewOnce
       };
 
       const { data, error } = await supabase.from('messages').insert([msg]).select().single();
@@ -321,7 +325,7 @@ const Messages = () => {
       event.target.value = "";
   };
 
-  const handleEditorSend = async (blob: Blob, caption: string) => {
+  const handleEditorSend = async (blob: Blob, caption: string, isViewOnce: boolean) => {
     try {
       if (!user) return;
       setIsUploading(true);
@@ -342,7 +346,7 @@ const Messages = () => {
       const { data } = supabase.storage.from('chat_bucket').getPublicUrl(filePath);
       
       // Send message with the image and caption
-      await handleSend(data.publicUrl, caption);
+      await handleSend(data.publicUrl, caption, isViewOnce);
       
     } catch (error: any) {
       showError("Upload failed: " + error.message);
@@ -366,21 +370,7 @@ const Messages = () => {
       .single();
 
     if (msg?.image_url) {
-      try {
-        // Extract file path from URL
-        // URL format: .../storage/v1/object/public/chat_bucket/USER_ID/FILENAME
-        const urlObj = new URL(msg.image_url);
-        // Path starts after 'chat_bucket/'
-        const pathParts = urlObj.pathname.split('chat_bucket/');
-        if (pathParts.length > 1) {
-          const filePath = pathParts[1];
-          // Delete from storage
-          await supabase.storage.from('chat_bucket').remove([filePath]);
-        }
-      } catch (err) {
-        console.error("Failed to delete image file:", err);
-        // Continue to delete message record even if file deletion fails
-      }
+      await deleteImageFile(msg.image_url);
     }
 
     // 2. Delete the message record
@@ -391,6 +381,23 @@ const Messages = () => {
     }
     setMessages(prev => prev.filter(m => m.id !== deleteMessageId));
     setDeleteMessageId(null);
+  };
+
+  const deleteImageFile = async (imageUrl: string) => {
+    try {
+      // Extract file path from URL
+      // URL format: .../storage/v1/object/public/chat_bucket/USER_ID/FILENAME
+      const urlObj = new URL(imageUrl);
+      // Path starts after 'chat_bucket/'
+      const pathParts = urlObj.pathname.split('chat_bucket/');
+      if (pathParts.length > 1) {
+        const filePath = pathParts[1];
+        // Delete from storage
+        await supabase.storage.from('chat_bucket').remove([filePath]);
+      }
+    } catch (err) {
+      console.error("Failed to delete image file:", err);
+    }
   };
 
   const confirmBlockUser = async () => {
@@ -460,6 +467,37 @@ const Messages = () => {
 
   const isEdited = (msg: Message) => {
     return !!msg.updated_at;
+  };
+
+  // View Once Logic
+  const handleViewOnceClick = (msg: Message) => {
+    // Only allow opening if it has content (hasn't been viewed/deleted)
+    if (msg.image_url) {
+      setViewImage(msg.image_url);
+      setViewingViewOnceId(msg.id);
+    }
+  };
+
+  const handleCloseImageViewer = async () => {
+    // Burn logic: if we were viewing a view-once message, destroy it now
+    if (viewingViewOnceId && viewImage) {
+      const msgId = viewingViewOnceId;
+      
+      // Optimistic Update
+      setMessages(prev => prev.map(m => m.id === msgId ? { ...m, image_url: null, content: "Photo viewed" } : m));
+
+      // 1. Delete image file
+      await deleteImageFile(viewImage);
+
+      // 2. Update DB
+      await supabase
+        .from('messages')
+        .update({ image_url: null, content: 'Photo viewed' })
+        .eq('id', msgId);
+      
+      setViewingViewOnceId(null);
+    }
+    setViewImage(null);
   };
 
   return (
@@ -545,7 +583,7 @@ const Messages = () => {
                         (data.lastMessage.receiver_id === user?.id && !data.lastMessage.read) ? "font-semibold text-foreground" : "text-muted-foreground"
                       )}>
                         {data.lastMessage.sender_id === user?.id && "You: "}
-                        {data.lastMessage.image_url ? "📷 Image" : data.lastMessage.content}
+                        {data.lastMessage.image_url ? (data.lastMessage.is_view_once ? "⏱️ Photo" : "📷 Image") : data.lastMessage.content}
                       </p>
                     </div>
                   </button>
@@ -628,6 +666,9 @@ const Messages = () => {
                 ) : (
                   messages.map((msg, index) => {
                     const isMe = msg.sender_id === user?.id;
+                    const isViewOnce = msg.is_view_once;
+                    const isViewed = isViewOnce && !msg.image_url;
+
                     return (
                       <div key={msg.id} className={cn("flex", isMe ? "justify-end" : "justify-start")}>
                         <div className={cn(
@@ -638,16 +679,34 @@ const Messages = () => {
                             "px-4 py-2 rounded-2xl text-sm shadow-sm",
                             isMe ? "bg-primary text-primary-foreground rounded-tr-none" : "bg-card text-card-foreground border rounded-tl-none"
                           )}>
-                            {msg.image_url && (
-                              <div className="mb-2 -mx-2 -mt-1">
-                                <img 
-                                  src={msg.image_url} 
-                                  alt="Shared" 
-                                  className="rounded-lg max-h-[300px] object-cover cursor-pointer hover:opacity-95"
-                                  onClick={() => setViewImage(msg.image_url || null)}
-                                />
-                              </div>
-                            )}
+                            {msg.image_url ? (
+                              isViewOnce ? (
+                                <div className="mb-2 -mx-2 -mt-1 p-2">
+                                  <button 
+                                    onClick={() => handleViewOnceClick(msg)}
+                                    className="flex items-center gap-2 px-3 py-2 bg-background/20 rounded-lg hover:bg-background/30 transition-colors w-full"
+                                  >
+                                    <div className="h-8 w-8 rounded-full border-2 border-current flex items-center justify-center">
+                                      <span className="font-bold text-xs">1</span>
+                                    </div>
+                                    <span className="font-medium text-sm">Photo</span>
+                                  </button>
+                                </div>
+                              ) : (
+                                <div className="mb-2 -mx-2 -mt-1">
+                                  <img 
+                                    src={msg.image_url} 
+                                    alt="Shared" 
+                                    className="rounded-lg max-h-[300px] object-cover cursor-pointer hover:opacity-95"
+                                    onClick={() => setViewImage(msg.image_url || null)}
+                                  />
+                                </div>
+                              )
+                            ) : isViewed ? (
+                               <div className="mb-1 flex items-center gap-2 text-muted-foreground/80 italic">
+                                 <Timer className="h-4 w-4" /> Photo viewed
+                               </div>
+                            ) : null}
                             
                             {msg.content && <p>{msg.content}</p>}
                             
@@ -669,7 +728,7 @@ const Messages = () => {
                                     </Button>
                                   </DropdownMenuTrigger>
                                   <DropdownMenuContent align="end">
-                                    {msg.content && (
+                                    {msg.content && !isViewOnce && (
                                       <DropdownMenuItem onClick={() => startEditing(msg)}>
                                         <Pencil className="mr-2 h-3 w-3" /> Edit
                                       </DropdownMenuItem>
@@ -786,7 +845,9 @@ const Messages = () => {
       />
 
       {/* Image Viewer */}
-      <Dialog open={!!viewImage} onOpenChange={(open) => !open && setViewImage(null)}>
+      <Dialog open={!!viewImage} onOpenChange={(open) => {
+         if (!open) handleCloseImageViewer();
+      }}>
         <DialogContent className="max-w-4xl p-0 overflow-hidden bg-transparent border-none shadow-none flex items-center justify-center">
             <DialogTitle className="sr-only">View Image</DialogTitle>
             <DialogDescription className="sr-only">Full size view of the shared image</DialogDescription>

@@ -13,9 +13,8 @@ import {
   Send, 
   Undo2, 
   Image as ImageIcon,
-  Clock,
+  Timer, // Changed from Clock to Timer for better semantics if available, using Timer from lucide
   Check,
-  Smartphone,
   Square,
   RectangleHorizontal,
   RectangleVertical
@@ -30,7 +29,7 @@ interface ImageEditorProps {
   file: File;
   recipientName: string;
   onClose: () => void;
-  onSend: (blob: Blob, caption: string) => void;
+  onSend: (blob: Blob, caption: string, isViewOnce: boolean) => void;
 }
 
 const COLORS = [
@@ -59,6 +58,7 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ file, recipientName, onClose,
   const [imageSrc, setImageSrc] = useState<string | null>(null);
   const [mode, setMode] = useState<'view' | 'crop' | 'draw'>('view');
   const [isHD, setIsHD] = useState(false);
+  const [isViewOnce, setIsViewOnce] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [caption, setCaption] = useState("");
 
@@ -246,7 +246,7 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ file, recipientName, onClose,
 
         canvas.toBlob((blob) => {
           if (blob) {
-            onSend(blob, caption);
+            onSend(blob, caption, isViewOnce);
           }
         }, 'image/jpeg', isHD ? 0.95 : 0.7);
       }
@@ -421,8 +421,26 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ file, recipientName, onClose,
                       autoFocus
                       onKeyPress={(e) => e.key === 'Enter' && handleSend()}
                     />
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-400 rounded-full shrink-0 hover:bg-zinc-700/50">
-                       <Clock className="h-5 w-5" />
+                    
+                    {/* View Once Button */}
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      onClick={() => setIsViewOnce(!isViewOnce)}
+                      className={cn(
+                        "h-8 w-8 rounded-full shrink-0 transition-all",
+                        isViewOnce 
+                          ? "bg-[#00A884] text-white hover:bg-[#008f6f]" 
+                          : "text-zinc-400 hover:bg-zinc-700/50"
+                      )}
+                      title="View Once"
+                    >
+                       <div className="relative flex items-center justify-center">
+                         <Timer className="h-5 w-5" />
+                         {isViewOnce && (
+                           <span className="absolute text-[8px] font-bold">1</span>
+                         )}
+                       </div>
                     </Button>
                  </div>
                  {recipientName && (
