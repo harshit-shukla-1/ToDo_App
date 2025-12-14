@@ -42,6 +42,7 @@
     "@supabase/auth-ui-react": "^0.4.7",
     "@supabase/auth-ui-shared": "^0.1.8",
     "@supabase/supabase-js": "^2.87.1",
+    "@tanstack/query-sync-storage-persister": "^5.90.14",
     "@tanstack/react-query": "^5.56.2",
     "@tanstack/react-query-persist-client": "^5.90.14",
     "class-variance-authority": "^0.7.1",
