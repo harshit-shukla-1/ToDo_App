@@ -7,10 +7,14 @@ import { supabase } from "@/integrations/supabase/client";
 export type ThemeMode = "dark" | "light" | "system";
 export type ThemeColor = "default" | "ocean" | "forest" | "rose" | "christmas";
 
+// Available items for the mobile menu
+export type NavItemKey = "dashboard" | "todos" | "messages" | "connections" | "profile" | "settings";
+
 type ThemeProviderProps = {
   children: React.ReactNode;
   defaultMode?: ThemeMode;
   defaultColor?: ThemeColor;
+  defaultMobileNav?: NavItemKey[];
   storageKey?: string;
 };
 
@@ -19,13 +23,21 @@ type ThemeProviderState = {
   setMode: (mode: ThemeMode) => void;
   color: ThemeColor;
   setColor: (color: ThemeColor) => void;
+  mobileNavItems: NavItemKey[];
+  setMobileNavItems: (items: NavItemKey[]) => void;
+  isLoading: boolean;
 };
+
+const defaultNavItems: NavItemKey[] = ["connections", "profile", "settings"];
 
 const initialState: ThemeProviderState = {
   mode: "system",
   setMode: () => null,
   color: "default",
   setColor: () => null,
+  mobileNavItems: defaultNavItems,
+  setMobileNavItems: () => null,
+  isLoading: true,
 };
 
 const ThemeProviderContext = createContext<ThemeProviderState>(initialState);
@@ -34,10 +46,11 @@ export function ThemeProvider({
   children,
   defaultMode = "system",
   defaultColor = "default",
+  defaultMobileNav = defaultNavItems,
   storageKey = "mazda-todo-ui-theme",
 }: ThemeProviderProps) {
   
-  const { user } = useSession(); // Now available because App.tsx wraps this
+  const { user } = useSession(); 
   
   const [mode, setModeState] = useState<ThemeMode>(
     () => (localStorage.getItem(`${storageKey}-mode`) as ThemeMode) || defaultMode
@@ -47,10 +60,19 @@ export function ThemeProvider({
     () => (localStorage.getItem(`${storageKey}-color`) as ThemeColor) || defaultColor
   );
 
+  const [mobileNavItems, setMobileNavItemsState] = useState<NavItemKey[]>(
+    () => {
+      const stored = localStorage.getItem(`${storageKey}-nav`);
+      return stored ? JSON.parse(stored) : defaultMobileNav;
+    }
+  );
+
+  const [isLoading, setIsLoading] = useState(true);
+
   // Sync with DB on load/login
   useEffect(() => {
     if (user) {
-      const fetchTheme = async () => {
+      const fetchPreferences = async () => {
         try {
           const { data, error } = await supabase
             .from('profiles')
@@ -68,12 +90,20 @@ export function ThemeProvider({
               setColorState(prefs.theme_color);
               localStorage.setItem(`${storageKey}-color`, prefs.theme_color);
             }
+            if (prefs.mobile_nav_items && Array.isArray(prefs.mobile_nav_items)) {
+              setMobileNavItemsState(prefs.mobile_nav_items);
+              localStorage.setItem(`${storageKey}-nav`, JSON.stringify(prefs.mobile_nav_items));
+            }
           }
         } catch (e) {
           console.error("Failed to fetch theme preferences", e);
+        } finally {
+          setIsLoading(false);
         }
       };
-      fetchTheme();
+      fetchPreferences();
+    } else {
+      setIsLoading(false);
     }
   }, [user, storageKey]);
 
@@ -100,10 +130,9 @@ export function ThemeProvider({
 
   }, [mode, color]);
 
-  const updateDb = async (newMode: ThemeMode, newColor: ThemeColor) => {
+  const updateDb = async (newMode: ThemeMode, newColor: ThemeColor, newNavItems: NavItemKey[]) => {
     if (!user) return;
     
-    // We do this optimistically and don't await/block UI
     try {
       const { data } = await supabase
         .from('profiles')
@@ -117,28 +146,43 @@ export function ThemeProvider({
         preferences: {
           ...currentPrefs,
           theme_mode: newMode,
-          theme_color: newColor
+          theme_color: newColor,
+          mobile_nav_items: newNavItems
         }
       }).eq('id', user.id);
     } catch (e) {
-      console.error("Failed to save theme preferences", e);
+      console.error("Failed to save preferences", e);
     }
   };
 
   const setMode = (newMode: ThemeMode) => {
     localStorage.setItem(`${storageKey}-mode`, newMode);
     setModeState(newMode);
-    updateDb(newMode, color);
+    updateDb(newMode, color, mobileNavItems);
   };
 
   const setColor = (newColor: ThemeColor) => {
     localStorage.setItem(`${storageKey}-color`, newColor);
     setColorState(newColor);
-    updateDb(mode, newColor);
+    updateDb(mode, newColor, mobileNavItems);
+  };
+
+  const setMobileNavItems = (newItems: NavItemKey[]) => {
+    localStorage.setItem(`${storageKey}-nav`, JSON.stringify(newItems));
+    setMobileNavItemsState(newItems);
+    updateDb(mode, color, newItems);
   };
 
   return (
-    <ThemeProviderContext.Provider value={{ mode, setMode, color, setColor }}>
+    <ThemeProviderContext.Provider value={{ 
+      mode, 
+      setMode, 
+      color, 
+      setColor, 
+      mobileNavItems, 
+      setMobileNavItems,
+      isLoading
+    }}>
       {children}
     </ThemeProviderContext.Provider>
   );

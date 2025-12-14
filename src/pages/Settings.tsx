@@ -6,14 +6,18 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
-import { useTheme, ThemeColor, ThemeMode } from "@/components/ThemeProvider";
+import { useTheme, ThemeColor, NavItemKey } from "@/components/ThemeProvider";
 import { supabase } from "@/integrations/supabase/client";
 import { showSuccess, showError } from "@/utils/toast";
-import { Bell, Moon, Sun, Lock, Loader2, Monitor, Palette, Droplets, Trees, Heart, Snowflake } from "lucide-react";
+import { 
+  Bell, Moon, Sun, Lock, Loader2, Monitor, Palette, Droplets, Trees, Heart, Snowflake, 
+  Menu, Check
+} from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Checkbox } from "@/components/ui/checkbox";
 
 const Settings = () => {
-  const { setMode, mode, setColor, color } = useTheme();
+  const { setMode, mode, setColor, color, mobileNavItems, setMobileNavItems } = useTheme();
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -63,12 +67,29 @@ const Settings = () => {
     }
   };
 
+  const toggleNavItem = (item: NavItemKey) => {
+    if (mobileNavItems.includes(item)) {
+      setMobileNavItems(mobileNavItems.filter(i => i !== item));
+    } else {
+      setMobileNavItems([...mobileNavItems, item]);
+    }
+  };
+
   const themes: { id: ThemeColor; name: string; icon: any; colorClass: string }[] = [
     { id: 'default', name: 'Default', icon: Palette, colorClass: 'bg-zinc-900' },
     { id: 'ocean', name: 'Ocean', icon: Droplets, colorClass: 'bg-blue-600' },
     { id: 'forest', name: 'Forest', icon: Trees, colorClass: 'bg-green-600' },
     { id: 'rose', name: 'Rose', icon: Heart, colorClass: 'bg-rose-600' },
     { id: 'christmas', name: 'Christmas', icon: Snowflake, colorClass: 'bg-gradient-to-br from-red-600 to-green-800' },
+  ];
+
+  const availableNavItems: { key: NavItemKey; label: string }[] = [
+    { key: 'dashboard', label: 'Dashboard' },
+    { key: 'todos', label: 'Todos' },
+    { key: 'messages', label: 'Messages' },
+    { key: 'connections', label: 'Connections' },
+    { key: 'profile', label: 'Profile' },
+    { key: 'settings', label: 'Settings' },
   ];
 
   return (
@@ -149,6 +170,40 @@ const Settings = () => {
               )}
             </div>
 
+          </CardContent>
+        </Card>
+
+        {/* Mobile Navigation Configuration */}
+        <Card>
+          <CardHeader>
+             <CardTitle className="flex items-center gap-2">
+               <Menu className="h-5 w-5" /> Mobile Menu
+             </CardTitle>
+             <CardDescription>
+               Choose which pages appear in the bottom navigation "More" menu
+             </CardDescription>
+          </CardHeader>
+          <CardContent>
+             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+               {availableNavItems.map((item) => (
+                 <div key={item.key} className="flex items-center space-x-2 border p-3 rounded-md hover:bg-muted/50 transition-colors">
+                   <Checkbox 
+                     id={`nav-${item.key}`} 
+                     checked={mobileNavItems.includes(item.key)}
+                     onCheckedChange={() => toggleNavItem(item.key)}
+                   />
+                   <label 
+                     htmlFor={`nav-${item.key}`} 
+                     className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer flex-1"
+                   >
+                     {item.label}
+                   </label>
+                 </div>
+               ))}
+             </div>
+             <p className="text-xs text-muted-foreground mt-4">
+               Note: The Dashboard, Todos, and Chat icons are fixed on the bottom bar. These settings control the "Menu" popup content.
+             </p>
           </CardContent>
         </Card>
 
