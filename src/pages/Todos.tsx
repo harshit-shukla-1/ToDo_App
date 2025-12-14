@@ -307,30 +307,30 @@ const Todos = () => {
                   <Checkbox
                     checked={todo.completed}
                     onCheckedChange={() => toggleTodo(todo.id, todo.completed)}
-                    className="h-5 w-5"
+                    className="h-5 w-5 shrink-0"
                   />
                   <div className="flex-1 min-w-0">
                     <p
                       className={cn(
-                        "font-medium truncate",
+                        "font-medium break-words",
                         todo.completed && "line-through text-muted-foreground"
                       )}
                     >
                       {todo.text}
                     </p>
                     <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground">
-                      <Badge variant="secondary" className="text-[10px] px-1.5 h-5">
+                      <Badge variant="secondary" className="text-[10px] px-1.5 h-5 shrink-0">
                         {todo.category}
                       </Badge>
                       {todo.due_date && (
-                        <span className="flex items-center gap-1 text-[10px]">
+                        <span className="flex items-center gap-1 text-[10px] shrink-0">
                           <CalendarIcon className="h-3 w-3" />
                           {format(new Date(todo.due_date), "MMM d, h:mm a")}
                         </span>
                       )}
                     </div>
                   </div>
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1 shrink-0">
                     <Button
                       variant="ghost"
                       size="icon"
