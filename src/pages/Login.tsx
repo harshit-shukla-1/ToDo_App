@@ -46,6 +46,7 @@ const Login: React.FC = () => {
       });
 
       if (error) throw error;
+      showSuccess("Welcome back!");
       // Navigation happens automatically via session listener in App.tsx
     } catch (error: any) {
       showError(error.message);

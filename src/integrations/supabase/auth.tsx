@@ -25,9 +25,7 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
         setUser(currentSession?.user || null);
         setIsLoading(false);
 
-        if (event === 'SIGNED_IN') {
-          showSuccess('Welcome back!');
-        } else if (event === 'SIGNED_OUT') {
+        if (event === 'SIGNED_OUT') {
           showSuccess('You have been signed out.');
         } else if (event === 'USER_UPDATED') {
           showSuccess('Your profile has been updated.');

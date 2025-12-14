@@ -124,6 +124,16 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   // Messages page handles its own layout/scrolling
   const isMessagesPage = location.pathname.startsWith("/messages");
 
+  // Helper to determine page title
+  const getPageTitle = (pathname: string) => {
+    if (pathname === "/") return "Dashboard";
+    if (pathname.startsWith("/todos")) return "My Todos";
+    if (pathname.startsWith("/messages")) return "Messages";
+    if (pathname === "/profile") return "Profile";
+    if (pathname === "/settings") return "Settings";
+    return "Mazda Todo";
+  };
+
   return (
     <div className="h-screen w-full bg-background flex overflow-hidden">
       {/* Desktop Sidebar - Fixed Width */}
@@ -135,18 +145,24 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       <div className="flex-1 flex flex-col h-full relative min-w-0">
         
         {/* Header Bar - Fixed Height */}
-        <header className="flex-none sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-4 h-16 flex items-center justify-end gap-2">
-            <NotificationBell />
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-              className="rounded-full"
-            >
-              <Sun className="h-[1.2rem] w-[1.2rem] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-              <Moon className="absolute h-[1.2rem] w-[1.2rem] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
-              <span className="sr-only">Toggle theme</span>
-            </Button>
+        <header className="flex-none sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-4 h-16 flex items-center justify-between gap-2">
+            <div className="font-semibold text-lg md:hidden">
+              {getPageTitle(location.pathname)}
+            </div>
+            
+            <div className="flex items-center gap-2 ml-auto">
+              <NotificationBell />
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+                className="rounded-full"
+              >
+                <Sun className="h-[1.2rem] w-[1.2rem] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+                <Moon className="absolute h-[1.2rem] w-[1.2rem] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+                <span className="sr-only">Toggle theme</span>
+              </Button>
+            </div>
         </header>
 
         {/* Main Body - Scrollable Area */}

@@ -24,10 +24,13 @@ import {
   Calendar as CalendarIcon,
   Edit,
   Loader2,
+  Tag,
+  X
 } from "lucide-react";
 import { format } from "date-fns";
 import { showSuccess, showError } from "@/utils/toast";
 import { cn } from "@/lib/utils";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 interface Todo {
   id: string;
@@ -43,6 +46,8 @@ const Todos = () => {
   const { user } = useSession();
   const [todos, setTodos] = useState<Todo[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // Filter States
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
@@ -115,112 +120,179 @@ const Todos = () => {
     return matchesSearch && matchesStatus && matchesCategory;
   });
 
+  const activeFiltersCount = (search ? 1 : 0) + (statusFilter !== "all" ? 1 : 0) + (categoryFilter !== "all" ? 1 : 0);
+
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <h2 className="text-3xl font-bold tracking-tight">My Todos</h2>
-        <Button onClick={() => navigate("/todos/new")}>
-          <Plus className="mr-2 h-4 w-4" /> Create New
-        </Button>
+    <div className="h-full flex flex-col space-y-4">
+      {/* Fixed Header Section */}
+      <div className="flex-none space-y-4 pb-2 border-b">
+        <div className="flex justify-between items-center">
+          <h2 className="text-3xl font-bold tracking-tight">My Todos</h2>
+          <Button onClick={() => navigate("/todos/new")} size="sm">
+            <Plus className="mr-2 h-4 w-4" /> New
+          </Button>
+        </div>
+
+        <div className="flex items-center gap-2">
+          {/* Search Popover */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant={search ? "secondary" : "outline"} size="icon" className="h-9 w-9 shrink-0">
+                <Search className="h-4 w-4" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-60 p-2">
+               <div className="space-y-2">
+                 <h4 className="font-medium leading-none text-sm">Search</h4>
+                 <Input
+                    placeholder="Search todos..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    autoFocus
+                    className="h-8"
+                  />
+               </div>
+            </PopoverContent>
+          </Popover>
+
+          {/* Status Filter Popover */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant={statusFilter !== "all" ? "secondary" : "outline"} size="icon" className="h-9 w-9 shrink-0">
+                <Filter className="h-4 w-4" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-48 p-2">
+              <div className="space-y-2">
+                 <h4 className="font-medium leading-none text-sm">Status</h4>
+                 <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="h-8">
+                    <SelectValue placeholder="Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Status</SelectItem>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="completed">Completed</SelectItem>
+                  </SelectContent>
+                </Select>
+               </div>
+            </PopoverContent>
+          </Popover>
+
+           {/* Category Filter Popover */}
+           <Popover>
+            <PopoverTrigger asChild>
+              <Button variant={categoryFilter !== "all" ? "secondary" : "outline"} size="icon" className="h-9 w-9 shrink-0">
+                <Tag className="h-4 w-4" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-48 p-2">
+               <div className="space-y-2">
+                 <h4 className="font-medium leading-none text-sm">Category</h4>
+                 <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                  <SelectTrigger className="h-8">
+                    <SelectValue placeholder="Category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Categories</SelectItem>
+                    <SelectItem value="Personal">Personal</SelectItem>
+                    <SelectItem value="Professional">Professional</SelectItem>
+                  </SelectContent>
+                </Select>
+               </div>
+            </PopoverContent>
+          </Popover>
+
+          {/* Active Filter Chips */}
+          <div className="flex-1 overflow-x-auto flex gap-2 no-scrollbar">
+             {search && (
+               <Badge variant="secondary" className="gap-1 pr-1">
+                 "{search}" <X className="h-3 w-3 cursor-pointer" onClick={() => setSearch("")} />
+               </Badge>
+             )}
+             {statusFilter !== "all" && (
+               <Badge variant="secondary" className="gap-1 pr-1">
+                 {statusFilter === 'active' ? 'Active' : 'Completed'} 
+                 <X className="h-3 w-3 cursor-pointer" onClick={() => setStatusFilter("all")} />
+               </Badge>
+             )}
+              {categoryFilter !== "all" && (
+               <Badge variant="secondary" className="gap-1 pr-1">
+                 {categoryFilter} <X className="h-3 w-3 cursor-pointer" onClick={() => setCategoryFilter("all")} />
+               </Badge>
+             )}
+          </div>
+        </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-4">
-        <div className="md:col-span-2 relative">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search todos..."
-            className="pl-8"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger>
-            <Filter className="mr-2 h-4 w-4 text-muted-foreground" />
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="active">Active</SelectItem>
-            <SelectItem value="completed">Completed</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-          <SelectTrigger>
-            <SelectValue placeholder="Category" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Categories</SelectItem>
-            <SelectItem value="Personal">Personal</SelectItem>
-            <SelectItem value="Professional">Professional</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      {loading ? (
-        <div className="flex justify-center p-12">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </div>
-      ) : filteredTodos.length === 0 ? (
-        <div className="text-center py-12 text-muted-foreground">
-          No todos found matching your filters.
-        </div>
-      ) : (
-        <div className="grid gap-4">
-          {filteredTodos.map((todo) => (
-            <Card
-              key={todo.id}
-              className="hover:shadow-md transition-shadow duration-200"
-            >
-              <CardContent className="p-4 flex items-center gap-4">
-                <Checkbox
-                  checked={todo.completed}
-                  onCheckedChange={() => toggleTodo(todo.id, todo.completed)}
-                  className="h-5 w-5"
-                />
-                <div className="flex-1 min-w-0">
-                  <p
-                    className={cn(
-                      "font-medium truncate",
-                      todo.completed && "line-through text-muted-foreground"
-                    )}
-                  >
-                    {todo.text}
-                  </p>
-                  <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground">
-                    <Badge variant="secondary" className="text-xs">
-                      {todo.category}
-                    </Badge>
-                    {todo.due_date && (
-                      <span className="flex items-center gap-1 text-xs">
-                        <CalendarIcon className="h-3 w-3" />
-                        {format(new Date(todo.due_date), "PPP p")}
-                      </span>
-                    )}
+      {/* Scrollable List Area */}
+      <div className="flex-1 overflow-y-auto min-h-0 pr-1">
+        {loading ? (
+          <div className="flex justify-center p-12">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
+        ) : filteredTodos.length === 0 ? (
+          <div className="text-center py-12 text-muted-foreground">
+            {activeFiltersCount > 0 ? "No todos found matching your filters." : "You have no todos yet."}
+          </div>
+        ) : (
+          <div className="grid gap-3 pb-20 md:pb-4">
+            {filteredTodos.map((todo) => (
+              <Card
+                key={todo.id}
+                className="hover:shadow-md transition-shadow duration-200"
+              >
+                <CardContent className="p-4 flex items-center gap-4">
+                  <Checkbox
+                    checked={todo.completed}
+                    onCheckedChange={() => toggleTodo(todo.id, todo.completed)}
+                    className="h-5 w-5"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p
+                      className={cn(
+                        "font-medium truncate",
+                        todo.completed && "line-through text-muted-foreground"
+                      )}
+                    >
+                      {todo.text}
+                    </p>
+                    <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground">
+                      <Badge variant="secondary" className="text-[10px] px-1.5 h-5">
+                        {todo.category}
+                      </Badge>
+                      {todo.due_date && (
+                        <span className="flex items-center gap-1 text-[10px]">
+                          <CalendarIcon className="h-3 w-3" />
+                          {format(new Date(todo.due_date), "MMM d, h:mm a")}
+                        </span>
+                      )}
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => navigate(`/todos/${todo.id}`)}
-                  >
-                    <Edit className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                    onClick={() => deleteTodo(todo.id)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() => navigate(`/todos/${todo.id}`)}
+                    >
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                      onClick={() => deleteTodo(todo.id)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 };
