@@ -47,12 +47,12 @@ export const NavContent = ({ setIsMobileOpen }: { setIsMobileOpen?: (open: boole
 
   return (
     <div className="flex flex-col h-full py-4 bg-card">
-      <div className="px-6 mb-8">
+      <div className="px-6 mb-6 flex-none">
         <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-purple-600 bg-clip-text text-transparent">
           Mazda Todo
         </h1>
       </div>
-      <div className="flex-1 px-4 space-y-2">
+      <div className="flex-1 px-4 space-y-2 overflow-y-auto no-scrollbar">
         <Link to="/">
           <Button
             variant={location.pathname === "/" ? "secondary" : "ghost"}
@@ -114,10 +114,10 @@ export const NavContent = ({ setIsMobileOpen }: { setIsMobileOpen?: (open: boole
           </Button>
         </Link>
       </div>
-      <div className="px-4 mt-auto">
+      <div className="px-4 mt-auto pt-4 flex-none border-t border-border/50 mx-4 -mx-4">
         <Button
-          variant="outline"
-          className="w-full justify-start text-destructive hover:text-destructive"
+          variant="ghost"
+          className="w-full justify-start text-destructive hover:text-destructive hover:bg-destructive/10"
           onClick={handleLogout}
         >
           <LogOut className="mr-2 h-4 w-4" />
@@ -152,11 +152,11 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   };
 
   return (
-    <div className="h-screen w-full flex overflow-hidden">
+    <div className="fixed inset-0 w-full flex overflow-hidden bg-background">
       {/* Desktop Sidebar - Fixed Width */}
-      <div className="hidden md:block w-64 border-r bg-card h-full flex-none">
+      <aside className="hidden md:block w-64 border-r bg-card h-full flex-none z-30">
         <NavContent />
-      </div>
+      </aside>
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col h-full relative min-w-0">
@@ -182,12 +182,14 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             </div>
         </header>
 
-        {/* Profile Completion Banner */}
-        <ProfileCompletionBanner />
+        {/* Profile Completion Banner - Fixed below header */}
+        <div className="flex-none z-30">
+          <ProfileCompletionBanner />
+        </div>
 
         {/* Main Body - Scrollable Area */}
         <main className={cn(
-          "flex-1 relative min-h-0", // min-h-0 is crucial for nested flex scrolling
+          "flex-1 relative min-h-0 w-full",
           isFixedLayout ? "overflow-hidden flex flex-col" : "overflow-y-auto"
         )}>
           {isFixedLayout ? (
