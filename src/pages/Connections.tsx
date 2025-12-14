@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { showSuccess, showError } from "@/utils/toast";
 import { Loader2, Search, UserPlus, UserCheck, UserX, UserMinus } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import ConfirmDialog from "@/components/ConfirmDialog";
 
 interface Profile {
   id: string;
@@ -44,6 +45,9 @@ const Connections = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<Profile[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
+
+  // Dialog state
+  const [deleteId, setDeleteId] = useState<string | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -182,6 +186,17 @@ const Connections = () => {
     }
   };
 
+  const handleRemoveClick = (id: string) => {
+    setDeleteId(id);
+  };
+
+  const confirmRemove = async () => {
+    if (deleteId) {
+      await removeConnection(deleteId);
+      setDeleteId(null);
+    }
+  };
+
   const removeConnection = async (connectionId: string) => {
     try {
       const { error } = await supabase
@@ -191,6 +206,7 @@ const Connections = () => {
 
       if (error) throw error;
       fetchConnections();
+      showSuccess("Connection removed");
     } catch (err: any) {
       showError("Failed to remove connection");
     }
@@ -307,7 +323,7 @@ const Connections = () => {
                           <Button size="icon" variant="ghost" className="h-8 w-8 text-blue-500" onClick={() => navigate(`/messages/${conn.profile.id}`)}>
                             <UserCheck className="h-4 w-4" />
                           </Button>
-                          <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" onClick={() => removeConnection(conn.id)}>
+                          <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" onClick={() => handleRemoveClick(conn.id)}>
                             <UserMinus className="h-4 w-4" />
                           </Button>
                         </div>
@@ -365,7 +381,7 @@ const Connections = () => {
                             <p className="text-xs text-muted-foreground">@{conn.profile.username}</p>
                           </div>
                         </div>
-                        <Button size="sm" variant="ghost" onClick={() => removeConnection(conn.id)}>Cancel</Button>
+                        <Button size="sm" variant="ghost" onClick={() => handleRemoveClick(conn.id)}>Cancel</Button>
                       </CardContent>
                     </Card>
                   ))}
@@ -375,6 +391,16 @@ const Connections = () => {
           </Tabs>
         </div>
       </div>
+      
+      <ConfirmDialog
+        open={!!deleteId}
+        onOpenChange={(open) => !open && setDeleteId(null)}
+        title="Remove Connection"
+        description="Are you sure you want to remove this connection? You will have to request to connect again."
+        onConfirm={confirmRemove}
+        confirmText="Remove"
+        variant="destructive"
+      />
     </div>
   );
 };
