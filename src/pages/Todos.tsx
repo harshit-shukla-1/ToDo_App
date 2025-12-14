@@ -32,6 +32,7 @@ import { showSuccess, showError } from "@/utils/toast";
 import { cn } from "@/lib/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useIsMobile } from "@/hooks/use-mobile";
+import ConfirmDialog from "@/components/ConfirmDialog";
 
 interface Todo {
   id: string;
@@ -54,6 +55,9 @@ const Todos = () => {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
+
+  // Dialog State
+  const [deleteId, setDeleteId] = useState<string | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -95,15 +99,21 @@ const Todos = () => {
     }
   };
 
-  const deleteTodo = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this todo?")) return;
+  const handleDeleteClick = (id: string) => {
+    setDeleteId(id);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteId) return;
     try {
-      const { error } = await supabase.from("todos").delete().eq("id", id);
+      const { error } = await supabase.from("todos").delete().eq("id", deleteId);
       if (error) throw error;
-      setTodos((prev) => prev.filter((t) => t.id !== id));
+      setTodos((prev) => prev.filter((t) => t.id !== deleteId));
       showSuccess("Todo deleted");
     } catch (error: any) {
       showError("Error deleting todo: " + error.message);
+    } finally {
+      setDeleteId(null);
     }
   };
 
@@ -333,7 +343,7 @@ const Todos = () => {
                       variant="ghost"
                       size="icon"
                       className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                      onClick={() => deleteTodo(todo.id)}
+                      onClick={() => handleDeleteClick(todo.id)}
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
@@ -344,6 +354,16 @@ const Todos = () => {
           </div>
         )}
       </div>
+      
+      <ConfirmDialog
+        open={!!deleteId}
+        onOpenChange={(open) => !open && setDeleteId(null)}
+        title="Delete Todo"
+        description="Are you sure you want to delete this todo? This action cannot be undone."
+        onConfirm={confirmDelete}
+        confirmText="Delete"
+        variant="destructive"
+      />
     </div>
   );
 };

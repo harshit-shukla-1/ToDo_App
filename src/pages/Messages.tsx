@@ -32,6 +32,7 @@ import { showSuccess, showError } from "@/utils/toast";
 import { cn } from "@/lib/utils";
 import { useNavigate, useParams, Link } from "react-router-dom";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import ConfirmDialog from "@/components/ConfirmDialog";
 
 interface Message {
   id: string;
@@ -75,6 +76,9 @@ const Messages = () => {
   
   // Editing State
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  
+  // Deleting State
+  const [deleteMessageId, setDeleteMessageId] = useState<string | null>(null);
 
   // Fetch current user profile to check for username
   useEffect(() => {
@@ -287,15 +291,20 @@ const Messages = () => {
     }
   };
 
-  const deleteMessage = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this message?")) return;
+  const handleDeleteClick = (id: string) => {
+    setDeleteMessageId(id);
+  };
+
+  const confirmDeleteMessage = async () => {
+    if (!deleteMessageId) return;
     
-    const { error } = await supabase.from('messages').delete().eq('id', id);
+    const { error } = await supabase.from('messages').delete().eq('id', deleteMessageId);
     if (error) {
       showError("Failed to delete message");
       return;
     }
-    setMessages(prev => prev.filter(m => m.id !== id));
+    setMessages(prev => prev.filter(m => m.id !== deleteMessageId));
+    setDeleteMessageId(null);
   };
 
   const startEditing = (msg: Message) => {
@@ -534,7 +543,7 @@ const Messages = () => {
                                     <DropdownMenuItem onClick={() => startEditing(msg)}>
                                       <Pencil className="mr-2 h-3 w-3" /> Edit
                                     </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => deleteMessage(msg.id)} className="text-destructive">
+                                    <DropdownMenuItem onClick={() => handleDeleteClick(msg.id)} className="text-destructive">
                                       <Trash2 className="mr-2 h-3 w-3" /> Delete
                                     </DropdownMenuItem>
                                   </DropdownMenuContent>
@@ -592,6 +601,16 @@ const Messages = () => {
           )}
         </div>
       </div>
+      
+      <ConfirmDialog
+        open={!!deleteMessageId}
+        onOpenChange={(open) => !open && setDeleteMessageId(null)}
+        title="Delete Message"
+        description="Are you sure you want to delete this message? This action cannot be undone."
+        onConfirm={confirmDeleteMessage}
+        confirmText="Delete"
+        variant="destructive"
+      />
     </div>
   );
 };

@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Loader2, User as UserIcon, Calendar, ArrowLeft, Ruler, Weight, Mail, Home, UserPlus, Check, UserMinus } from "lucide-react";
 import { useSession } from "@/integrations/supabase/auth";
 import { showSuccess, showError } from "@/utils/toast";
+import ConfirmDialog from "@/components/ConfirmDialog";
 
 interface PublicSettings {
   show_email: boolean;
@@ -34,6 +35,9 @@ const PublicProfile = () => {
   const [connectionStatus, setConnectionStatus] = useState<'none' | 'pending_sent' | 'pending_received' | 'accepted'>('none');
   const [connectionId, setConnectionId] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
+  
+  // Dialog State
+  const [disconnectDialogOpen, setDisconnectDialogOpen] = useState(false);
 
   useEffect(() => {
     if (username) {
@@ -114,14 +118,23 @@ const PublicProfile = () => {
 
   const handleConnect = async () => {
     if (!user) {
-      // Redirect to login with return URL
-      // We encode the current pathname to return here after login
       navigate(`/login?returnUrl=${encodeURIComponent(location.pathname)}`);
       return;
     }
 
     if (user.id === profile.id) return;
 
+    if (connectionStatus === 'accepted' || connectionStatus === 'pending_sent') {
+      setDisconnectDialogOpen(true);
+      return;
+    }
+
+    executeAction();
+  };
+
+  const executeAction = async () => {
+    if (!user || !profile) return;
+    
     setActionLoading(true);
     try {
       if (connectionStatus === 'none') {
@@ -148,10 +161,6 @@ const PublicProfile = () => {
       }
       else if (connectionStatus === 'accepted' || connectionStatus === 'pending_sent') {
         // Remove/Cancel
-        if (!confirm("Are you sure you want to remove this connection?")) {
-           setActionLoading(false);
-           return;
-        }
         if (!connectionId) return;
         const { error } = await supabase.from('connections')
           .delete()
@@ -359,6 +368,19 @@ const PublicProfile = () => {
           </div>
         </div>
       </div>
+      
+      <ConfirmDialog
+        open={disconnectDialogOpen}
+        onOpenChange={setDisconnectDialogOpen}
+        title="Remove Connection"
+        description="Are you sure you want to remove this connection? You will need to request to connect again."
+        onConfirm={() => {
+          setDisconnectDialogOpen(false);
+          executeAction();
+        }}
+        confirmText="Remove"
+        variant="destructive"
+      />
     </div>
   );
 };
