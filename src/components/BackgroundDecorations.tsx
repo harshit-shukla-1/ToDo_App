@@ -114,6 +114,20 @@ const ChristmasDecorations = () => {
     <div className="fixed inset-0 pointer-events-none overflow-hidden z-[-1]">
       <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-background/50 z-[-1]" />
       
+      {/* Decorated Wallpaper Pattern */}
+      <div 
+        className="absolute inset-0 z-[-2] opacity-10"
+        style={{
+          backgroundImage: `
+            linear-gradient(45deg, rgba(255, 0, 0, 0.1) 25%, transparent 25%, transparent 50%, rgba(255, 0, 0, 0.1) 50%, rgba(255, 0, 0, 0.1) 75%, transparent 75%, transparent),
+            linear-gradient(-45deg, rgba(0, 255, 0, 0.1) 25%, transparent 25%, transparent 50%, rgba(0, 255, 0, 0.1) 50%, rgba(0, 255, 0, 0.1) 75%, transparent 75%, transparent),
+            radial-gradient(circle at 50% 50%, rgba(255, 215, 0, 0.15) 2px, transparent 2.5px)
+          `,
+          backgroundSize: '40px 40px, 40px 40px, 60px 60px',
+          backgroundPosition: '0 0, 0 0, 30px 30px'
+        }}
+      />
+      
       {/* Twinkling Stars */}
       {stars.map((star) => (
         <motion.div
