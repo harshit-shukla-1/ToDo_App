@@ -28,6 +28,7 @@ import {
 import { format } from "date-fns";
 import { showSuccess, showError } from "@/utils/toast";
 import { cn } from "@/lib/utils";
+import { useNavigate, useParams } from "react-router-dom";
 
 interface Message {
   id: string;
@@ -48,13 +49,20 @@ interface Profile {
 
 const Messages = () => {
   const { user } = useSession();
+  const navigate = useNavigate();
+  const { id: routeId } = useParams();
+  
+  // Use URL param as the selected user ID
+  const selectedUserId = routeId || null;
+
   const [conversations, setConversations] = useState<Map<string, { profile: Profile, lastMessage: Message }>>(new Map());
-  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState("");
   const [loading, setLoading] = useState(true);
   const [searchResults, setSearchResults] = useState<Profile[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [activeProfile, setActiveProfile] = useState<Profile | null>(null); // To store profile if not in conversations map
+  
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
   // Editing State
@@ -94,19 +102,39 @@ const Messages = () => {
     }
   }, [user, selectedUserId]);
 
-  // Fetch specific conversation messages
+  // Fetch specific conversation messages and profile details if needed
   useEffect(() => {
     if (selectedUserId && user) {
       fetchMessages(selectedUserId);
       setEditingMessageId(null);
       setNewMessage("");
+
+      // Ensure we have the profile data for the header
+      const conversation = conversations.get(selectedUserId);
+      if (conversation?.profile) {
+        setActiveProfile(conversation.profile);
+      } else {
+        // Fallback fetch if navigating directly or starting new chat
+        fetchProfile(selectedUserId);
+      }
+    } else {
+      setActiveProfile(null);
     }
-  }, [selectedUserId, user]);
+  }, [selectedUserId, user, conversations]);
 
   // Auto-scroll to bottom of chat
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, selectedUserId]);
+
+  const fetchProfile = async (id: string) => {
+    const { data } = await supabase
+      .from('profiles')
+      .select('id, username, first_name, last_name, avatar_url')
+      .eq('id', id)
+      .single();
+    if (data) setActiveProfile(data as Profile);
+  };
 
   const fetchConversations = async () => {
     try {
@@ -256,24 +284,11 @@ const Messages = () => {
     setSearchResults(data || []);
   };
 
-  const startConversation = (profile: Profile) => {
-    setSelectedUserId(profile.id);
+  const selectConversation = (id: string) => {
     setSearchQuery("");
     setSearchResults([]);
-    
-    if (!conversations.has(profile.id)) {
-      setConversations(new Map(conversations).set(profile.id, { 
-        profile, 
-        lastMessage: { content: "Start a conversation", created_at: new Date().toISOString() } as Message 
-      }));
-    }
+    navigate(`/messages/${id}`);
   };
-
-  const getOtherProfile = () => {
-    return conversations.get(selectedUserId!)?.profile || searchResults.find(p => p.id === selectedUserId);
-  };
-
-  const otherProfile = selectedUserId ? getOtherProfile() : null;
 
   return (
     <div className="flex flex-col h-full w-full md:p-4">
@@ -284,7 +299,7 @@ const Messages = () => {
           "w-full md:w-1/3 flex-col border-r md:border bg-card md:rounded-lg overflow-hidden",
           selectedUserId ? "hidden md:flex" : "flex"
         )}>
-          {/* ... Sidebar Content (Unchanged functionality) ... */}
+          {/* Sidebar Header */}
           <div className="p-3 border-b flex-none">
             <h2 className="text-lg font-semibold mb-2 px-1 hidden md:block">Messages</h2>
             <div className="relative">
@@ -303,7 +318,7 @@ const Messages = () => {
                     <div 
                       key={p.id} 
                       className="flex items-center gap-2 p-2 hover:bg-muted rounded-md cursor-pointer"
-                      onClick={() => startConversation(p)}
+                      onClick={() => selectConversation(p.id)}
                     >
                       <Avatar className="h-8 w-8">
                         <AvatarImage src={p.avatar_url} />
@@ -330,7 +345,7 @@ const Messages = () => {
                 Array.from(conversations.entries()).map(([id, data]) => (
                   <button
                     key={id}
-                    onClick={() => setSelectedUserId(id)}
+                    onClick={() => selectConversation(id)}
                     className={cn(
                       "flex items-center gap-3 p-4 transition-colors text-left border-b last:border-0",
                       selectedUserId === id ? "bg-muted" : "hover:bg-muted/50",
@@ -365,7 +380,7 @@ const Messages = () => {
           </ScrollArea>
         </div>
 
-        {/* Chat Area - Full screen layout fixed */}
+        {/* Chat Area */}
         <div className={cn(
           "w-full md:w-2/3 flex-col bg-card md:border md:rounded-lg overflow-hidden h-full",
           !selectedUserId ? "hidden md:flex" : "flex"
@@ -377,24 +392,24 @@ const Messages = () => {
             </div>
           ) : (
             <>
-              {/* FIXED Header - flex-none */}
+              {/* Header */}
               <div className="p-3 border-b flex items-center gap-3 bg-card z-10 shadow-sm flex-none">
-                <Button variant="ghost" size="icon" className="md:hidden -ml-2" onClick={() => setSelectedUserId(null)}>
+                <Button variant="ghost" size="icon" className="md:hidden -ml-2" onClick={() => navigate('/messages')}>
                   <ArrowLeft className="h-5 w-5" />
                 </Button>
                 <Avatar className="h-8 w-8">
-                  <AvatarImage src={otherProfile?.avatar_url} />
+                  <AvatarImage src={activeProfile?.avatar_url} />
                   <AvatarFallback><User className="h-4 w-4" /></AvatarFallback>
                 </Avatar>
                 <div className="flex flex-col">
                   <span className="font-medium text-sm">
-                    {otherProfile?.first_name || 'User'} 
+                    {activeProfile?.first_name || 'User'} 
                   </span>
-                  {otherProfile?.username && <span className="text-[10px] text-muted-foreground">@{otherProfile.username}</span>}
+                  {activeProfile?.username && <span className="text-[10px] text-muted-foreground">@{activeProfile.username}</span>}
                 </div>
               </div>
 
-              {/* SCROLLABLE Messages Area - flex-1 overflow-y-auto */}
+              {/* Messages List */}
               <div className="flex-1 overflow-y-auto bg-slate-50 dark:bg-black/20 p-4 space-y-4">
                 {messages.length === 0 ? (
                   <p className="text-center text-xs text-muted-foreground mt-10">No messages yet. Say hello!</p>
@@ -444,7 +459,7 @@ const Messages = () => {
                 <div ref={messagesEndRef} />
               </div>
 
-              {/* FIXED Footer - flex-none */}
+              {/* Input Area */}
               <div className="p-3 bg-card border-t flex flex-col gap-2 flex-none">
                  {editingMessageId && (
                    <div className="flex items-center justify-between text-xs text-muted-foreground bg-muted/30 p-2 rounded">
