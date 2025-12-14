@@ -106,14 +106,16 @@ const Connections = () => {
   };
 
   const handleSearch = async () => {
-    if (searchQuery.length < 3) return;
+    const trimmedQuery = searchQuery.trim();
+    if (trimmedQuery.length < 3) return;
+    
     setSearchLoading(true);
     try {
       // Find users matching username/name who are NOT the current user
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
-        .or(`username.ilike.%${searchQuery}%,first_name.ilike.%${searchQuery}%,last_name.ilike.%${searchQuery}%`)
+        .or(`username.ilike.%${trimmedQuery}%,first_name.ilike.%${trimmedQuery}%,last_name.ilike.%${trimmedQuery}%`)
         .neq('id', user?.id)
         .eq('is_public', true) // Only show public profiles in search
         .limit(10);
