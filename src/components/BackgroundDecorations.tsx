@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useTheme } from './ThemeProvider';
-import { Star, Snowflake, Gift, TreePine, Circle } from 'lucide-react';
+import { Star, Snowflake, TreePine, Circle } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 
 const BackgroundDecorations = () => {
@@ -111,28 +111,31 @@ const ChristmasDecorations = () => {
   }));
 
   return (
-    <div className="fixed inset-0 pointer-events-none overflow-hidden z-[-1]">
-      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-background/50 z-[-1]" />
+    <div className="fixed inset-0 pointer-events-none overflow-hidden z-[-1] bg-[#0f172a] text-white">
+      {/* 
+        Using a more robust background implementation that forces the dark blue/slate color 
+        and layers the patterns on top, ensuring it covers everything including light mode backgrounds
+      */}
       
-      {/* Decorated Wallpaper Pattern */}
+      {/* Wallpaper Pattern */}
       <div 
-        className="absolute inset-0 z-[-2] opacity-10"
+        className="absolute inset-0 z-0 opacity-20"
         style={{
           backgroundImage: `
-            linear-gradient(45deg, rgba(255, 0, 0, 0.1) 25%, transparent 25%, transparent 50%, rgba(255, 0, 0, 0.1) 50%, rgba(255, 0, 0, 0.1) 75%, transparent 75%, transparent),
-            linear-gradient(-45deg, rgba(0, 255, 0, 0.1) 25%, transparent 25%, transparent 50%, rgba(0, 255, 0, 0.1) 50%, rgba(0, 255, 0, 0.1) 75%, transparent 75%, transparent),
-            radial-gradient(circle at 50% 50%, rgba(255, 215, 0, 0.15) 2px, transparent 2.5px)
+            linear-gradient(45deg, #c0392b 25%, transparent 25%, transparent 50%, #c0392b 50%, #c0392b 75%, transparent 75%, transparent),
+            linear-gradient(-45deg, #27ae60 25%, transparent 25%, transparent 50%, #27ae60 50%, #27ae60 75%, transparent 75%, transparent)
           `,
-          backgroundSize: '40px 40px, 40px 40px, 60px 60px',
-          backgroundPosition: '0 0, 0 0, 30px 30px'
+          backgroundSize: '60px 60px',
+          backgroundPosition: '0 0, 30px 30px'
         }}
       />
+      <div className="absolute inset-0 z-0 opacity-10 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-yellow-500/20 via-transparent to-transparent" />
       
       {/* Twinkling Stars */}
       {stars.map((star) => (
         <motion.div
           key={`star-${star.id}`}
-          className="absolute text-yellow-200/40"
+          className="absolute text-yellow-200/60 z-10"
           initial={{ opacity: 0.2, scale: star.size }}
           animate={{ opacity: [0.2, 0.8, 0.2], scale: [star.size, star.size * 1.2, star.size] }}
           transition={{ duration: 3, repeat: Infinity, delay: star.delay }}
@@ -146,7 +149,7 @@ const ChristmasDecorations = () => {
       {snowflakes.map((flake) => (
         <motion.div
           key={`snow-${flake.id}`}
-          className="absolute text-white/20"
+          className="absolute text-white/40 z-10"
           initial={{ y: -20, x: `${flake.left}%`, rotate: 0 }}
           animate={{ y: '100vh', rotate: 360 }}
           transition={{ duration: flake.duration, repeat: Infinity, ease: "linear", delay: flake.delay }}
@@ -156,18 +159,18 @@ const ChristmasDecorations = () => {
       ))}
 
       {/* Floating Elements (Bottom) */}
-      <div className="absolute bottom-0 w-full flex justify-between px-10 opacity-20 text-white">
+      <div className="absolute bottom-0 w-full flex justify-between px-10 opacity-40 text-white z-0">
         <motion.div
             animate={{ y: [0, -10, 0] }}
             transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
         >
-            <TreePine size={120} className="text-green-800" fill="currentColor" />
+            <TreePine size={160} className="text-green-800" fill="currentColor" />
         </motion.div>
         <motion.div
              animate={{ y: [0, -8, 0] }}
              transition={{ duration: 5, repeat: Infinity, ease: "easeInOut", delay: 2 }}
         >
-            <TreePine size={90} className="text-green-900" fill="currentColor" />
+            <TreePine size={120} className="text-green-900" fill="currentColor" />
         </motion.div>
       </div>
     </div>

@@ -133,16 +133,16 @@ const App = () => (
     client={queryClient} 
     persistOptions={{ persister }}
   >
-    <ThemeProvider defaultMode="system" defaultColor="default">
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <SessionContextProvider>
+    <SessionContextProvider>
+      <ThemeProvider defaultMode="system" defaultColor="default">
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
           <NotificationManager />
           <AppContent />
-        </SessionContextProvider>
-      </TooltipProvider>
-    </ThemeProvider>
+        </TooltipProvider>
+      </ThemeProvider>
+    </SessionContextProvider>
   </PersistQueryClientProvider>
 );
 

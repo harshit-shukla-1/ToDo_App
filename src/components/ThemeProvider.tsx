@@ -1,6 +1,8 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useState } from "react";
+import { useSession } from "@/integrations/supabase/auth";
+import { supabase } from "@/integrations/supabase/client";
 
 export type ThemeMode = "dark" | "light" | "system";
 export type ThemeColor = "default" | "ocean" | "forest" | "rose" | "christmas";
@@ -35,6 +37,8 @@ export function ThemeProvider({
   storageKey = "mazda-todo-ui-theme",
 }: ThemeProviderProps) {
   
+  const { user } = useSession(); // Now available because App.tsx wraps this
+  
   const [mode, setModeState] = useState<ThemeMode>(
     () => (localStorage.getItem(`${storageKey}-mode`) as ThemeMode) || defaultMode
   );
@@ -42,6 +46,36 @@ export function ThemeProvider({
   const [color, setColorState] = useState<ThemeColor>(
     () => (localStorage.getItem(`${storageKey}-color`) as ThemeColor) || defaultColor
   );
+
+  // Sync with DB on load/login
+  useEffect(() => {
+    if (user) {
+      const fetchTheme = async () => {
+        try {
+          const { data, error } = await supabase
+            .from('profiles')
+            .select('preferences')
+            .eq('id', user.id)
+            .single();
+            
+          if (data?.preferences) {
+            const prefs = data.preferences as any;
+            if (prefs.theme_mode) {
+              setModeState(prefs.theme_mode);
+              localStorage.setItem(`${storageKey}-mode`, prefs.theme_mode);
+            }
+            if (prefs.theme_color) {
+              setColorState(prefs.theme_color);
+              localStorage.setItem(`${storageKey}-color`, prefs.theme_color);
+            }
+          }
+        } catch (e) {
+          console.error("Failed to fetch theme preferences", e);
+        }
+      };
+      fetchTheme();
+    }
+  }, [user, storageKey]);
 
   useEffect(() => {
     const root = window.document.documentElement;
@@ -60,21 +94,47 @@ export function ThemeProvider({
     root.classList.add(systemMode);
 
     // Apply Color
-    // Special case: Christmas might override mode in CSS, but we add the class regardless
     if (color !== "default") {
       root.classList.add(`theme-${color}`);
     }
 
   }, [mode, color]);
 
-  const setMode = (mode: ThemeMode) => {
-    localStorage.setItem(`${storageKey}-mode`, mode);
-    setModeState(mode);
+  const updateDb = async (newMode: ThemeMode, newColor: ThemeColor) => {
+    if (!user) return;
+    
+    // We do this optimistically and don't await/block UI
+    try {
+      const { data } = await supabase
+        .from('profiles')
+        .select('preferences')
+        .eq('id', user.id)
+        .single();
+        
+      const currentPrefs = (data?.preferences as any) || {};
+      
+      await supabase.from('profiles').update({
+        preferences: {
+          ...currentPrefs,
+          theme_mode: newMode,
+          theme_color: newColor
+        }
+      }).eq('id', user.id);
+    } catch (e) {
+      console.error("Failed to save theme preferences", e);
+    }
   };
 
-  const setColor = (color: ThemeColor) => {
-    localStorage.setItem(`${storageKey}-color`, color);
-    setColorState(color);
+  const setMode = (newMode: ThemeMode) => {
+    localStorage.setItem(`${storageKey}-mode`, newMode);
+    setModeState(newMode);
+    updateDb(newMode, color);
+  };
+
+  const setColor = (newColor: ThemeColor) => {
+    localStorage.setItem(`${storageKey}-color`, newColor);
+    setColorState(newColor);
+    updateDb(mode, newColor);
   };
 
   return (
