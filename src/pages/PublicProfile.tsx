@@ -7,7 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Loader2, User as UserIcon, Calendar, ArrowLeft, Ruler, Weight, Mail } from "lucide-react";
+import { Loader2, User as UserIcon, Calendar, ArrowLeft, Ruler, Weight, Mail, Home } from "lucide-react";
 
 interface PublicSettings {
   show_email: boolean;
@@ -41,9 +41,6 @@ const PublicProfile = () => {
         cleanUsername = cleanUsername.substring(1);
       }
       
-      // We don't force lowercase here anymore for the query value, 
-      // instead we rely on ilike to handle the matching.
-
       console.log("Fetching profile for:", cleanUsername);
 
       const { data, error } = await supabase
@@ -102,7 +99,16 @@ const PublicProfile = () => {
   const hasVisibleBirthday = settings.show_birthday && profile.birthday;
 
   return (
-    <div className="min-h-screen bg-background py-10 px-4">
+    <div className="min-h-screen bg-background py-8 px-4">
+      {/* Navigation Header */}
+      <div className="max-w-3xl mx-auto mb-6">
+        <Link to="/">
+          <Button variant="ghost" className="gap-2 pl-0 hover:bg-transparent -ml-2">
+            <ArrowLeft className="h-4 w-4" /> Back to Home
+          </Button>
+        </Link>
+      </div>
+
       <div className="max-w-3xl mx-auto space-y-6">
         {/* Header / Avatar */}
         <Card className="overflow-hidden">
@@ -223,7 +229,9 @@ const PublicProfile = () => {
             
             <div className="flex justify-center">
               <Link to="/">
-                 <Button variant="ghost" size="sm">Create your own profile</Button>
+                 <Button variant="outline" className="w-full">
+                    <Home className="mr-2 h-4 w-4" /> Create your own profile
+                 </Button>
               </Link>
             </div>
           </div>
