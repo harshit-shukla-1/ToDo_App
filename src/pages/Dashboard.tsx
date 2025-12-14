@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/integrations/supabase/auth";
@@ -17,6 +17,7 @@ import {
   YAxis,
 } from "recharts";
 import { CheckCircle2, Circle, Clock, ListTodo } from "lucide-react";
+import { animate, stagger } from "motion";
 
 const Dashboard = () => {
   const { user } = useSession();
@@ -28,12 +29,24 @@ const Dashboard = () => {
     professional: 0,
   });
   const [loading, setLoading] = useState(true);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (user) {
       fetchStats();
     }
   }, [user]);
+
+  // Animation effect when loading finishes
+  useEffect(() => {
+    if (!loading && containerRef.current) {
+      animate(
+        ".dashboard-card",
+        { opacity: [0, 1], y: [20, 0] },
+        { delay: stagger(0.1), duration: 0.5, easing: "ease-out" }
+      );
+    }
+  }, [loading]);
 
   const fetchStats = async () => {
     try {
@@ -75,11 +88,11 @@ const Dashboard = () => {
   }
 
   return (
-    <div className="space-y-6">
-      <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
+    <div className="space-y-6" ref={containerRef}>
+      <h2 className="text-3xl font-bold tracking-tight dashboard-card opacity-0">Dashboard</h2>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
+        <Card className="dashboard-card opacity-0 card-hover-effect">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Todos</CardTitle>
             <ListTodo className="h-4 w-4 text-muted-foreground" />
@@ -88,7 +101,7 @@ const Dashboard = () => {
             <div className="text-2xl font-bold">{stats.total}</div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="dashboard-card opacity-0 card-hover-effect">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Completed</CardTitle>
             <CheckCircle2 className="h-4 w-4 text-green-500" />
@@ -97,7 +110,7 @@ const Dashboard = () => {
             <div className="text-2xl font-bold">{stats.completed}</div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="dashboard-card opacity-0 card-hover-effect">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Active</CardTitle>
             <Circle className="h-4 w-4 text-orange-500" />
@@ -106,7 +119,7 @@ const Dashboard = () => {
             <div className="text-2xl font-bold">{stats.active}</div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="dashboard-card opacity-0 card-hover-effect">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Productivity</CardTitle>
             <Clock className="h-4 w-4 text-blue-500" />
@@ -123,7 +136,7 @@ const Dashboard = () => {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
-        <Card className="col-span-1">
+        <Card className="col-span-1 dashboard-card opacity-0 card-hover-effect">
           <CardHeader>
             <CardTitle>Status Distribution</CardTitle>
           </CardHeader>
@@ -149,7 +162,7 @@ const Dashboard = () => {
             </ResponsiveContainer>
           </CardContent>
         </Card>
-        <Card className="col-span-1">
+        <Card className="col-span-1 dashboard-card opacity-0 card-hover-effect">
           <CardHeader>
             <CardTitle>Todos by Category</CardTitle>
           </CardHeader>

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,6 +32,7 @@ import { showSuccess, showError } from "@/utils/toast";
 import { cn } from "@/lib/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { animate, stagger } from "motion";
 
 interface Todo {
   id: string;
@@ -54,6 +55,8 @@ const Todos = () => {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
+  
+  const listRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (user) {
@@ -77,6 +80,20 @@ const Todos = () => {
       setLoading(false);
     }
   };
+
+  // Animate items when the filtered list changes
+  useEffect(() => {
+    if (listRef.current) {
+      // Small delay to let React render the DOM nodes
+      requestAnimationFrame(() => {
+        animate(
+          ".todo-card",
+          { opacity: [0, 1], x: [-10, 0] },
+          { delay: stagger(0.05), duration: 0.3 }
+        );
+      });
+    }
+  }, [todos, search, statusFilter, categoryFilter, loading]);
 
   const toggleTodo = async (id: string, currentStatus: boolean) => {
     try {
@@ -287,11 +304,11 @@ const Todos = () => {
             {activeFiltersCount > 0 ? "No todos found matching your filters." : "You have no todos yet."}
           </div>
         ) : (
-          <div className="grid gap-3 pb-20 md:pb-4">
+          <div className="grid gap-3 pb-20 md:pb-4" ref={listRef}>
             {filteredTodos.map((todo) => (
               <Card
                 key={todo.id}
-                className="hover:shadow-md transition-shadow duration-200 card-hover-effect"
+                className="hover:shadow-md transition-shadow duration-200 card-hover-effect todo-card opacity-0"
               >
                 <CardContent className="p-4 flex items-center gap-4">
                   <Checkbox
