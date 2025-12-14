@@ -17,7 +17,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 const Login: React.FC = () => {
   const { session } = useSession();
   const navigate = useNavigate();
-  const { theme, setTheme } = useTheme();
+  const { mode, setMode } = useTheme();
   
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState("");
@@ -85,7 +85,7 @@ const Login: React.FC = () => {
         <Button
           variant="ghost"
           size="icon"
-          onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+          onClick={() => setMode(mode === "dark" ? "light" : "dark")}
           className="rounded-full bg-background/50 backdrop-blur-sm"
         >
           <Sun className="h-[1.2rem] w-[1.2rem] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
