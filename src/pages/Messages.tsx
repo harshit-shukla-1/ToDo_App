@@ -28,7 +28,11 @@ import {
   Eye,
   Ban,
   Image as ImageIcon,
-  Timer
+  Timer,
+  Mic,
+  StopCircle,
+  Play,
+  Pause
 } from "lucide-react";
 import { format } from "date-fns";
 import { showSuccess, showError } from "@/utils/toast";
@@ -45,6 +49,7 @@ interface Message {
   receiver_id: string;
   content: string;
   image_url?: string | null;
+  audio_url?: string | null;
   created_at: string;
   updated_at?: string | null;
   read: boolean;
@@ -58,6 +63,46 @@ interface Profile {
   last_name: string;
   avatar_url: string;
 }
+
+const AudioPlayer = ({ src }: { src: string }) => {
+  const [isPlaying, setIsPlaying] = useState(false);
+  const audioRef = useRef<HTMLAudioElement>(null);
+
+  const togglePlay = () => {
+    if (audioRef.current) {
+      if (isPlaying) {
+        audioRef.current.pause();
+      } else {
+        audioRef.current.play();
+      }
+      setIsPlaying(!isPlaying);
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-2 min-w-[150px] bg-background/20 p-2 rounded-md">
+      <Button 
+        variant="ghost" 
+        size="icon" 
+        className="h-8 w-8 rounded-full shrink-0" 
+        onClick={togglePlay}
+      >
+        {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+      </Button>
+      <div className="flex-1 h-1 bg-primary/30 rounded-full overflow-hidden">
+        {/* Simple visualizer placeholder */}
+        <div className={cn("h-full bg-primary transition-all duration-200", isPlaying && "animate-pulse")} style={{ width: '100%' }} />
+      </div>
+      <audio 
+        ref={audioRef} 
+        src={src} 
+        onEnded={() => setIsPlaying(false)} 
+        onPause={() => setIsPlaying(false)}
+        className="hidden" 
+      />
+    </div>
+  );
+};
 
 const Messages = () => {
   const { user } = useSession();
@@ -83,6 +128,13 @@ const Messages = () => {
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [fileToEdit, setFileToEdit] = useState<File | null>(null);
+
+  // Audio Recording State
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingDuration, setRecordingDuration] = useState(0);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Editing State
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
@@ -167,6 +219,13 @@ const Messages = () => {
     }
   }, [selectedUserId, user, conversations]);
 
+  // Clean up recording timer on unmount
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, []);
+
   const fetchProfile = async (id: string) => {
     const { data } = await supabase
       .from('profiles')
@@ -248,19 +307,20 @@ const Messages = () => {
     fetchConversations();
   };
 
-  const handleSend = async (imageUrl?: string, captionText?: string, isViewOnce: boolean = false) => {
+  const handleSend = async (imageUrl?: string, audioUrl?: string, captionText?: string, isViewOnce: boolean = false) => {
     const contentToSend = captionText !== undefined ? captionText : newMessage;
     const hasContent = contentToSend.trim().length > 0;
     const hasImage = !!imageUrl;
+    const hasAudio = !!audioUrl;
     
-    if ((!hasContent && !hasImage) || !selectedUserId || !user) return;
+    if ((!hasContent && !hasImage && !hasAudio) || !selectedUserId || !user) return;
     
     if (!hasUsername) {
       showError("Please set a username in your profile to send messages.");
       return;
     }
 
-    if (editingMessageId && !hasImage) {
+    if (editingMessageId && !hasImage && !hasAudio) {
       // Update existing message
       const { error } = await supabase
         .from('messages')
@@ -290,6 +350,7 @@ const Messages = () => {
         receiver_id: selectedUserId,
         content: contentToSend.trim(),
         image_url: imageUrl || null,
+        audio_url: audioUrl || null,
         is_view_once: isViewOnce
       };
 
@@ -338,7 +399,7 @@ const Messages = () => {
 
       const { data } = supabase.storage.from('chat_bucket').getPublicUrl(filePath);
       
-      await handleSend(data.publicUrl, caption, isViewOnce);
+      await handleSend(data.publicUrl, undefined, caption, isViewOnce);
       
     } catch (error: any) {
       showError("Upload failed: " + error.message);
@@ -346,6 +407,99 @@ const Messages = () => {
       setIsUploading(false);
     }
   };
+
+  // --- Voice Recording Logic ---
+
+  const startRecording = async () => {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      showError("Your browser does not support audio recording.");
+      return;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.start();
+      setIsRecording(true);
+      setRecordingDuration(0);
+      
+      if (timerRef.current) clearInterval(timerRef.current);
+      timerRef.current = setInterval(() => {
+        setRecordingDuration(prev => prev + 1);
+      }, 1000);
+      
+    } catch (err) {
+      console.error("Error accessing microphone:", err);
+      showError("Could not access microphone");
+    }
+  };
+
+  const stopRecording = (shouldSend: boolean) => {
+    if (mediaRecorderRef.current && isRecording) {
+      // We need to define onstop before calling stop() to ensure we capture the blob
+      mediaRecorderRef.current.onstop = async () => {
+        if (shouldSend && user) {
+          const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+          await uploadAndSendAudio(audioBlob);
+        }
+        
+        // Cleanup tracks
+        if (mediaRecorderRef.current) {
+          mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
+        }
+      };
+
+      mediaRecorderRef.current.stop();
+      if (timerRef.current) clearInterval(timerRef.current);
+      setIsRecording(false);
+      setRecordingDuration(0);
+    }
+  };
+
+  const uploadAndSendAudio = async (audioBlob: Blob) => {
+    try {
+      if (!user) return;
+      setIsUploading(true);
+      
+      const fileName = `voice_${Math.random().toString(36).substring(2, 15)}_${Date.now()}.webm`;
+      const filePath = `${user.id}/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('chat_bucket')
+        .upload(filePath, audioBlob, {
+           contentType: 'audio/webm'
+        });
+
+      if (uploadError) throw uploadError;
+
+      const { data } = supabase.storage.from('chat_bucket').getPublicUrl(filePath);
+      
+      // Send with empty content
+      await handleSend(undefined, data.publicUrl, "", false);
+      
+    } catch (error: any) {
+      showError("Failed to send voice note: " + error.message);
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const formatDuration = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  // --- End Voice Recording Logic ---
 
   const handleDeleteClick = (id: string) => {
     setDeleteMessageId(id);
@@ -356,12 +510,15 @@ const Messages = () => {
     
     const { data: msg } = await supabase
       .from('messages')
-      .select('image_url')
+      .select('image_url, audio_url')
       .eq('id', deleteMessageId)
       .single();
 
     if (msg?.image_url) {
-      await deleteImageFile(msg.image_url);
+      await deleteFile(msg.image_url);
+    }
+    if (msg?.audio_url) {
+      await deleteFile(msg.audio_url);
     }
 
     const { error } = await supabase.from('messages').delete().eq('id', deleteMessageId);
@@ -373,16 +530,16 @@ const Messages = () => {
     setDeleteMessageId(null);
   };
 
-  const deleteImageFile = async (imageUrl: string) => {
+  const deleteFile = async (url: string) => {
     try {
-      const urlObj = new URL(imageUrl);
+      const urlObj = new URL(url);
       const pathParts = urlObj.pathname.split('chat_bucket/');
       if (pathParts.length > 1) {
         const filePath = pathParts[1];
         await supabase.storage.from('chat_bucket').remove([filePath]);
       }
     } catch (err) {
-      console.error("Failed to delete image file:", err);
+      console.error("Failed to delete file:", err);
     }
   };
 
@@ -465,7 +622,7 @@ const Messages = () => {
     if (viewingViewOnceId && viewImage) {
       const msgId = viewingViewOnceId;
       setMessages(prev => prev.map(m => m.id === msgId ? { ...m, image_url: null, content: "Photo viewed" } : m));
-      await deleteImageFile(viewImage);
+      await deleteFile(viewImage);
       await supabase
         .from('messages')
         .update({ image_url: null, content: 'Photo viewed' })
@@ -557,7 +714,9 @@ const Messages = () => {
                         (data.lastMessage.receiver_id === user?.id && !data.lastMessage.read) ? "font-semibold text-foreground" : "text-muted-foreground"
                       )}>
                         {data.lastMessage.sender_id === user?.id && "You: "}
-                        {data.lastMessage.image_url ? (data.lastMessage.is_view_once ? "⏱️ Photo" : "📷 Image") : data.lastMessage.content}
+                        {data.lastMessage.audio_url ? "🎤 Voice Note" : 
+                         data.lastMessage.image_url ? (data.lastMessage.is_view_once ? "⏱️ Photo" : "📷 Image") : 
+                         data.lastMessage.content}
                       </p>
                     </div>
                   </button>
@@ -667,6 +826,10 @@ const Messages = () => {
                                <div className="mb-1 flex items-center gap-2 text-muted-foreground/80 italic">
                                  <Timer className="h-4 w-4" /> Photo viewed
                                </div>
+                            ) : msg.audio_url ? (
+                               <div className="mb-1 -mx-2 mt-1 px-2">
+                                 <AudioPlayer src={msg.audio_url} />
+                               </div>
                             ) : null}
                             
                             {msg.content && <p>{msg.content}</p>}
@@ -689,7 +852,7 @@ const Messages = () => {
                                     </Button>
                                   </DropdownMenuTrigger>
                                   <DropdownMenuContent align="end">
-                                    {msg.content && !isViewOnce && (
+                                    {msg.content && !isViewOnce && !msg.audio_url && (
                                       <DropdownMenuItem onClick={() => startEditing(msg)}>
                                         <Pencil className="mr-2 h-3 w-3" /> Edit
                                       </DropdownMenuItem>
@@ -732,36 +895,66 @@ const Messages = () => {
                         </Button>
                       </div>
                     )}
-                    <div className="flex gap-2 items-center">
-                      <input 
-                        type="file" 
-                        accept="image/png, image/jpeg, image/webp" 
-                        className="hidden" 
-                        ref={fileInputRef} 
-                        onChange={handleFileSelect} 
-                      />
-                      
-                      <Button variant="ghost" size="icon" onClick={() => fileInputRef.current?.click()} disabled={isUploading} className="shrink-0 text-muted-foreground">
-                        <ImageIcon className="h-5 w-5" />
-                      </Button>
+                    
+                    {isRecording ? (
+                      <div className="flex items-center gap-2 animate-in fade-in duration-200">
+                         <div className="flex-1 flex items-center gap-2 bg-red-500/10 text-red-500 rounded-full px-4 h-10">
+                           <Mic className="h-4 w-4 animate-pulse" />
+                           <span className="text-sm font-medium">{formatDuration(recordingDuration)}</span>
+                           <span className="text-xs opacity-70 ml-2">Recording...</span>
+                         </div>
+                         <Button variant="ghost" size="icon" onClick={() => stopRecording(false)} className="rounded-full text-destructive hover:bg-destructive/10">
+                           <X className="h-5 w-5" />
+                         </Button>
+                         <Button size="icon" onClick={() => stopRecording(true)} className="rounded-full bg-red-500 hover:bg-red-600 text-white">
+                           <Send className="h-4 w-4" />
+                         </Button>
+                      </div>
+                    ) : (
+                      <div className="flex gap-2 items-center">
+                        <input 
+                          type="file" 
+                          accept="image/png, image/jpeg, image/webp" 
+                          className="hidden" 
+                          ref={fileInputRef} 
+                          onChange={handleFileSelect} 
+                        />
+                        
+                        <Button variant="ghost" size="icon" onClick={() => fileInputRef.current?.click()} disabled={isUploading} className="shrink-0 text-muted-foreground">
+                          <ImageIcon className="h-5 w-5" />
+                        </Button>
 
-                      <Input 
-                        value={newMessage}
-                        onChange={(e) => setNewMessage(e.target.value)}
-                        onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-                        placeholder={editingMessageId ? "Update message..." : "Type a message..."}
-                        className="flex-1 bg-muted/50 rounded-full px-4"
-                        disabled={isUploading}
-                      />
-                      <Button 
-                        size="icon" 
-                        onClick={() => handleSend()} 
-                        disabled={(!newMessage.trim() && !isUploading) || isUploading} 
-                        className="rounded-full h-10 w-10 shrink-0"
-                      >
-                         {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                      </Button>
-                    </div>
+                        <Input 
+                          value={newMessage}
+                          onChange={(e) => setNewMessage(e.target.value)}
+                          onKeyPress={(e) => e.key === 'Enter' && handleSend()}
+                          placeholder={editingMessageId ? "Update message..." : "Type a message..."}
+                          className="flex-1 bg-muted/50 rounded-full px-4"
+                          disabled={isUploading}
+                        />
+                        
+                        {newMessage.trim() ? (
+                           <Button 
+                            size="icon" 
+                            onClick={() => handleSend()} 
+                            disabled={isUploading} 
+                            className="rounded-full h-10 w-10 shrink-0"
+                          >
+                             {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                          </Button>
+                        ) : (
+                          <Button 
+                            size="icon" 
+                            onClick={startRecording}
+                            disabled={isUploading} 
+                            variant="secondary"
+                            className="rounded-full h-10 w-10 shrink-0"
+                          >
+                             <Mic className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    )}
                    </>
                  )}
               </div>
