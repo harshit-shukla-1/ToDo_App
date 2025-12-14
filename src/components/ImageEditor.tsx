@@ -14,7 +14,11 @@ import {
   Undo2, 
   Image as ImageIcon,
   Clock,
-  Check
+  Check,
+  Smartphone,
+  Square,
+  RectangleHorizontal,
+  RectangleVertical
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,6 +45,15 @@ const COLORS = [
   "#000000", // Black
 ];
 
+const ASPECT_RATIOS = [
+  { label: "Free", value: undefined, icon: Monitor },
+  { label: "Original", value: "original", icon: ImageIcon },
+  { label: "1:1", value: 1, icon: Square },
+  { label: "4:3", value: 4/3, icon: RectangleHorizontal },
+  { label: "3:4", value: 3/4, icon: RectangleVertical },
+  { label: "16:9", value: 16/9, icon: Monitor },
+];
+
 const ImageEditor: React.FC<ImageEditorProps> = ({ file, recipientName, onClose, onSend }) => {
   // Global State
   const [imageSrc, setImageSrc] = useState<string | null>(null);
@@ -54,6 +67,9 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ file, recipientName, onClose,
   const [zoom, setZoom] = useState(1);
   const [rotation, setRotation] = useState(0);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
+  const [aspectRatio, setAspectRatio] = useState<number | undefined>(undefined);
+  // We need to know original aspect for "Original" setting
+  const [originalAspect, setOriginalAspect] = useState<number>(1);
 
   // Drawing State
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -66,7 +82,15 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ file, recipientName, onClose,
   useEffect(() => {
     const reader = new FileReader();
     reader.addEventListener("load", () => {
-      setImageSrc(reader.result?.toString() || "");
+      const result = reader.result?.toString() || "";
+      setImageSrc(result);
+      
+      // Determine original aspect ratio
+      const img = new Image();
+      img.src = result;
+      img.onload = () => {
+        setOriginalAspect(img.width / img.height);
+      };
     });
     reader.readAsDataURL(file);
   }, [file]);
@@ -78,8 +102,6 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ file, recipientName, onClose,
     const container = containerRef.current;
     if (!canvas || !container || !imageSrc) return;
 
-    // Match canvas size to displayed image size
-    // We need the actual image aspect ratio to size the canvas correctly over the image
     const img = new Image();
     img.src = imageSrc;
     img.onload = () => {
@@ -96,7 +118,6 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ file, recipientName, onClose,
       canvas.width = renderWidth;
       canvas.height = renderHeight;
       
-      // Clear or restore history if needed (simplified: just clear on new init)
       const ctx = canvas.getContext('2d');
       if (ctx) {
         ctx.lineCap = 'round';
@@ -108,7 +129,6 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ file, recipientName, onClose,
 
   useEffect(() => {
     if (mode === 'draw' || mode === 'view') {
-      // Small timeout to allow render
       setTimeout(initCanvas, 100);
     }
   }, [mode, imageSrc]);
@@ -118,7 +138,6 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ file, recipientName, onClose,
     const canvas = canvasRef.current;
     if (!canvas) return;
     
-    // Save current state for undo
     const ctx = canvas.getContext('2d');
     if (ctx) {
       setDrawingHistory(prev => [...prev, ctx.getImageData(0, 0, canvas.width, canvas.height)]);
@@ -180,15 +199,21 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ file, recipientName, onClose,
       setRotation(0);
       setCrop({ x: 0, y: 0 });
       setZoom(1);
-      // Clear drawings as they won't match new geometry
       setDrawingHistory([]);
       const canvas = canvasRef.current;
       const ctx = canvas?.getContext('2d');
       if (canvas && ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
-      
       setMode('view');
     } catch (e) {
       console.error(e);
+    }
+  };
+
+  const handleAspectChange = (value: number | "original" | undefined) => {
+    if (value === "original") {
+      setAspectRatio(originalAspect);
+    } else {
+      setAspectRatio(value);
     }
   };
 
@@ -199,9 +224,6 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ file, recipientName, onClose,
     setIsProcessing(true);
     
     try {
-      // If we have drawings, we need to composite them onto the image
-      // If no drawings, just fetch the blob from imageSrc
-      
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
       const img = new Image();
@@ -216,11 +238,7 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ file, recipientName, onClose,
       canvas.height = img.height;
       
       if (ctx) {
-        // Draw Image
         ctx.drawImage(img, 0, 0);
-
-        // Draw Drawings if any
-        // We need to scale the display canvas drawings to the actual image size
         const displayCanvas = canvasRef.current;
         if (displayCanvas) {
            ctx.drawImage(displayCanvas, 0, 0, displayCanvas.width, displayCanvas.height, 0, 0, canvas.width, canvas.height);
@@ -243,7 +261,8 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ file, recipientName, onClose,
   if (!imageSrc) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black flex flex-col font-sans select-none">
+    // Increased z-index to z-[100] to overlay the bottom nav (which is z-50)
+    <div className="fixed inset-0 z-[100] bg-black flex flex-col font-sans select-none">
       
       {/* --- Top Bar --- */}
       <div className="flex justify-between items-center p-3 z-20 bg-gradient-to-b from-black/60 to-transparent absolute top-0 w-full">
@@ -253,7 +272,6 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ file, recipientName, onClose,
         
         {mode !== 'crop' && (
           <div className="flex items-center gap-4">
-             {/* HD Toggle */}
             <Button 
               variant="ghost" 
               size="icon" 
@@ -290,13 +308,13 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ file, recipientName, onClose,
       <div className="flex-1 relative w-full h-full overflow-hidden bg-zinc-900 flex items-center justify-center" ref={containerRef}>
         
         {mode === 'crop' ? (
-          <div className="absolute inset-0 top-16 bottom-20">
+          <div className="absolute inset-0 top-16 bottom-32 bg-black">
             <Cropper
               image={imageSrc}
               crop={crop}
               zoom={zoom}
               rotation={rotation}
-              aspect={undefined}
+              aspect={aspectRatio}
               onCropChange={setCrop}
               onCropComplete={onCropComplete}
               onZoomChange={setZoom}
@@ -308,13 +326,11 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ file, recipientName, onClose,
           </div>
         ) : (
           <div className="relative max-w-full max-h-full">
-            {/* Base Image */}
             <img 
               src={imageSrc} 
               alt="Edit" 
               className="max-w-full max-h-[80vh] object-contain block mx-auto" 
             />
-            {/* Drawing Layer */}
             <canvas
               ref={canvasRef}
               className="absolute top-0 left-0 w-full h-full touch-none cursor-crosshair"
@@ -355,21 +371,46 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ file, recipientName, onClose,
 
       {/* --- Bottom Bar --- */}
       {mode === 'crop' ? (
-        <div className="p-4 bg-black text-white flex justify-between items-center z-20 pb-safe">
-            <Button variant="ghost" onClick={() => setMode('view')} className="text-white">Cancel</Button>
-            <div className="flex gap-6">
-               <Button variant="ghost" size="icon" onClick={() => setRotation(r => r - 90)}><RotateCw className="h-5 w-5 -scale-x-100" /></Button>
-               <Button variant="ghost" size="icon" onClick={() => { setRotation(0); setZoom(1); setCrop({x:0, y:0}); }} className="text-xs">Reset</Button>
-               <Button variant="ghost" size="icon" onClick={() => setRotation(r => r + 90)}><RotateCw className="h-5 w-5" /></Button>
+        <div className="bg-black text-white z-20 w-full flex flex-col pb-safe">
+            {/* Aspect Ratio Toolbar */}
+            <div className="flex gap-4 overflow-x-auto p-2 no-scrollbar justify-center border-b border-white/10">
+              {ASPECT_RATIOS.map((ratio) => {
+                const isActive = ratio.value === "original" 
+                  ? aspectRatio === originalAspect 
+                  : aspectRatio === ratio.value;
+                return (
+                  <button
+                    key={ratio.label}
+                    onClick={() => handleAspectChange(ratio.value as any)}
+                    className={cn(
+                      "flex flex-col items-center gap-1 min-w-[50px] p-1 rounded transition-colors",
+                      isActive ? "text-blue-400" : "text-gray-400 hover:text-white"
+                    )}
+                  >
+                    <ratio.icon className="h-5 w-5" />
+                    <span className="text-[10px] uppercase">{ratio.label}</span>
+                  </button>
+                )
+              })}
             </div>
-            <Button onClick={applyCrop} className="text-green-400 hover:text-green-300 font-bold" variant="ghost">Done</Button>
+
+            {/* Actions */}
+            <div className="flex justify-between items-center p-4">
+              <Button variant="ghost" onClick={() => setMode('view')} className="text-white hover:bg-white/10">Cancel</Button>
+              <div className="flex gap-4">
+                 <Button variant="ghost" size="icon" onClick={() => setRotation(r => r - 90)} className="hover:bg-white/10"><RotateCw className="h-5 w-5 -scale-x-100" /></Button>
+                 <Button variant="ghost" size="icon" onClick={() => { setRotation(0); setZoom(1); setCrop({x:0, y:0}); }} className="text-xs hover:bg-white/10">Reset</Button>
+                 <Button variant="ghost" size="icon" onClick={() => setRotation(r => r + 90)} className="hover:bg-white/10"><RotateCw className="h-5 w-5" /></Button>
+              </div>
+              <Button onClick={applyCrop} className="text-blue-400 hover:text-blue-300 font-bold hover:bg-white/10" variant="ghost">Done</Button>
+            </div>
         </div>
       ) : (
         <div className="bg-black/80 backdrop-blur-md p-3 pb-safe z-20 w-full">
            <div className="max-w-3xl mx-auto flex items-end gap-2">
               <div className="flex-1 bg-zinc-800/80 rounded-[24px] px-2 py-1.5 flex flex-col min-h-[44px]">
                  <div className="flex items-center gap-2 px-2">
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-400 rounded-full shrink-0">
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-400 rounded-full shrink-0 hover:bg-zinc-700/50">
                        <ImageIcon className="h-5 w-5" />
                     </Button>
                     <Input
@@ -380,7 +421,7 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ file, recipientName, onClose,
                       autoFocus
                       onKeyPress={(e) => e.key === 'Enter' && handleSend()}
                     />
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-400 rounded-full shrink-0">
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-400 rounded-full shrink-0 hover:bg-zinc-700/50">
                        <Clock className="h-5 w-5" />
                     </Button>
                  </div>
@@ -394,7 +435,7 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ file, recipientName, onClose,
               <Button 
                 onClick={handleSend}
                 disabled={isProcessing}
-                className="h-12 w-12 rounded-full bg-[#00A884] hover:bg-[#008f6f] text-white shrink-0 flex items-center justify-center shadow-lg mb-1"
+                className="h-12 w-12 rounded-full bg-[#00A884] hover:bg-[#008f6f] text-white shrink-0 flex items-center justify-center shadow-lg mb-1 transition-all active:scale-95"
               >
                 {isProcessing ? <div className="h-5 w-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Send className="h-5 w-5 ml-0.5" />}
               </Button>
