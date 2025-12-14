@@ -20,6 +20,7 @@ import { showError } from "@/utils/toast";
 import { useTheme } from "@/components/ThemeProvider";
 import BottomNav from "./BottomNav";
 import NotificationBell from "./NotificationBell";
+import ProfileCompletionBanner from "./ProfileCompletionBanner";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -176,6 +177,9 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               </Button>
             </div>
         </header>
+
+        {/* Profile Completion Banner */}
+        <ProfileCompletionBanner />
 
         {/* Main Body - Scrollable Area */}
         <main className={cn(

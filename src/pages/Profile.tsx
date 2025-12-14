@@ -11,7 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { showSuccess, showError } from "@/utils/toast";
-import { Loader2, Plus, Trash2, Save, Upload, User as UserIcon, Lock, Globe, Shuffle, Eye, Copy } from "lucide-react";
+import { Loader2, Plus, Trash2, Save, Upload, User as UserIcon, Lock, Globe, Shuffle, Eye, Copy, Phone } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -43,6 +43,7 @@ interface CustomProperty {
 
 interface PublicSettings {
   show_email: boolean;
+  show_contact: boolean;
   show_about: boolean;
   show_birthday: boolean;
   show_measurements: boolean; // Height & Weight
@@ -71,6 +72,7 @@ const Profile = () => {
   const [hobbies, setHobbies] = useState(""); // Comma separated string
   const [avatarUrl, setAvatarUrl] = useState("");
   const [email, setEmail] = useState("");
+  const [contact, setContact] = useState(""); // New Contact Field
   
   // Birthday Select State
   const currentYear = new Date().getFullYear();
@@ -84,6 +86,7 @@ const Profile = () => {
   const [isPublic, setIsPublic] = useState(false);
   const [publicSettings, setPublicSettings] = useState<PublicSettings>({
     show_email: false,
+    show_contact: false,
     show_about: true,
     show_birthday: true,
     show_measurements: true,
@@ -117,15 +120,11 @@ const Profile = () => {
     if (year && month && day) {
       const newDate = new Date(parseInt(year), parseInt(month), parseInt(day));
       setBirthday(newDate);
-    } else {
-      // If any field is cleared (though select usually prevents this), we could clear birthday
-      // But we'll keep the logic simple for now
     }
   };
 
   const handleYearChange = (val: string) => {
     setBdYear(val);
-    // Adjust day if needed (e.g. going from leap year to non-leap year on Feb 29)
     if (bdMonth && bdDay) validateAndSetDate(val, bdMonth, bdDay);
   };
   
@@ -156,7 +155,7 @@ const Profile = () => {
 
   useEffect(() => {
     calculateCompletion();
-  }, [firstName, lastName, about, birthday, height, weight, hobbies, avatarUrl, username]);
+  }, [firstName, lastName, about, birthday, height, weight, hobbies, avatarUrl, username, contact]);
 
   const fetchProfile = async () => {
     try {
@@ -173,10 +172,10 @@ const Profile = () => {
         setFirstName(data.first_name || "");
         setLastName(data.last_name || "");
         setAbout(data.about || "");
+        setContact(data.contact || "");
         if (data.birthday) {
           const bd = new Date(data.birthday);
           setBirthday(bd);
-          // State sync handled by useEffect
         }
         setHeight(data.height?.toString() || "");
         setWeight(data.weight?.toString() || "");
@@ -190,10 +189,10 @@ const Profile = () => {
         
         setIsPublic(data.is_public || false);
         if (data.public_settings) {
-          // Migration/Fallback logic for old settings structure
           const settings = data.public_settings as any;
           setPublicSettings({
             show_email: settings.show_email ?? false,
+            show_contact: settings.show_contact ?? false,
             show_about: settings.show_about ?? true,
             show_birthday: settings.show_birthday ?? settings.show_stats ?? true,
             show_measurements: settings.show_measurements ?? settings.show_stats ?? true,
@@ -202,7 +201,6 @@ const Profile = () => {
           });
         }
 
-        // Parse custom properties
         if (data.custom_properties) {
           const props = Object.entries(data.custom_properties).map(([key, value]) => ({
             key,
@@ -219,7 +217,7 @@ const Profile = () => {
   };
 
   const calculateCompletion = () => {
-    const fields = [firstName, lastName, about, birthday, height, weight, hobbies, avatarUrl, username];
+    const fields = [firstName, lastName, about, birthday, height, weight, hobbies, avatarUrl, username, contact];
     const filledFields = fields.filter(field => field && (typeof field === 'string' ? field.trim() !== "" : true)).length;
     const totalFields = fields.length;
     setCompletion(Math.round((filledFields / totalFields) * 100));
@@ -227,7 +225,6 @@ const Profile = () => {
 
   const handleUsernameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!isUsernameSet) {
-      // Force lowercase and only allow alphanumeric + underscores
       const val = e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '');
       setUsername(val);
     }
@@ -243,17 +240,14 @@ const Profile = () => {
     try {
       setUpdating(true);
       
-      // Basic validation
       if (!isUsernameSet && username.trim().length < 3) {
         showError("Username must be at least 3 characters long");
         setUpdating(false);
         return;
       }
 
-      // Convert hobbies string to array
       const hobbiesArray = hobbies.split(",").map(h => h.trim()).filter(h => h !== "");
       
-      // Convert custom properties array to object
       const customPropsObj = customProperties.reduce((acc, curr) => {
         if (curr.key.trim()) {
           acc[curr.key.trim()] = curr.value;
@@ -266,6 +260,7 @@ const Profile = () => {
         first_name: firstName,
         last_name: lastName,
         about,
+        contact,
         birthday: birthday ? format(birthday, 'yyyy-MM-dd') : null,
         height: height ? parseFloat(height) : null,
         weight: weight ? parseFloat(weight) : null,
@@ -277,15 +272,14 @@ const Profile = () => {
         updated_at: new Date().toISOString(),
       };
 
-      // Only update username if it wasn't set before
       if (!isUsernameSet && username) {
-        updates.username = username.toLowerCase(); // Ensure lowercase
+        updates.username = username.toLowerCase();
       }
 
       const { error } = await supabase.from("profiles").upsert(updates);
 
       if (error) {
-        if (error.code === '23505') { // Unique violation
+        if (error.code === '23505') {
           throw new Error("Username already taken. Please choose another.");
         }
         throw error;
@@ -341,7 +335,6 @@ const Profile = () => {
 
       setUpdating(true);
       
-      // Upload to 'avatars' bucket
       const { error: uploadError } = await supabase.storage
         .from('avatars')
         .upload(filePath, file);
@@ -350,7 +343,6 @@ const Profile = () => {
         throw uploadError;
       }
 
-      // Get public URL
       const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
       setAvatarUrl(data.publicUrl);
       showSuccess("Image uploaded successfully!");
@@ -371,10 +363,8 @@ const Profile = () => {
     return <div className="flex justify-center p-12"><Loader2 className="animate-spin h-8 w-8 text-primary" /></div>;
   }
 
-  // Generate Year options (1900 -> Current)
   const years = Array.from({ length: currentYear - 1900 + 1 }, (_, i) => (currentYear - i).toString());
   
-  // Generate Days (1-31)
   const daysInSelectedMonth = (bdYear && bdMonth) 
     ? getDaysInMonth(new Date(parseInt(bdYear), parseInt(bdMonth))) 
     : 31;
@@ -470,8 +460,8 @@ const Profile = () => {
                 </div>
                 <p className="text-[10px] text-muted-foreground">
                   {isUsernameSet 
-                    ? "Username cannot be changed. Only lowercase letters, numbers, and underscores." 
-                    : "Choose carefully! Cannot be changed later. Lowercase only."}
+                    ? "Username cannot be changed." 
+                    : "Choose carefully! Cannot be changed later."}
                 </p>
               </div>
 
@@ -499,30 +489,27 @@ const Profile = () => {
                         <div className="grid grid-cols-1 gap-2">
                           <div className="flex items-center space-x-2">
                             <Checkbox id="show_about" checked={publicSettings.show_about} onCheckedChange={(c) => setPublicSettings({...publicSettings, show_about: !!c})} />
-                            <label htmlFor="show_about" className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">About</label>
+                            <label htmlFor="show_about" className="text-sm">About</label>
                           </div>
                           
                            <div className="flex items-center space-x-2">
                             <Checkbox id="show_birthday" checked={publicSettings.show_birthday} onCheckedChange={(c) => setPublicSettings({...publicSettings, show_birthday: !!c})} />
-                            <label htmlFor="show_birthday" className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Birthday</label>
+                            <label htmlFor="show_birthday" className="text-sm">Birthday</label>
+                          </div>
+
+                          <div className="flex items-center space-x-2">
+                            <Checkbox id="show_contact" checked={publicSettings.show_contact} onCheckedChange={(c) => setPublicSettings({...publicSettings, show_contact: !!c})} />
+                            <label htmlFor="show_contact" className="text-sm">Contact Info</label>
                           </div>
                           
                            <div className="flex items-center space-x-2">
                             <Checkbox id="show_measurements" checked={publicSettings.show_measurements} onCheckedChange={(c) => setPublicSettings({...publicSettings, show_measurements: !!c})} />
-                            <label htmlFor="show_measurements" className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Measurements (Height/Weight)</label>
+                            <label htmlFor="show_measurements" className="text-sm">Measurements</label>
                           </div>
                           
                           <div className="flex items-center space-x-2">
                             <Checkbox id="show_hobbies" checked={publicSettings.show_hobbies} onCheckedChange={(c) => setPublicSettings({...publicSettings, show_hobbies: !!c})} />
-                            <label htmlFor="show_hobbies" className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Hobbies</label>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <Checkbox id="show_custom" checked={publicSettings.show_custom} onCheckedChange={(c) => setPublicSettings({...publicSettings, show_custom: !!c})} />
-                            <label htmlFor="show_custom" className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Custom Properties</label>
-                          </div>
-                           <div className="flex items-center space-x-2">
-                            <Checkbox id="show_email" checked={publicSettings.show_email} onCheckedChange={(c) => setPublicSettings({...publicSettings, show_email: !!c})} />
-                            <label htmlFor="show_email" className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Email Address</label>
+                            <label htmlFor="show_hobbies" className="text-sm">Hobbies</label>
                           </div>
                         </div>
                       </div>
@@ -553,15 +540,29 @@ const Profile = () => {
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <div className="flex gap-2">
-                  <Input id="email" value={email} onChange={e => setEmail(e.target.value)} />
-                  <Button variant="outline" onClick={handleUpdateEmail} disabled={email === user?.email || updating}>
-                    Update
-                  </Button>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <div className="flex gap-2">
+                    <Input id="email" value={email} onChange={e => setEmail(e.target.value)} />
+                    <Button variant="outline" onClick={handleUpdateEmail} disabled={email === user?.email || updating}>
+                      Update
+                    </Button>
+                  </div>
                 </div>
-                <p className="text-[10px] text-muted-foreground">Changing email will require verification.</p>
+                <div className="space-y-2">
+                  <Label htmlFor="contact">Contact Number</Label>
+                  <div className="relative">
+                    <Phone className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input 
+                      id="contact" 
+                      value={contact} 
+                      onChange={e => setContact(e.target.value)} 
+                      className="pl-9"
+                      placeholder="+1 (555) 000-0000"
+                    />
+                  </div>
+                </div>
               </div>
 
               <div className="space-y-2">
@@ -575,7 +576,7 @@ const Profile = () => {
                 />
               </div>
 
-              {/* Stacked on mobile, grid on desktop to fix overlap */}
+              {/* Stacked on mobile, grid on desktop */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 <div className="space-y-2 flex flex-col">
                   <Label>Birthday</Label>
