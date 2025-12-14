@@ -39,7 +39,7 @@ interface Message {
   receiver_id: string;
   content: string;
   created_at: string;
-  updated_at?: string;
+  updated_at?: string | null;
   read: boolean;
 }
 
@@ -343,11 +343,7 @@ const Messages = () => {
 
   // Helper to check if message was edited
   const isEdited = (msg: Message) => {
-    if (!msg.updated_at) return false;
-    // Allow a small grace period (e.g., 1 second) where created_at and updated_at might differ slightly due to DB precision
-    const created = new Date(msg.created_at).getTime();
-    const updated = new Date(msg.updated_at).getTime();
-    return (updated - created) > 2000;
+    return !!msg.updated_at;
   };
 
   return (
