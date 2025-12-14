@@ -28,8 +28,7 @@ import {
   Eye,
   Ban,
   Image as ImageIcon,
-  Camera,
-  Paperclip
+  Camera
 } from "lucide-react";
 import { format } from "date-fns";
 import { showSuccess, showError } from "@/utils/toast";
@@ -331,7 +330,6 @@ const Messages = () => {
       setFileToEdit(null); // Close editor immediately
 
       // Generate a unique file path
-      // Note: Blob doesn't have a name, so generate one. Default to jpg as configured in canvasUtils
       const fileName = `${Math.random().toString(36).substring(2, 15)}_${Date.now()}.jpeg`;
       const filePath = `${user.id}/${fileName}`;
 
@@ -350,7 +348,6 @@ const Messages = () => {
       
     } catch (error: any) {
       showError("Upload failed: " + error.message);
-      // If failed, reopen editor? Maybe just show error for now.
     } finally {
       setIsUploading(false);
     }
@@ -363,6 +360,32 @@ const Messages = () => {
   const confirmDeleteMessage = async () => {
     if (!deleteMessageId) return;
     
+    // 1. Get the message first to check for image_url
+    const { data: msg } = await supabase
+      .from('messages')
+      .select('image_url')
+      .eq('id', deleteMessageId)
+      .single();
+
+    if (msg?.image_url) {
+      try {
+        // Extract file path from URL
+        // URL format: .../storage/v1/object/public/chat_bucket/USER_ID/FILENAME
+        const urlObj = new URL(msg.image_url);
+        // Path starts after 'chat_bucket/'
+        const pathParts = urlObj.pathname.split('chat_bucket/');
+        if (pathParts.length > 1) {
+          const filePath = pathParts[1];
+          // Delete from storage
+          await supabase.storage.from('chat_bucket').remove([filePath]);
+        }
+      } catch (err) {
+        console.error("Failed to delete image file:", err);
+        // Continue to delete message record even if file deletion fails
+      }
+    }
+
+    // 2. Delete the message record
     const { error } = await supabase.from('messages').delete().eq('id', deleteMessageId);
     if (error) {
       showError("Failed to delete message");
@@ -744,6 +767,7 @@ const Messages = () => {
       {fileToEdit && (
         <ImageEditor
           file={fileToEdit}
+          recipientName={activeProfile?.first_name || activeProfile?.username || 'User'}
           onClose={() => {
             setFileToEdit(null);
             if (fileInputRef.current) fileInputRef.current.value = "";
