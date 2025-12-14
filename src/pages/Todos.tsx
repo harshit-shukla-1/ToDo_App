@@ -291,7 +291,7 @@ const Todos = () => {
             {filteredTodos.map((todo) => (
               <Card
                 key={todo.id}
-                className="hover:shadow-md transition-shadow duration-200 card-hover-effect"
+                className="hover:shadow-md transition-shadow duration-200"
               >
                 <CardContent className="p-4 flex items-center gap-4">
                   <Checkbox

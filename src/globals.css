@@ -35,12 +35,19 @@
     --radius: 0.5rem;
 
     --sidebar-background: 0 0% 98%;
+
     --sidebar-foreground: 240 5.3% 26.1%;
+
     --sidebar-primary: 240 5.9% 10%;
+
     --sidebar-primary-foreground: 0 0% 98%;
+
     --sidebar-accent: 240 4.8% 95.9%;
+
     --sidebar-accent-foreground: 240 5.9% 10%;
+
     --sidebar-border: 220 13% 91%;
+
     --sidebar-ring: 217.2 91.2% 59.8%;
   }
 
@@ -81,88 +88,6 @@
     --sidebar-border: 240 3.7% 15.9%;
     --sidebar-ring: 217.2 91.2% 59.8%;
   }
-
-  /* --- CHRISTMAS THEME --- */
-  
-  /* Light Christmas: Bright & Festive */
-  [data-style="christmas"]:root {
-    /* Background: Soft Snowy White/Blue */
-    --background: 210 20% 98%; 
-    /* Foreground: Deep Forest Green */
-    --foreground: 160 50% 15%; 
-
-    /* Card: White with slight warmth */
-    --card: 0 0% 100%;
-    --card-foreground: 160 50% 15%;
-
-    /* Popover */
-    --popover: 0 0% 100%;
-    --popover-foreground: 160 50% 15%;
-
-    /* Primary: Santa Red */
-    --primary: 350 85% 55%; 
-    --primary-foreground: 0 0% 100%;
-
-    /* Secondary: Holly Green */
-    --secondary: 145 60% 40%;
-    --secondary-foreground: 0 0% 100%;
-
-    /* Muted: Frosty Blue */
-    --muted: 210 30% 92%;
-    --muted-foreground: 210 20% 40%;
-
-    /* Accent: Gold/Yellow for interactions */
-    --accent: 45 90% 60%;
-    --accent-foreground: 30 50% 10%;
-
-    /* Destructive */
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 0 0% 98%;
-
-    --border: 210 20% 85%;
-    --input: 210 20% 85%;
-    --ring: 350 85% 55%;
-    --radius: 1rem; /* Softer, rounder corners for friendly feel */
-  }
-
-  /* Dark Christmas: Cozy Midnight */
-  [data-style="christmas"] .dark {
-    /* Background: Midnight Blue */
-    --background: 225 50% 10%; 
-    /* Foreground: Soft Snow White */
-    --foreground: 210 20% 98%;
-
-    /* Card: Deep Blue */
-    --card: 225 45% 15%;
-    --card-foreground: 210 20% 98%;
-
-    /* Popover */
-    --popover: 225 45% 15%;
-    --popover-foreground: 210 20% 98%;
-
-    /* Primary: Bright Berry Red */
-    --primary: 350 90% 65%;
-    --primary-foreground: 0 0% 100%;
-
-    /* Secondary: Pine Green */
-    --secondary: 150 70% 30%;
-    --secondary-foreground: 0 0% 100%;
-
-    /* Muted: Dark Frost */
-    --muted: 225 30% 25%;
-    --muted-foreground: 210 20% 70%;
-
-    /* Accent: Glowing Gold */
-    --accent: 48 95% 55%;
-    --accent-foreground: 30 50% 10%;
-
-    --destructive: 0 70% 50%;
-    --destructive-foreground: 0 0% 100%;
-
-    --border: 225 30% 25%;
-    --input: 225 30% 25%;
-    --ring: 48 95% 55%; /* Gold ring focus */
-  }
 }
 
 @layer base {
@@ -171,64 +96,6 @@
   }
 
   body {
-    @apply bg-background text-foreground transition-colors duration-500 ease-in-out;
+    @apply bg-background text-foreground;
   }
-}
-
-/* --- Micro-interactions & Animations for Christmas Theme --- */
-
-/* Jingle / Shake Animation */
-@keyframes jingle {
-  0% { transform: rotate(0deg); }
-  25% { transform: rotate(5deg); }
-  50% { transform: rotate(-5deg); }
-  75% { transform: rotate(3deg); }
-  100% { transform: rotate(0deg); }
-}
-
-/* Snowfall / Float Animation */
-@keyframes float-snow {
-  0% { transform: translateY(0px); }
-  50% { transform: translateY(-3px); }
-  100% { transform: translateY(0px); }
-}
-
-/* Shine effect */
-@keyframes shine {
-  from { left: -100%; }
-  to { left: 100%; }
-}
-
-[data-style="christmas"] .button-hover-effect {
-  @apply transition-transform duration-200;
-}
-
-[data-style="christmas"] button:hover {
-  animation: jingle 0.5s ease-in-out;
-}
-
-[data-style="christmas"] .card-hover-effect {
-  @apply transition-all duration-300 hover:shadow-lg hover:shadow-accent/20 hover:-translate-y-1;
-}
-
-/* Apply specific styling to shadcn components when in Christmas mode */
-[data-style="christmas"] .bg-primary {
-  @apply shadow-md shadow-primary/30;
-}
-
-[data-style="christmas"] .bg-card {
-  @apply border-2 border-border/50;
-}
-
-/* Custom scrollbar for Christmas */
-[data-style="christmas"] ::-webkit-scrollbar-thumb {
-  @apply bg-primary/50 rounded-full hover:bg-primary/80;
-}
-[data-style="christmas"] ::-webkit-scrollbar-track {
-  @apply bg-transparent;
-}
-
-/* Festive Checkbox */
-[data-style="christmas"] [role="checkbox"][data-state="checked"] {
-  @apply bg-secondary border-secondary text-secondary-foreground animate-in zoom-in-50 duration-200;
 }
