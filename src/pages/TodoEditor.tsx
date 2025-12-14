@@ -39,7 +39,7 @@ const TodoEditor = () => {
     category: "Personal",
     due_date: undefined as Date | undefined,
     completed: false,
-    reminder_minutes_before: "0", // String for Select compatibility
+    reminder_minutes_before: "0",
   });
 
   useEffect(() => {
@@ -122,7 +122,6 @@ const TodoEditor = () => {
 
   const handleDateSelect = (date: Date | undefined) => {
     if (date && formData.due_date) {
-      // Preserve the time from the existing due_date
       date.setHours(formData.due_date.getHours());
       date.setMinutes(formData.due_date.getMinutes());
     }
@@ -147,7 +146,7 @@ const TodoEditor = () => {
   }
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
+    <div className="max-w-2xl mx-auto space-y-6 pb-20">
       <div className="flex items-center gap-4">
         <Button variant="ghost" size="icon" onClick={() => navigate("/todos")}>
           <ArrowLeft className="h-5 w-5" />
@@ -221,13 +220,13 @@ const TodoEditor = () => {
 
             <div className="space-y-2 flex flex-col">
               <Label>Due Date & Time</Label>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button
                       variant={"outline"}
                       className={cn(
-                        "w-full justify-start text-left font-normal",
+                        "w-full sm:w-[240px] justify-start text-left font-normal",
                         !formData.due_date && "text-muted-foreground"
                       )}
                     >
@@ -252,7 +251,7 @@ const TodoEditor = () => {
                 <Input
                   type="time"
                   aria-label="Time"
-                  className="w-[120px]"
+                  className="w-full sm:w-[120px]"
                   value={formData.due_date ? format(formData.due_date, "HH:mm") : ""}
                   onChange={handleTimeChange}
                 />
@@ -260,7 +259,7 @@ const TodoEditor = () => {
             </div>
 
             <div className="flex justify-end pt-4">
-              <Button type="submit" disabled={loading}>
+              <Button type="submit" disabled={loading} className="w-full sm:w-auto">
                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 <Save className="mr-2 h-4 w-4" />
                 {isEditing ? "Update Todo" : "Save Todo"}

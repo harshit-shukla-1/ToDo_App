@@ -1,7 +1,9 @@
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient } from "@tanstack/react-query";
+import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
+import { createSyncStoragePersister } from "@tanstack/query-sync-storage-persister";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
@@ -19,7 +21,19 @@ import Layout from "./components/Layout";
 import React from "react";
 import NotificationManager from "./components/NotificationManager";
 
-const queryClient = new QueryClient();
+// Configure Persistence with LocalStorage (or IDB if needed, but localStorage is simple for this scale)
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60 * 5, // 5 minutes
+      gcTime: 1000 * 60 * 60 * 24, // 24 hours
+    },
+  },
+});
+
+const persister = createSyncStoragePersister({
+  storage: window.localStorage,
+});
 
 // ProtectedRoute component to guard routes
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -100,20 +114,19 @@ const AppContent = () => (
       />
       
       {/* Public Profile Routes */}
-      {/* Supporting /@username */}
       <Route path="/@:username" element={<PublicProfile />} />
-      
-      {/* Supporting /u/username as a safer alternative */}
       <Route path="/u/:username" element={<PublicProfile />} />
 
-      {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
       <Route path="*" element={<NotFound />} />
     </Routes>
   </BrowserRouter>
 );
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
+  <PersistQueryClientProvider 
+    client={queryClient} 
+    persistOptions={{ persister }}
+  >
     <ThemeProvider defaultTheme="system" storageKey="mazda-todo-theme">
       <TooltipProvider>
         <Toaster />
@@ -124,7 +137,7 @@ const App = () => (
         </SessionContextProvider>
       </TooltipProvider>
     </ThemeProvider>
-  </QueryClientProvider>
+  </PersistQueryClientProvider>
 );
 
 export default App;

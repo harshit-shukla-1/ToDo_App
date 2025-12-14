@@ -31,26 +31,28 @@ const NotificationBell = () => {
       // Subscribe to messages
       const msgChannel = supabase.channel('bell-messages')
         .on('postgres_changes', { 
-          event: '*', 
+          event: 'INSERT', 
           schema: 'public', 
           table: 'messages', 
           filter: `receiver_id=eq.${user.id}` 
         }, (payload) => {
-          console.log("Bell: Message update received", payload);
-          fetchAll();
+          console.log("Bell: New message received", payload);
+          // Manually add to state to ensure UI updates immediately
+          fetchNewMessage(payload.new.id);
         })
         .subscribe();
         
       // Subscribe to system notifications
       const notifChannel = supabase.channel('bell-notifications')
         .on('postgres_changes', { 
-          event: '*', 
+          event: 'INSERT', 
           schema: 'public', 
           table: 'notifications', 
           filter: `user_id=eq.${user.id}` 
         }, (payload) => {
-          console.log("Bell: Notification update received", payload);
-          fetchAll();
+          console.log("Bell: New notification received", payload);
+          setSystemNotifications(prev => [payload.new, ...prev]);
+          setUnreadCount(prev => prev + 1);
         })
         .subscribe();
 
@@ -60,6 +62,19 @@ const NotificationBell = () => {
       };
     }
   }, [user]);
+
+  const fetchNewMessage = async (msgId: string) => {
+    const { data } = await supabase
+      .from('messages')
+      .select('*, sender:sender_id(first_name, last_name, username)')
+      .eq('id', msgId)
+      .single();
+      
+    if (data) {
+      setMessageNotifications(prev => [data, ...prev]);
+      setUnreadCount(prev => prev + 1);
+    }
+  };
 
   const fetchAll = async () => {
     if (!user) return;

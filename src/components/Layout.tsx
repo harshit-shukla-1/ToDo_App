@@ -125,17 +125,17 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const isMessagesPage = location.pathname.startsWith("/messages");
 
   return (
-    <div className="min-h-screen bg-background flex">
-      {/* Desktop Sidebar */}
-      <div className="hidden md:block w-64 border-r bg-card h-screen sticky top-0">
+    <div className="h-screen w-full bg-background flex overflow-hidden">
+      {/* Desktop Sidebar - Fixed Width */}
+      <div className="hidden md:block w-64 border-r bg-card h-full flex-none">
         <NavContent />
       </div>
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-h-screen relative">
+      <div className="flex-1 flex flex-col h-full relative min-w-0">
         
-        {/* Header Bar */}
-        <header className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-4 h-16 flex items-center justify-end gap-2 shrink-0">
+        {/* Header Bar - Fixed Height */}
+        <header className="flex-none sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-4 h-16 flex items-center justify-end gap-2">
             <NotificationBell />
             <Button
               variant="ghost"
@@ -149,15 +149,17 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             </Button>
         </header>
 
-        {/* Main Body */}
+        {/* Main Body - Scrollable Area */}
         <main className={cn(
-          "flex-1 overflow-y-auto",
-          isMessagesPage ? "p-0 pb-[64px] md:pb-0 overflow-hidden flex flex-col" : "p-4 md:p-8 pb-24 md:pb-8"
+          "flex-1 relative min-h-0", // min-h-0 is crucial for nested flex scrolling
+          isMessagesPage ? "overflow-hidden flex flex-col" : "overflow-y-auto"
         )}>
           {isMessagesPage ? (
-            <div className="flex-1 flex flex-col h-full w-full">{children}</div>
+            // For messages, we pass full height down and let component handle parts
+            <div className="flex-1 flex flex-col h-full w-full pb-[64px] md:pb-0">{children}</div>
           ) : (
-             <div className="max-w-5xl mx-auto h-full">{children}</div>
+            // For other pages, we pad and allow scroll
+             <div className="p-4 md:p-8 pb-24 md:pb-8 max-w-5xl mx-auto">{children}</div>
           )}
         </main>
 

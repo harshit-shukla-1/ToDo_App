@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
@@ -16,6 +16,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 interface Todo {
   id: string;
@@ -31,8 +32,7 @@ type Filter = "all" | "active" | "completed";
 
 const TodoList: React.FC = () => {
   const { user } = useSession();
-  const [todos, setTodos] = useState<Todo[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   
   // New Todo State
   const [newTodoText, setNewTodoText] = useState<string>("");
@@ -44,28 +44,99 @@ const TodoList: React.FC = () => {
   const [filter, setFilter] = useState<Filter>("all");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
 
-  useEffect(() => {
-    if (user) {
-      fetchTodos();
-    }
-  }, [user]);
-
-  const fetchTodos = async () => {
-    try {
-      setLoading(true);
+  // Fetch Todos with React Query
+  const { data: todos = [], isLoading: loading } = useQuery({
+    queryKey: ['todos', user?.id],
+    queryFn: async () => {
+      if (!user) return [];
       const { data, error } = await supabase
         .from("todos")
         .select("*")
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      setTodos(data || []);
-    } catch (error: any) {
-      showError("Failed to fetch todos: " + error.message);
-    } finally {
-      setLoading(false);
+      return data as Todo[];
+    },
+    enabled: !!user,
+  });
+
+  // Mutations
+  const addTodoMutation = useMutation({
+    mutationFn: async (newTodo: any) => {
+      const { data, error } = await supabase
+        .from("todos")
+        .insert([newTodo])
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['todos'] });
+      showSuccess("Todo added successfully!");
+      setNewTodoText("");
+      setDate(undefined);
+      setTime("");
+    },
+    onError: (error: any) => {
+      showError("Failed to add todo: " + error.message);
     }
-  };
+  });
+
+  const toggleTodoMutation = useMutation({
+    mutationFn: async ({ id, completed }: { id: string; completed: boolean }) => {
+      const { error } = await supabase
+        .from("todos")
+        .update({ completed })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onMutate: async ({ id, completed }) => {
+      await queryClient.cancelQueries({ queryKey: ['todos'] });
+      const previousTodos = queryClient.getQueryData(['todos', user?.id]);
+      
+      queryClient.setQueryData(['todos', user?.id], (old: Todo[] | undefined) => {
+        return old?.map(t => t.id === id ? { ...t, completed } : t) || [];
+      });
+      
+      return { previousTodos };
+    },
+    onError: (err, newTodo, context) => {
+      queryClient.setQueryData(['todos', user?.id], context?.previousTodos);
+      showError("Failed to update todo");
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['todos'] });
+    }
+  });
+
+  const deleteTodoMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("todos").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['todos'] });
+      showSuccess("Todo deleted!");
+    },
+    onError: (error: any) => {
+      showError("Failed to delete todo: " + error.message);
+    }
+  });
+
+  const clearCompletedMutation = useMutation({
+    mutationFn: async (ids: string[]) => {
+      const { error } = await supabase.from("todos").delete().in("id", ids);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['todos'] });
+      showSuccess("Completed todos cleared!");
+    },
+    onError: (error: any) => {
+      showError("Failed to clear: " + error.message);
+    }
+  });
 
   const addTodo = async () => {
     if (newTodoText.trim() === "") {
@@ -77,102 +148,38 @@ const TodoList: React.FC = () => {
       return;
     }
 
-    try {
-      let finalDate = date;
-      if (date && time) {
-        const [hours, minutes] = time.split(':').map(Number);
-        finalDate = new Date(date);
-        finalDate.setHours(hours);
-        finalDate.setMinutes(minutes);
-      } else if (time && !date) {
-        // If time is set but date isn't, assume today
-        finalDate = new Date();
-        const [hours, minutes] = time.split(':').map(Number);
-        finalDate.setHours(hours);
-        finalDate.setMinutes(minutes);
-      }
-
-      const { data, error } = await supabase
-        .from("todos")
-        .insert([
-          {
-            user_id: user.id,
-            text: newTodoText.trim(),
-            completed: false,
-            due_date: finalDate ? finalDate.toISOString() : null,
-            category: category,
-          },
-        ])
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      setTodos((prev) => [data, ...prev]);
-      setNewTodoText("");
-      setDate(undefined);
-      setTime("");
-      showSuccess("Todo added successfully!");
-    } catch (error: any) {
-      showError("Failed to add todo: " + error.message);
+    let finalDate = date;
+    if (date && time) {
+      const [hours, minutes] = time.split(':').map(Number);
+      finalDate = new Date(date);
+      finalDate.setHours(hours);
+      finalDate.setMinutes(minutes);
+    } else if (time && !date) {
+      finalDate = new Date();
+      const [hours, minutes] = time.split(':').map(Number);
+      finalDate.setHours(hours);
+      finalDate.setMinutes(minutes);
     }
-  };
 
-  const toggleTodo = async (id: string, currentStatus: boolean) => {
-    try {
-      const { error } = await supabase
-        .from("todos")
-        .update({ completed: !currentStatus })
-        .eq("id", id);
-
-      if (error) throw error;
-
-      setTodos((prevTodos) =>
-        prevTodos.map((todo) =>
-          todo.id === id ? { ...todo, completed: !todo.completed } : todo
-        )
-      );
-    } catch (error: any) {
-      showError("Failed to update todo: " + error.message);
-    }
-  };
-
-  const deleteTodo = async (id: string) => {
-    try {
-      const { error } = await supabase.from("todos").delete().eq("id", id);
-
-      if (error) throw error;
-
-      setTodos((prevTodos) => prevTodos.filter((todo) => todo.id !== id));
-      showSuccess("Todo deleted!");
-    } catch (error: any) {
-      showError("Failed to delete todo: " + error.message);
-    }
-  };
-
-  const clearCompleted = async () => {
-    const completedIds = todos.filter((t) => t.completed).map((t) => t.id);
-    if (completedIds.length === 0) return;
-
-    try {
-      const { error } = await supabase
-        .from("todos")
-        .delete()
-        .in("id", completedIds);
-
-      if (error) throw error;
-
-      setTodos((prevTodos) => prevTodos.filter((todo) => !todo.completed));
-      showSuccess("Completed todos cleared!");
-    } catch (error: any) {
-      showError("Failed to clear completed todos: " + error.message);
-    }
+    addTodoMutation.mutate({
+      user_id: user.id,
+      text: newTodoText.trim(),
+      completed: false,
+      due_date: finalDate ? finalDate.toISOString() : null,
+      category: category,
+    });
   };
 
   const handleKeyPress = (event: React.KeyboardEvent<HTMLInputElement>) => {
     if (event.key === "Enter") {
       addTodo();
     }
+  };
+
+  const clearCompleted = () => {
+    const completedIds = todos.filter((t) => t.completed).map((t) => t.id);
+    if (completedIds.length === 0) return;
+    clearCompletedMutation.mutate(completedIds);
   };
 
   const filteredTodos = todos.filter((todo) => {
@@ -208,7 +215,7 @@ const TodoList: React.FC = () => {
               onKeyPress={handleKeyPress}
               className="flex-grow h-10"
             />
-            <Button onClick={addTodo} className="h-10 px-4">
+            <Button onClick={addTodo} className="h-10 px-4" disabled={addTodoMutation.isPending}>
               <Plus className="mr-2 h-4 w-4" /> Add
             </Button>
           </div>
@@ -270,9 +277,9 @@ const TodoList: React.FC = () => {
             </Select>
 
             <ToggleGroup type="single" value={filter} onValueChange={(value: Filter) => value && setFilter(value)}>
-              <ToggleGroupItem value="all" size="sm" aria-label="Show all todos">All</ToggleGroupItem>
-              <ToggleGroupItem value="active" size="sm" aria-label="Show active todos">Active</ToggleGroupItem>
-              <ToggleGroupItem value="completed" size="sm" aria-label="Show completed todos">Done</ToggleGroupItem>
+              <ToggleGroupItem value="all" size="sm">All</ToggleGroupItem>
+              <ToggleGroupItem value="active" size="sm">Active</ToggleGroupItem>
+              <ToggleGroupItem value="completed" size="sm">Done</ToggleGroupItem>
             </ToggleGroup>
         </div>
 
@@ -296,8 +303,8 @@ const TodoList: React.FC = () => {
                   completed={todo.completed}
                   dueDate={todo.due_date}
                   category={todo.category}
-                  onToggle={toggleTodo}
-                  onDelete={deleteTodo}
+                  onToggle={(id, status) => toggleTodoMutation.mutate({ id, completed: !status })}
+                  onDelete={(id) => deleteTodoMutation.mutate(id)}
                 />
               ))}
             </div>
