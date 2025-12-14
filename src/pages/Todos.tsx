@@ -130,7 +130,7 @@ const Todos = () => {
       {/* Fixed Header Section */}
       <div className="flex-none space-y-4 pb-2 border-b">
         <div className="flex justify-between items-center">
-          <h2 className="text-3xl font-bold tracking-tight">My Todos</h2>
+          <h2 className="text-3xl font-bold tracking-tight hidden md:block">My Todos</h2>
           {isMobile && (
             <Button onClick={() => navigate("/todos/new")} size="sm">
               <Plus className="mr-2 h-4 w-4" /> New

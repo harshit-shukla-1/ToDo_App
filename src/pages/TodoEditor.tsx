@@ -151,7 +151,7 @@ const TodoEditor = () => {
         <Button variant="ghost" size="icon" onClick={() => navigate("/todos")}>
           <ArrowLeft className="h-5 w-5" />
         </Button>
-        <h2 className="text-3xl font-bold tracking-tight">
+        <h2 className="text-3xl font-bold tracking-tight hidden md:block">
           {isEditing ? "Edit Todo" : "Create New Todo"}
         </h2>
       </div>

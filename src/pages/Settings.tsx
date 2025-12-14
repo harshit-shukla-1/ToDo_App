@@ -74,8 +74,9 @@ const Settings = () => {
   return (
     <div className="space-y-8 max-w-4xl mx-auto pb-20">
       <div>
-        <h2 className="text-3xl font-bold tracking-tight">Settings</h2>
-        <p className="text-muted-foreground">Manage your account settings and preferences.</p>
+        <h2 className="text-3xl font-bold tracking-tight hidden md:block">Settings</h2>
+        <p className="text-muted-foreground hidden md:block">Manage your account settings and preferences.</p>
+        <p className="text-muted-foreground md:hidden mt-2">Manage your account settings and preferences.</p>
       </div>
 
       <div className="grid gap-6">

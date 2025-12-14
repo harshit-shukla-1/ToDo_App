@@ -384,7 +384,7 @@ const Profile = () => {
   return (
     <div className="max-w-4xl mx-auto space-y-8 pb-10">
       <div className="space-y-2">
-        <h2 className="text-3xl font-bold tracking-tight">Profile Settings</h2>
+        <h2 className="text-3xl font-bold tracking-tight hidden md:block">Profile Settings</h2>
         <div className="flex items-center gap-4">
           <Progress value={completion} className="w-full h-3" />
           <span className="text-sm font-medium whitespace-nowrap">{completion}% Completed</span>

@@ -286,7 +286,7 @@ const Messages = () => {
         )}>
           {/* ... Sidebar Content (Unchanged functionality) ... */}
           <div className="p-3 border-b flex-none">
-            <h2 className="text-lg font-semibold mb-2 px-1">Messages</h2>
+            <h2 className="text-lg font-semibold mb-2 px-1 hidden md:block">Messages</h2>
             <div className="relative">
               <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input 
