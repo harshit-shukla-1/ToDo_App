@@ -136,7 +136,7 @@ const Todos = () => {
   const activeFiltersCount = (search ? 1 : 0) + (statusFilter !== "all" ? 1 : 0) + (categoryFilter !== "all" ? 1 : 0);
 
   return (
-    <div className="h-full flex flex-col space-y-4">
+    <div className="flex flex-col h-full gap-4">
       {/* Fixed Header Section */}
       <div className="flex-none space-y-4 pb-2 border-b">
         <div className="flex justify-between items-center">
@@ -287,7 +287,7 @@ const Todos = () => {
       </div>
 
       {/* Scrollable List Area */}
-      <div className="flex-1 overflow-y-auto min-h-0 pr-1">
+      <div className="flex-1 min-h-0 overflow-y-auto pr-1">
         {loading ? (
           <div className="flex justify-center p-12">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />

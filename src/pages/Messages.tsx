@@ -84,8 +84,6 @@ const Messages = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [fileToEdit, setFileToEdit] = useState<File | null>(null);
 
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  
   // Editing State
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   
@@ -134,7 +132,8 @@ const Messages = () => {
           fetchConversations();
           if (selectedUserId && (payload.new as any).sender_id === selectedUserId) {
             if (payload.eventType === 'INSERT') {
-               setMessages(prev => [...prev, payload.new as Message]);
+               // Add new message to the start of the array (since we display reverse)
+               setMessages(prev => [payload.new as Message, ...prev]);
                markAsRead([payload.new.id]);
             } else if (payload.eventType === 'UPDATE') {
                setMessages(prev => prev.map(m => m.id === payload.new.id ? payload.new as Message : m));
@@ -167,10 +166,6 @@ const Messages = () => {
       setActiveProfile(null);
     }
   }, [selectedUserId, user, conversations]);
-
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, selectedUserId]);
 
   const fetchProfile = async (id: string) => {
     const { data } = await supabase
@@ -229,7 +224,8 @@ const Messages = () => {
       .from('messages')
       .select('*')
       .or(`and(sender_id.eq.${user?.id},receiver_id.eq.${otherId}),and(sender_id.eq.${otherId},receiver_id.eq.${user?.id})`)
-      .order('created_at', { ascending: true });
+      // Sort DESCENDING so we get newest first, which works with flex-col-reverse
+      .order('created_at', { ascending: false });
 
     if (error) {
       showError("Failed to load chat");
@@ -253,7 +249,6 @@ const Messages = () => {
   };
 
   const handleSend = async (imageUrl?: string, captionText?: string, isViewOnce: boolean = false) => {
-    // Determine if we can send (needs text OR image)
     const contentToSend = captionText !== undefined ? captionText : newMessage;
     const hasContent = contentToSend.trim().length > 0;
     const hasImage = !!imageUrl;
@@ -293,7 +288,7 @@ const Messages = () => {
       const msg = {
         sender_id: user.id,
         receiver_id: selectedUserId,
-        content: contentToSend.trim(), // Can be empty string if image is present
+        content: contentToSend.trim(),
         image_url: imageUrl || null,
         is_view_once: isViewOnce
       };
@@ -311,7 +306,7 @@ const Messages = () => {
         return;
       }
 
-      setMessages([...messages, data]);
+      setMessages([data, ...messages]); // Add to start of array for reverse view
       setNewMessage("");
       fetchConversations();
     }
@@ -321,7 +316,6 @@ const Messages = () => {
       const file = event.target.files?.[0];
       if (!file) return;
       setFileToEdit(file);
-      // Reset input value to allow re-selecting same file
       event.target.value = "";
   };
 
@@ -329,9 +323,8 @@ const Messages = () => {
     try {
       if (!user) return;
       setIsUploading(true);
-      setFileToEdit(null); // Close editor immediately
+      setFileToEdit(null); 
 
-      // Generate a unique file path
       const fileName = `${Math.random().toString(36).substring(2, 15)}_${Date.now()}.jpeg`;
       const filePath = `${user.id}/${fileName}`;
 
@@ -345,7 +338,6 @@ const Messages = () => {
 
       const { data } = supabase.storage.from('chat_bucket').getPublicUrl(filePath);
       
-      // Send message with the image and caption
       await handleSend(data.publicUrl, caption, isViewOnce);
       
     } catch (error: any) {
@@ -362,7 +354,6 @@ const Messages = () => {
   const confirmDeleteMessage = async () => {
     if (!deleteMessageId) return;
     
-    // 1. Get the message first to check for image_url
     const { data: msg } = await supabase
       .from('messages')
       .select('image_url')
@@ -373,7 +364,6 @@ const Messages = () => {
       await deleteImageFile(msg.image_url);
     }
 
-    // 2. Delete the message record
     const { error } = await supabase.from('messages').delete().eq('id', deleteMessageId);
     if (error) {
       showError("Failed to delete message");
@@ -385,14 +375,10 @@ const Messages = () => {
 
   const deleteImageFile = async (imageUrl: string) => {
     try {
-      // Extract file path from URL
-      // URL format: .../storage/v1/object/public/chat_bucket/USER_ID/FILENAME
       const urlObj = new URL(imageUrl);
-      // Path starts after 'chat_bucket/'
       const pathParts = urlObj.pathname.split('chat_bucket/');
       if (pathParts.length > 1) {
         const filePath = pathParts[1];
-        // Delete from storage
         await supabase.storage.from('chat_bucket').remove([filePath]);
       }
     } catch (err) {
@@ -411,7 +397,6 @@ const Messages = () => {
        if (error && error.code !== '23505') throw error;
        
        showSuccess(`Blocked @${activeProfile.username}`);
-       // Cleanup connections
        await supabase.from('connections').delete().or(`and(requester_id.eq.${user.id},recipient_id.eq.${activeProfile.id}),and(requester_id.eq.${activeProfile.id},recipient_id.eq.${user.id})`);
        
        navigate('/messages');
@@ -469,9 +454,7 @@ const Messages = () => {
     return !!msg.updated_at;
   };
 
-  // View Once Logic
   const handleViewOnceClick = (msg: Message) => {
-    // Only allow opening if it has content (hasn't been viewed/deleted)
     if (msg.image_url) {
       setViewImage(msg.image_url);
       setViewingViewOnceId(msg.id);
@@ -479,22 +462,14 @@ const Messages = () => {
   };
 
   const handleCloseImageViewer = async () => {
-    // Burn logic: if we were viewing a view-once message, destroy it now
     if (viewingViewOnceId && viewImage) {
       const msgId = viewingViewOnceId;
-      
-      // Optimistic Update
       setMessages(prev => prev.map(m => m.id === msgId ? { ...m, image_url: null, content: "Photo viewed" } : m));
-
-      // 1. Delete image file
       await deleteImageFile(viewImage);
-
-      // 2. Update DB
       await supabase
         .from('messages')
         .update({ image_url: null, content: 'Photo viewed' })
         .eq('id', msgId);
-      
       setViewingViewOnceId(null);
     }
     setViewImage(null);
@@ -502,15 +477,13 @@ const Messages = () => {
 
   return (
     <div className="flex flex-col h-full w-full md:p-4">
-      {/* Unified Card Container for Desktop */}
-      <div className="flex flex-1 overflow-hidden bg-card md:border md:rounded-lg h-full shadow-sm">
+      <div className="flex flex-1 overflow-hidden bg-card md:border md:rounded-lg shadow-sm h-full">
         
         {/* Sidebar */}
         <div className={cn(
-          "w-full md:w-80 flex-col border-r overflow-hidden h-full flex bg-card/50",
+          "w-full md:w-80 flex-col border-r overflow-hidden flex bg-card/50",
           selectedUserId ? "hidden md:flex" : "flex"
         )}>
-          {/* Sidebar Header */}
           <div className="p-4 border-b flex-none flex flex-col gap-4 bg-card z-20">
              <div className="flex items-center justify-between">
                <h2 className="text-xl font-bold tracking-tight hidden md:block">Messages</h2>
@@ -548,7 +521,8 @@ const Messages = () => {
             )}
           </div>
           
-          <ScrollArea className="flex-1">
+          {/* ScrollArea with min-h-0 for proper flex sizing */}
+          <div className="flex-1 min-h-0 overflow-y-auto">
             <div className="flex flex-col">
               {loading ? (
                 <div className="flex justify-center p-4"><Loader2 className="animate-spin" /></div>
@@ -590,30 +564,18 @@ const Messages = () => {
                 ))
               )}
             </div>
-          </ScrollArea>
+          </div>
         </div>
 
         {/* Chat Area */}
         <div className={cn(
-          "flex-1 flex-col overflow-hidden h-full flex bg-background/50",
+          "flex-1 flex-col overflow-hidden flex bg-background/50 h-full",
           !selectedUserId ? "hidden md:flex" : "flex"
         )}>
           {!selectedUserId ? (
             <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground p-4 text-center">
               <MessageSquare className="h-12 w-12 mb-4 opacity-20" />
               <p>Select a conversation to start messaging</p>
-              {!hasUsername && (
-                 <Alert className="max-w-md mt-4 text-left" variant="destructive">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertTitle>Action Required</AlertTitle>
-                  <AlertDescription className="flex flex-col gap-2">
-                    <p>You need to set a username before you can message anyone.</p>
-                    <Link to="/profile">
-                      <Button size="sm" variant="outline" className="w-full">Go to Profile</Button>
-                    </Link>
-                  </AlertDescription>
-                </Alert>
-              )}
             </div>
           ) : (
             <>
@@ -635,7 +597,6 @@ const Messages = () => {
                   </div>
                 </div>
                 
-                {/* Actions Menu */}
                 {activeProfile?.username && (
                    <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -659,12 +620,12 @@ const Messages = () => {
                 )}
               </div>
 
-              {/* Messages List */}
-              <div className="flex-1 overflow-y-auto bg-slate-50 dark:bg-black/20 p-4 space-y-4">
+              {/* Messages List - REVERSED DIRECTION */}
+              <div className="flex-1 overflow-y-auto bg-slate-50 dark:bg-black/20 p-4 min-h-0 flex flex-col-reverse space-y-reverse space-y-4">
                 {messages.length === 0 ? (
-                  <p className="text-center text-xs text-muted-foreground mt-10">No messages yet. Say hello!</p>
+                  <p className="text-center text-xs text-muted-foreground mt-10 mb-auto">No messages yet. Say hello!</p>
                 ) : (
-                  messages.map((msg, index) => {
+                  messages.map((msg) => {
                     const isMe = msg.sender_id === user?.id;
                     const isViewOnce = msg.is_view_once;
                     const isViewed = isViewOnce && !msg.image_url;
@@ -746,7 +707,6 @@ const Messages = () => {
                     );
                   })
                 )}
-                <div ref={messagesEndRef} />
               </div>
 
               {/* Input Area */}
