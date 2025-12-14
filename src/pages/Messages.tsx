@@ -27,8 +27,7 @@ import {
   AlertCircle,
   Eye,
   Ban,
-  Image as ImageIcon,
-  Camera
+  Image as ImageIcon
 } from "lucide-react";
 import { format } from "date-fns";
 import { showSuccess, showError } from "@/utils/toast";
@@ -81,7 +80,6 @@ const Messages = () => {
   // File Upload State
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const cameraInputRef = useRef<HTMLInputElement>(null);
   const [fileToEdit, setFileToEdit] = useState<File | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -722,20 +720,9 @@ const Messages = () => {
                         ref={fileInputRef} 
                         onChange={handleFileSelect} 
                       />
-                       <input 
-                        type="file" 
-                        accept="image/png, image/jpeg, image/webp"
-                        capture="environment"
-                        className="hidden" 
-                        ref={cameraInputRef} 
-                        onChange={handleFileSelect} 
-                      />
                       
                       <Button variant="ghost" size="icon" onClick={() => fileInputRef.current?.click()} disabled={isUploading} className="shrink-0 text-muted-foreground">
                         <ImageIcon className="h-5 w-5" />
-                      </Button>
-                       <Button variant="ghost" size="icon" onClick={() => cameraInputRef.current?.click()} disabled={isUploading} className="shrink-0 text-muted-foreground hidden sm:inline-flex">
-                        <Camera className="h-5 w-5" />
                       </Button>
 
                       <Input 
@@ -771,7 +758,6 @@ const Messages = () => {
           onClose={() => {
             setFileToEdit(null);
             if (fileInputRef.current) fileInputRef.current.value = "";
-            if (cameraInputRef.current) cameraInputRef.current.value = "";
           }}
           onSend={handleEditorSend}
         />
