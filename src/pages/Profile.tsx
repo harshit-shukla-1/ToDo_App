@@ -332,19 +332,22 @@ const Profile = () => {
       
       const file = event.target.files[0];
       const fileExt = file.name.split('.').pop();
-      const filePath = `${user?.id}-${Math.random()}.${fileExt}`;
+      // Use user ID as folder for better organization
+      const filePath = `${user?.id}/${Date.now()}.${fileExt}`;
 
       setUpdating(true);
       
       const { error: uploadError } = await supabase.storage
-        .from('avatars')
-        .upload(filePath, file);
+        .from('avatar_bucket')
+        .upload(filePath, file, {
+          upsert: true
+        });
 
       if (uploadError) {
         throw uploadError;
       }
 
-      const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
+      const { data } = supabase.storage.from('avatar_bucket').getPublicUrl(filePath);
       setAvatarUrl(data.publicUrl);
       showSuccess("Image uploaded successfully!");
     } catch (error: any) {
