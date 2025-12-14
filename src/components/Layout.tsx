@@ -133,8 +133,12 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const { mode, setMode } = useTheme();
   const location = useLocation();
   
-  // Messages page handles its own layout/scrolling
   const isMessagesPage = location.pathname.startsWith("/messages");
+  const isTodoListPage = location.pathname === "/todos";
+  
+  // Pages that manage their own scroll containers (fixed layout)
+  // This prevents double scrollbars and allows for fixed headers/footers within the page component
+  const isFixedLayout = isMessagesPage || isTodoListPage;
 
   // Helper to determine page title
   const getPageTitle = (pathname: string) => {
@@ -184,13 +188,22 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         {/* Main Body - Scrollable Area */}
         <main className={cn(
           "flex-1 relative min-h-0", // min-h-0 is crucial for nested flex scrolling
-          isMessagesPage ? "overflow-hidden flex flex-col" : "overflow-y-auto"
+          isFixedLayout ? "overflow-hidden flex flex-col" : "overflow-y-auto"
         )}>
-          {isMessagesPage ? (
-            // For messages, we pass full height down and let component handle parts
-            <div className="flex-1 flex flex-col h-full w-full pb-[64px] md:pb-0">{children}</div>
+          {isFixedLayout ? (
+            // For fixed layout pages (Messages, Todo List), we pass full height down
+            // The pages themselves handle scrolling areas
+            <div className={cn(
+              "flex-1 flex flex-col h-full w-full",
+              // Mobile nav padding
+              "pb-[64px] md:pb-0", 
+              // Container constraints for Todos, but full width for Messages
+              isTodoListPage && "p-4 md:p-8 max-w-5xl mx-auto"
+            )}>
+              {children}
+            </div>
           ) : (
-            // For other pages, we pad and allow scroll
+            // For other pages, we provide standard scrolling container with padding
              <div className="p-4 md:p-8 pb-24 md:pb-8 max-w-5xl mx-auto">{children}</div>
           )}
         </main>
