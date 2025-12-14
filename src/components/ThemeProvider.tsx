@@ -2,63 +2,83 @@
 
 import React, { createContext, useContext, useEffect, useState } from "react";
 
-export type Theme = "dark" | "light" | "system" | "christmas";
+export type ThemeMode = "dark" | "light" | "system";
+export type ThemeColor = "default" | "ocean" | "forest" | "rose" | "christmas";
 
 type ThemeProviderProps = {
   children: React.ReactNode;
-  defaultTheme?: Theme;
+  defaultMode?: ThemeMode;
+  defaultColor?: ThemeColor;
   storageKey?: string;
 };
 
 type ThemeProviderState = {
-  theme: Theme;
-  setTheme: (theme: Theme) => void;
+  mode: ThemeMode;
+  setMode: (mode: ThemeMode) => void;
+  color: ThemeColor;
+  setColor: (color: ThemeColor) => void;
 };
 
 const initialState: ThemeProviderState = {
-  theme: "system",
-  setTheme: () => null,
+  mode: "system",
+  setMode: () => null,
+  color: "default",
+  setColor: () => null,
 };
 
 const ThemeProviderContext = createContext<ThemeProviderState>(initialState);
 
 export function ThemeProvider({
   children,
-  defaultTheme = "system",
-  storageKey = "vite-ui-theme",
+  defaultMode = "system",
+  defaultColor = "default",
+  storageKey = "mazda-todo-ui-theme",
 }: ThemeProviderProps) {
-  const [theme, setTheme] = useState<Theme>(
-    () => (localStorage.getItem(storageKey) as Theme) || defaultTheme
+  
+  const [mode, setModeState] = useState<ThemeMode>(
+    () => (localStorage.getItem(`${storageKey}-mode`) as ThemeMode) || defaultMode
+  );
+  
+  const [color, setColorState] = useState<ThemeColor>(
+    () => (localStorage.getItem(`${storageKey}-color`) as ThemeColor) || defaultColor
   );
 
   useEffect(() => {
     const root = window.document.documentElement;
 
-    root.classList.remove("light", "dark", "christmas");
+    // Reset classes
+    root.classList.remove("light", "dark");
+    root.classList.remove("theme-default", "theme-ocean", "theme-forest", "theme-rose", "theme-christmas");
 
-    if (theme === "system") {
-      const systemTheme = window.matchMedia("(prefers-color-scheme: dark)")
-        .matches
+    // Apply Mode
+    let systemMode = mode;
+    if (mode === "system") {
+      systemMode = window.matchMedia("(prefers-color-scheme: dark)").matches
         ? "dark"
         : "light";
+    }
+    root.classList.add(systemMode);
 
-      root.classList.add(systemTheme);
-      return;
+    // Apply Color
+    // Special case: Christmas might override mode in CSS, but we add the class regardless
+    if (color !== "default") {
+      root.classList.add(`theme-${color}`);
     }
 
-    root.classList.add(theme);
-  }, [theme]);
+  }, [mode, color]);
 
-  const value = {
-    theme,
-    setTheme: (theme: Theme) => {
-      localStorage.setItem(storageKey, theme);
-      setTheme(theme);
-    },
+  const setMode = (mode: ThemeMode) => {
+    localStorage.setItem(`${storageKey}-mode`, mode);
+    setModeState(mode);
+  };
+
+  const setColor = (color: ThemeColor) => {
+    localStorage.setItem(`${storageKey}-color`, color);
+    setColorState(color);
   };
 
   return (
-    <ThemeProviderContext.Provider value={value}>
+    <ThemeProviderContext.Provider value={{ mode, setMode, color, setColor }}>
       {children}
     </ThemeProviderContext.Provider>
   );

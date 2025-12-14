@@ -9,11 +9,10 @@ import { showSuccess } from "@/utils/toast";
 import { motion, AnimatePresence } from "framer-motion";
 
 const ThemeBanner = () => {
-  const { theme, setTheme } = useTheme();
+  const { color, setColor } = useTheme();
   const { user } = useSession();
   const [isVisible, setIsVisible] = useState(true);
 
-  // Hook must be called unconditionally before any early returns
   useEffect(() => {
     if (sessionStorage.getItem("hide_christmas_banner") === "true") {
       setIsVisible(false);
@@ -21,19 +20,17 @@ const ThemeBanner = () => {
   }, []);
 
   const handleApplyTheme = () => {
-    setTheme("christmas");
+    setColor("christmas");
     showSuccess("Ho Ho Ho! Christmas theme applied! 🎄");
     setIsVisible(false);
   };
 
   const handleClose = () => {
     setIsVisible(false);
-    // Optional: save preference to localStorage so it doesn't pop up again this session
     sessionStorage.setItem("hide_christmas_banner", "true");
   };
 
-  // If already on christmas theme, don't show the banner (or show a different one? No, just hide it to not annoy)
-  if (theme === "christmas" || !isVisible) {
+  if (color === "christmas" || !isVisible) {
     return null;
   }
 
@@ -56,16 +53,14 @@ const ThemeBanner = () => {
             
             <div className="flex items-center gap-2">
               {user ? (
-                <>
-                  <Button 
-                    size="sm" 
-                    variant="secondary" 
-                    className="h-7 px-3 text-xs bg-white text-red-600 hover:bg-gray-100 border-none"
-                    onClick={handleApplyTheme}
-                  >
-                    Apply Theme
-                  </Button>
-                </>
+                <Button 
+                  size="sm" 
+                  variant="secondary" 
+                  className="h-7 px-3 text-xs bg-white text-red-600 hover:bg-gray-100 border-none"
+                  onClick={handleApplyTheme}
+                >
+                  Apply Theme
+                </Button>
               ) : (
                 <span className="text-xs opacity-90 hidden sm:inline">Log in to apply</span>
               )}

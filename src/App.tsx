@@ -21,9 +21,9 @@ import Layout from "./components/Layout";
 import React from "react";
 import NotificationManager from "./components/NotificationManager";
 import ThemeBanner from "./components/ThemeBanner";
-import ChristmasBackground from "./components/ChristmasBackground";
+import BackgroundDecorations from "./components/BackgroundDecorations";
 
-// Configure Persistence with LocalStorage (or IDB if needed, but localStorage is simple for this scale)
+// Configure Persistence with LocalStorage
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -37,7 +37,6 @@ const persister = createSyncStoragePersister({
   storage: window.localStorage,
 });
 
-// ProtectedRoute component to guard routes
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { session, isLoading } = useSession();
 
@@ -56,7 +55,7 @@ const AppContent = () => (
   <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
     <div className="relative min-h-screen flex flex-col">
       <ThemeBanner />
-      <ChristmasBackground />
+      <BackgroundDecorations />
       <div className="flex-1 relative z-10">
         <Routes>
           <Route path="/login" element={<Login />} />
@@ -119,7 +118,6 @@ const AppContent = () => (
             }
           />
           
-          {/* Public Profile Routes */}
           <Route path="/@:username" element={<PublicProfile />} />
           <Route path="/u/:username" element={<PublicProfile />} />
 
@@ -135,7 +133,7 @@ const App = () => (
     client={queryClient} 
     persistOptions={{ persister }}
   >
-    <ThemeProvider defaultTheme="system" storageKey="mazda-todo-theme">
+    <ThemeProvider defaultMode="system" defaultColor="default">
       <TooltipProvider>
         <Toaster />
         <Sonner />
