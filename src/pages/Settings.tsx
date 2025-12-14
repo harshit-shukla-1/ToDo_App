@@ -11,13 +11,20 @@ import { supabase } from "@/integrations/supabase/client";
 import { showSuccess, showError } from "@/utils/toast";
 import { 
   Bell, Moon, Sun, Lock, Loader2, Monitor, Palette, Droplets, Trees, Heart, Snowflake, 
-  Menu, Check
+  Menu, Check, PanelBottom, MousePointerClick
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 const Settings = () => {
-  const { setMode, mode, setColor, color, mobileNavItems, setMobileNavItems } = useTheme();
+  const { 
+    setMode, mode, 
+    setColor, color, 
+    mobileNavItems, setMobileNavItems,
+    mobileMenuType, setMobileMenuType
+  } = useTheme();
+  
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -180,30 +187,73 @@ const Settings = () => {
                <Menu className="h-5 w-5" /> Mobile Menu
              </CardTitle>
              <CardDescription>
-               Choose which pages appear in the bottom navigation "More" menu
+               Customize your mobile navigation experience
              </CardDescription>
           </CardHeader>
-          <CardContent>
-             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-               {availableNavItems.map((item) => (
-                 <div key={item.key} className="flex items-center space-x-2 border p-3 rounded-md hover:bg-muted/50 transition-colors">
-                   <Checkbox 
-                     id={`nav-${item.key}`} 
-                     checked={mobileNavItems.includes(item.key)}
-                     onCheckedChange={() => toggleNavItem(item.key)}
-                   />
-                   <label 
-                     htmlFor={`nav-${item.key}`} 
-                     className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer flex-1"
+          <CardContent className="space-y-6">
+             {/* Menu Type Selection */}
+             <div className="space-y-3">
+               <Label className="text-base">Menu Style</Label>
+               <RadioGroup 
+                 defaultValue={mobileMenuType} 
+                 onValueChange={(val) => setMobileMenuType(val as 'popover' | 'drawer')}
+                 className="grid grid-cols-2 gap-4"
+               >
+                 <div>
+                   <RadioGroupItem value="popover" id="popover" className="peer sr-only" />
+                   <Label
+                     htmlFor="popover"
+                     className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary"
                    >
-                     {item.label}
-                   </label>
+                     <MousePointerClick className="mb-3 h-6 w-6" />
+                     Pop-up Menu
+                   </Label>
                  </div>
-               ))}
+                 <div>
+                   <RadioGroupItem value="drawer" id="drawer" className="peer sr-only" />
+                   <Label
+                     htmlFor="drawer"
+                     className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary"
+                   >
+                     <PanelBottom className="mb-3 h-6 w-6" />
+                     Drawer Menu
+                   </Label>
+                 </div>
+               </RadioGroup>
+               <p className="text-xs text-muted-foreground">
+                 "Pop-up" shows a small list of shortcuts. "Drawer" shows the full application menu.
+               </p>
              </div>
-             <p className="text-xs text-muted-foreground mt-4">
-               Note: The Dashboard, Todos, and Chat icons are fixed on the bottom bar. These settings control the "Menu" popup content.
-             </p>
+
+             {/* Menu Items Config (Only for Popover) */}
+             {mobileMenuType === 'popover' && (
+               <>
+                 <div className="border-t my-4"></div>
+                 <div className="space-y-3">
+                   <Label className="text-base">Quick Access Items</Label>
+                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                     {availableNavItems.map((item) => (
+                       <div key={item.key} className="flex items-center space-x-2 border p-3 rounded-md hover:bg-muted/50 transition-colors">
+                         <Checkbox 
+                           id={`nav-${item.key}`} 
+                           checked={mobileNavItems.includes(item.key)}
+                           onCheckedChange={() => toggleNavItem(item.key)}
+                         />
+                         <label 
+                           htmlFor={`nav-${item.key}`} 
+                           className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer flex-1"
+                         >
+                           {item.label}
+                         </label>
+                       </div>
+                     ))}
+                   </div>
+                   <p className="text-xs text-muted-foreground mt-4">
+                     Select which items appear in the pop-up menu. Fixed items (Home, Todos, Chat) are always visible on the bar.
+                   </p>
+                 </div>
+               </>
+             )}
           </CardContent>
         </Card>
 

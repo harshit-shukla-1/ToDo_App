@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 export type ThemeMode = "dark" | "light" | "system";
 export type ThemeColor = "default" | "ocean" | "forest" | "rose" | "christmas";
+export type MobileMenuType = "popover" | "drawer";
 
 // Available items for the mobile menu
 export type NavItemKey = "dashboard" | "todos" | "messages" | "connections" | "profile" | "settings";
@@ -15,6 +16,7 @@ type ThemeProviderProps = {
   defaultMode?: ThemeMode;
   defaultColor?: ThemeColor;
   defaultMobileNav?: NavItemKey[];
+  defaultMobileMenuType?: MobileMenuType;
   storageKey?: string;
 };
 
@@ -25,6 +27,8 @@ type ThemeProviderState = {
   setColor: (color: ThemeColor) => void;
   mobileNavItems: NavItemKey[];
   setMobileNavItems: (items: NavItemKey[]) => void;
+  mobileMenuType: MobileMenuType;
+  setMobileMenuType: (type: MobileMenuType) => void;
   isLoading: boolean;
 };
 
@@ -37,6 +41,8 @@ const initialState: ThemeProviderState = {
   setColor: () => null,
   mobileNavItems: defaultNavItems,
   setMobileNavItems: () => null,
+  mobileMenuType: "popover",
+  setMobileMenuType: () => null,
   isLoading: true,
 };
 
@@ -47,6 +53,7 @@ export function ThemeProvider({
   defaultMode = "system",
   defaultColor = "default",
   defaultMobileNav = defaultNavItems,
+  defaultMobileMenuType = "popover",
   storageKey = "mazda-todo-ui-theme",
 }: ThemeProviderProps) {
   
@@ -65,6 +72,10 @@ export function ThemeProvider({
       const stored = localStorage.getItem(`${storageKey}-nav`);
       return stored ? JSON.parse(stored) : defaultMobileNav;
     }
+  );
+
+  const [mobileMenuType, setMobileMenuTypeState] = useState<MobileMenuType>(
+    () => (localStorage.getItem(`${storageKey}-menu-type`) as MobileMenuType) || defaultMobileMenuType
   );
 
   const [isLoading, setIsLoading] = useState(true);
@@ -93,6 +104,10 @@ export function ThemeProvider({
             if (prefs.mobile_nav_items && Array.isArray(prefs.mobile_nav_items)) {
               setMobileNavItemsState(prefs.mobile_nav_items);
               localStorage.setItem(`${storageKey}-nav`, JSON.stringify(prefs.mobile_nav_items));
+            }
+            if (prefs.mobile_menu_type) {
+              setMobileMenuTypeState(prefs.mobile_menu_type);
+              localStorage.setItem(`${storageKey}-menu-type`, prefs.mobile_menu_type);
             }
           }
         } catch (e) {
@@ -130,7 +145,7 @@ export function ThemeProvider({
 
   }, [mode, color]);
 
-  const updateDb = async (newMode: ThemeMode, newColor: ThemeColor, newNavItems: NavItemKey[]) => {
+  const updateDb = async (newMode: ThemeMode, newColor: ThemeColor, newNavItems: NavItemKey[], newMenuType: MobileMenuType) => {
     if (!user) return;
     
     try {
@@ -147,7 +162,8 @@ export function ThemeProvider({
           ...currentPrefs,
           theme_mode: newMode,
           theme_color: newColor,
-          mobile_nav_items: newNavItems
+          mobile_nav_items: newNavItems,
+          mobile_menu_type: newMenuType
         }
       }).eq('id', user.id);
     } catch (e) {
@@ -158,19 +174,25 @@ export function ThemeProvider({
   const setMode = (newMode: ThemeMode) => {
     localStorage.setItem(`${storageKey}-mode`, newMode);
     setModeState(newMode);
-    updateDb(newMode, color, mobileNavItems);
+    updateDb(newMode, color, mobileNavItems, mobileMenuType);
   };
 
   const setColor = (newColor: ThemeColor) => {
     localStorage.setItem(`${storageKey}-color`, newColor);
     setColorState(newColor);
-    updateDb(mode, newColor, mobileNavItems);
+    updateDb(mode, newColor, mobileNavItems, mobileMenuType);
   };
 
   const setMobileNavItems = (newItems: NavItemKey[]) => {
     localStorage.setItem(`${storageKey}-nav`, JSON.stringify(newItems));
     setMobileNavItemsState(newItems);
-    updateDb(mode, color, newItems);
+    updateDb(mode, color, newItems, mobileMenuType);
+  };
+
+  const setMobileMenuType = (newType: MobileMenuType) => {
+    localStorage.setItem(`${storageKey}-menu-type`, newType);
+    setMobileMenuTypeState(newType);
+    updateDb(mode, color, mobileNavItems, newType);
   };
 
   return (
@@ -181,6 +203,8 @@ export function ThemeProvider({
       setColor, 
       mobileNavItems, 
       setMobileNavItems,
+      mobileMenuType,
+      setMobileMenuType,
       isLoading
     }}>
       {children}
