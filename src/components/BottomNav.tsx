@@ -11,7 +11,7 @@ import {
   User,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { NavContent } from "./Layout"; // We will export this from Layout
 
 interface BottomNavProps {
@@ -58,6 +58,10 @@ const BottomNav: React.FC<BottomNavProps> = ({ isMobileOpen, setIsMobileOpen }) 
             </div>
           </SheetTrigger>
           <SheetContent side="left" className="p-0 w-64">
+            <SheetTitle className="sr-only">Navigation Menu</SheetTitle>
+            <SheetDescription className="sr-only">
+              Mobile navigation menu
+            </SheetDescription>
             <NavContent setIsMobileOpen={setIsMobileOpen} />
           </SheetContent>
         </Sheet>
