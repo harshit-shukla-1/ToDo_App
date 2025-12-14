@@ -103,11 +103,12 @@ const ChristmasDecorations = () => {
   }));
 
   // Generate snowflakes
-  const snowflakes = Array.from({ length: 15 }).map((_, i) => ({
+  const snowflakes = Array.from({ length: 20 }).map((_, i) => ({
     id: i,
-    left: Math.random() * 100,
-    duration: Math.random() * 10 + 10,
+    left: Math.random() * 100, // Random X position (0-100%)
+    duration: Math.random() * 5 + 5, // Faster falling speed (5-10s)
     delay: Math.random() * 5,
+    size: Math.random() * 10 + 10,
   }));
 
   return (
@@ -146,12 +147,21 @@ const ChristmasDecorations = () => {
       {snowflakes.map((flake) => (
         <motion.div
           key={`snow-${flake.id}`}
-          className="absolute text-white/20"
-          initial={{ y: -20, x: `${flake.left}%`, rotate: 0 }}
-          animate={{ y: '100vh', rotate: 360 }}
-          transition={{ duration: flake.duration, repeat: Infinity, ease: "linear", delay: flake.delay }}
+          className="absolute text-white/30 z-10"
+          // Start from above the viewport (-50px) at a random horizontal position
+          initial={{ y: -50, x: 0, rotate: 0 }}
+          // Animate to below the viewport (110vh)
+          // Use 'left' style prop for X position instead of 'x' animate prop to keep it simple and responsive
+          animate={{ y: '110vh', rotate: 360 }}
+          transition={{ 
+            duration: flake.duration, 
+            repeat: Infinity, 
+            ease: "linear", 
+            delay: flake.delay 
+          }}
+          style={{ left: `${flake.left}%` }} // Set the random X position here
         >
-          <Snowflake size={16} />
+          <Snowflake size={flake.size} />
         </motion.div>
       ))}
 
