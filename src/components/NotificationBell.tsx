@@ -64,14 +64,22 @@ const NotificationBell = () => {
   }, [user]);
 
   const fetchNewMessage = async (msgId: string) => {
-    const { data } = await supabase
+    const { data: msg } = await supabase
       .from('messages')
-      .select('*, sender:sender_id(first_name, last_name, username)')
+      .select('*')
       .eq('id', msgId)
       .single();
       
-    if (data) {
-      setMessageNotifications(prev => [data, ...prev]);
+    if (msg) {
+      const { data: sender } = await supabase
+        .from('profiles')
+        .select('first_name, last_name, username')
+        .eq('id', msg.sender_id)
+        .single();
+
+      const msgWithSender = { ...msg, sender: sender || null };
+      
+      setMessageNotifications(prev => [msgWithSender, ...prev]);
       setUnreadCount(prev => prev + 1);
     }
   };
@@ -80,12 +88,30 @@ const NotificationBell = () => {
     if (!user) return;
     
     // Fetch unread messages
+    // Refactored to manual join to avoid FK errors
     const { data: msgs } = await supabase
       .from('messages')
-      .select('*, sender:sender_id(first_name, last_name, username)')
+      .select('*')
       .eq('receiver_id', user.id)
       .eq('read', false)
       .order('created_at', { ascending: false });
+
+    let msgsWithSenders: any[] = [];
+    
+    if (msgs && msgs.length > 0) {
+      const senderIds = [...new Set(msgs.map((m) => m.sender_id))];
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, first_name, last_name, username')
+        .in('id', senderIds);
+        
+      const profileMap = new Map(profiles?.map(p => [p.id, p]));
+      
+      msgsWithSenders = msgs.map(m => ({
+        ...m,
+        sender: profileMap.get(m.sender_id)
+      }));
+    }
       
     // Fetch system notifications
     const { data: notifs } = await supabase
@@ -95,11 +121,11 @@ const NotificationBell = () => {
       .order('created_at', { ascending: false })
       .limit(20);
 
-    setMessageNotifications(msgs || []);
+    setMessageNotifications(msgsWithSenders || []);
     setSystemNotifications(notifs || []);
     
     const unreadSystem = notifs?.filter(n => !n.read).length || 0;
-    setUnreadCount((msgs?.length || 0) + unreadSystem);
+    setUnreadCount((msgsWithSenders?.length || 0) + unreadSystem);
   };
 
   const markAsRead = async (id: string) => {
