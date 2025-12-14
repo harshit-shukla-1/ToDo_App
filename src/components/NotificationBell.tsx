@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { useSession } from "@/integrations/supabase/auth";
 import { supabase } from "@/integrations/supabase/client";
-import { Bell, Trash2, Mail, Info, Check } from "lucide-react";
+import { Bell, Trash2, Mail, Info, Check, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useNavigate } from "react-router-dom";
@@ -15,6 +15,7 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { format } from "date-fns";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { cn } from "@/lib/utils";
 
 const NotificationBell = () => {
   const { user } = useSession();
@@ -145,6 +146,17 @@ const NotificationBell = () => {
     navigate('/messages');
   };
 
+  const handleSystemNotificationClick = (notif: any) => {
+      if (!notif.read) markAsRead(notif.id);
+      setOpen(false);
+      
+      if (notif.type === 'connection_request') {
+          navigate('/connections?tab=requests');
+      } else if (notif.type === 'reminder') {
+          navigate('/todos');
+      }
+  };
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -210,11 +222,19 @@ const NotificationBell = () => {
                   {systemNotifications.map((notif) => (
                     <div
                       key={notif.id}
-                      className={`p-3 border-b hover:bg-muted/30 transition-colors relative group ${!notif.read ? 'bg-primary/5' : ''}`}
+                      onClick={() => handleSystemNotificationClick(notif)}
+                      className={cn(
+                        "p-3 border-b hover:bg-muted/30 transition-colors relative group cursor-pointer",
+                        !notif.read && "bg-primary/5"
+                      )}
                     >
                       <div className="flex gap-3">
                         <div className="mt-1">
-                          <Info className="h-4 w-4 text-blue-500" />
+                          {notif.type === 'connection_request' ? (
+                             <UserPlus className="h-4 w-4 text-blue-500" />
+                          ) : (
+                             <Info className="h-4 w-4 text-gray-500" />
+                          )}
                         </div>
                         <div className="flex-1 space-y-1 overflow-hidden">
                           <p className={`text-sm truncate ${!notif.read ? 'font-semibold' : ''}`}>{notif.title}</p>
@@ -225,7 +245,7 @@ const NotificationBell = () => {
                         </div>
                         <div className="flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                            {!notif.read && (
-                             <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => markAsRead(notif.id)} title="Mark as read">
+                             <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => { e.stopPropagation(); markAsRead(notif.id); }} title="Mark as read">
                                <Check className="h-3 w-3" />
                              </Button>
                            )}

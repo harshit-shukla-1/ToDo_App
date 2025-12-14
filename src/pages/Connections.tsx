@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { showSuccess, showError } from "@/utils/toast";
 import { Loader2, Search, UserPlus, UserCheck, UserX, UserMinus } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import ConfirmDialog from "@/components/ConfirmDialog";
 
 interface Profile {
@@ -34,7 +34,10 @@ interface Connection {
 const Connections = () => {
   const { user } = useSession();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState("my-connections");
+  const [searchParams] = useSearchParams();
+  
+  // Set active tab based on URL param or default
+  const [activeTab, setActiveTab] = useState(searchParams.get("tab") || "my-connections");
   
   const [connections, setConnections] = useState<Connection[]>([]);
   const [pendingReceived, setPendingReceived] = useState<Connection[]>([]);
@@ -48,6 +51,14 @@ const Connections = () => {
 
   // Dialog state
   const [deleteId, setDeleteId] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Update tab if URL changes
+    const tab = searchParams.get("tab");
+    if (tab && (tab === 'my-connections' || tab === 'requests' || tab === 'sent')) {
+      setActiveTab(tab);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     if (user) {
@@ -289,7 +300,10 @@ const Connections = () => {
 
         {/* Lists Section */}
         <div className="md:col-span-2">
-          <Tabs defaultValue="my-connections" value={activeTab} onValueChange={setActiveTab}>
+          <Tabs defaultValue="my-connections" value={activeTab} onValueChange={(val) => {
+             setActiveTab(val);
+             // Optional: Update URL without navigation to keep state in sync if desired
+          }}>
             <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="my-connections">Connected ({connections.length})</TabsTrigger>
               <TabsTrigger value="requests">Requests ({pendingReceived.length})</TabsTrigger>

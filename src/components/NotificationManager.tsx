@@ -36,12 +36,6 @@ const NotificationManager: React.FC = () => {
       }, async (payload) => {
         const newMessage = payload.new;
         
-        // Don't notify if user is already looking at this chat? 
-        // For simplicity, we notify anyway unless window is focused and URL matches, 
-        // but getting URL state inside this callback is tricky without context.
-        // We'll just notify.
-
-        // Fetch sender name
         const { data: sender } = await supabase
           .from('profiles')
           .select('first_name, username')
@@ -63,6 +57,51 @@ const NotificationManager: React.FC = () => {
       })
       .subscribe();
 
+    // --- Connection Request Notifications ---
+    const connectionChannel = supabase
+      .channel('public:connections:notify')
+      .on('postgres_changes', { 
+        event: 'INSERT', 
+        schema: 'public', 
+        table: 'connections',
+        filter: `recipient_id=eq.${user.id}` 
+      }, async (payload) => {
+        const newConnection = payload.new;
+        
+        if (newConnection.status === 'pending') {
+          const { data: requester } = await supabase
+            .from('profiles')
+            .select('first_name, username')
+            .eq('id', newConnection.requester_id)
+            .single();
+
+          const requesterName = requester?.first_name || requester?.username || "Someone";
+          const title = "New Connection Request";
+          const message = `${requesterName} sent you a connection request.`;
+
+          // Browser Notification / Toast
+          if ("Notification" in window && Notification.permission === "granted") {
+             new Notification(title, {
+               body: message,
+               icon: '/favicon.ico',
+               tag: `conn-${newConnection.id}`
+             });
+          } else {
+             showSuccess(message);
+          }
+
+          // Persist to Notifications Table
+          await supabase.from('notifications').insert({
+            user_id: user.id,
+            title: title,
+            message: message,
+            type: 'connection_request',
+            related_entity_id: newConnection.id,
+            read: false
+          });
+        }
+      })
+      .subscribe();
 
     // --- Todo Reminders ---
     const checkReminders = async () => {
@@ -146,6 +185,7 @@ const NotificationManager: React.FC = () => {
     return () => {
       clearInterval(intervalId);
       supabase.removeChannel(messageChannel);
+      supabase.removeChannel(connectionChannel);
     };
   }, [user]);
 
