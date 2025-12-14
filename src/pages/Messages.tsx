@@ -27,7 +27,8 @@ import {
   AlertCircle,
   Eye,
   Ban,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Camera
 } from "lucide-react";
 import { format } from "date-fns";
 import { showSuccess, showError } from "@/utils/toast";
@@ -464,15 +465,16 @@ const Messages = () => {
 
   return (
     <div className="flex flex-col h-full w-full md:p-4">
-      <div className="flex flex-1 overflow-hidden bg-background md:gap-4 h-full">
+      {/* Unified Card Container for Desktop */}
+      <div className="flex flex-1 overflow-hidden bg-card md:border md:rounded-lg h-full shadow-sm">
         
         {/* Sidebar */}
         <div className={cn(
-          "w-full md:w-1/3 flex-col border-r md:border bg-card md:rounded-lg overflow-hidden h-full",
+          "w-full md:w-80 flex-col border-r overflow-hidden h-full flex bg-card/50",
           selectedUserId ? "hidden md:flex" : "flex"
         )}>
           {/* Sidebar Header */}
-          <div className="p-3 border-b flex-none h-[60px] flex flex-col justify-center">
+          <div className="p-3 border-b flex-none h-[60px] flex flex-col justify-center bg-card">
              <div className="flex items-center justify-between mb-2 md:mb-0">
                <h2 className="text-lg font-semibold px-1 hidden md:block">Messages</h2>
              </div>
@@ -522,8 +524,8 @@ const Messages = () => {
                     onClick={() => selectConversation(id)}
                     className={cn(
                       "flex items-center gap-3 p-4 transition-colors text-left border-b last:border-0",
-                      selectedUserId === id ? "bg-muted" : "hover:bg-muted/50",
-                      (data.lastMessage.receiver_id === user?.id && !data.lastMessage.read) && "bg-primary/10"
+                      selectedUserId === id ? "bg-secondary" : "hover:bg-muted/50",
+                      (data.lastMessage.receiver_id === user?.id && !data.lastMessage.read) && "bg-primary/5"
                     )}
                   >
                     <Avatar className="h-10 w-10">
@@ -556,7 +558,7 @@ const Messages = () => {
 
         {/* Chat Area */}
         <div className={cn(
-          "w-full md:w-2/3 flex-col bg-card md:border md:rounded-lg overflow-hidden h-full",
+          "flex-1 flex-col overflow-hidden h-full flex bg-background/50",
           !selectedUserId ? "hidden md:flex" : "flex"
         )}>
           {!selectedUserId ? (
