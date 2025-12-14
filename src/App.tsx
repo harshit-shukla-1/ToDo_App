@@ -59,7 +59,10 @@ const AppToaster = () => {
   return (
     <>
       <Toaster />
-      <Sonner position={isMobile ? "top-center" : "bottom-right"} />
+      <Sonner 
+        position={isMobile ? "top-center" : "bottom-right"} 
+        duration={2000}
+      />
     </>
   );
 };
