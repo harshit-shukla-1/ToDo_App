@@ -11,7 +11,8 @@ import {
   User,
   MessageSquare,
   Sun,
-  Moon
+  Moon,
+  Users
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
@@ -81,6 +82,16 @@ export const NavContent = ({ setIsMobileOpen }: { setIsMobileOpen?: (open: boole
             Messages
           </Button>
         </Link>
+        <Link to="/connections">
+          <Button
+            variant={location.pathname.startsWith("/connections") ? "secondary" : "ghost"}
+            className="w-full justify-start"
+            onClick={close}
+          >
+            <Users className="mr-2 h-4 w-4" />
+            Connections
+          </Button>
+        </Link>
         <Link to="/profile">
           <Button
             variant={location.pathname === "/profile" ? "secondary" : "ghost"}
@@ -129,6 +140,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     if (pathname === "/") return "Dashboard";
     if (pathname.startsWith("/todos")) return "My Todos";
     if (pathname.startsWith("/messages")) return "Messages";
+    if (pathname.startsWith("/connections")) return "Connections";
     if (pathname === "/profile") return "Profile";
     if (pathname === "/settings") return "Settings";
     return "Mazda Todo";

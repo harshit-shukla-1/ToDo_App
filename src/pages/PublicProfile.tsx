@@ -1,13 +1,15 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Loader2, User as UserIcon, Calendar, ArrowLeft, Ruler, Weight, Mail, Home } from "lucide-react";
+import { Loader2, User as UserIcon, Calendar, ArrowLeft, Ruler, Weight, Mail, Home, UserPlus, Check, UserMinus } from "lucide-react";
+import { useSession } from "@/integrations/supabase/auth";
+import { showSuccess, showError } from "@/utils/toast";
 
 interface PublicSettings {
   show_email: boolean;
@@ -20,22 +22,36 @@ interface PublicSettings {
 
 const PublicProfile = () => {
   const { username } = useParams();
+  const { user } = useSession();
+  const navigate = useNavigate();
+  const location = useLocation();
+  
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
+  
+  // Connection State
+  const [connectionStatus, setConnectionStatus] = useState<'none' | 'pending_sent' | 'pending_received' | 'accepted'>('none');
+  const [connectionId, setConnectionId] = useState<string | null>(null);
+  const [actionLoading, setActionLoading] = useState(false);
 
   useEffect(() => {
     if (username) {
       fetchPublicProfile();
     }
   }, [username]);
+  
+  useEffect(() => {
+    if (user && profile) {
+      checkConnectionStatus();
+    }
+  }, [user, profile]);
 
   const fetchPublicProfile = async () => {
     try {
       setLoading(true);
       setError(null);
       
-      // Clean up username if it starts with @ (just in case)
       let cleanUsername = username || "";
       if (cleanUsername.startsWith('@')) {
         cleanUsername = cleanUsername.substring(1);
@@ -46,12 +62,11 @@ const PublicProfile = () => {
       const { data, error } = await supabase
         .from("profiles")
         .select("*")
-        .ilike("username", cleanUsername) // Case-insensitive match
+        .ilike("username", cleanUsername)
         .eq("is_public", true)
         .single();
 
       if (error) {
-        console.error("Supabase error:", error);
         if (error.code === 'PGRST116') {
              throw new Error("Profile not found or is set to private.");
         }
@@ -64,6 +79,91 @@ const PublicProfile = () => {
       setError(err.message || "User not found or profile is private.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const checkConnectionStatus = async () => {
+    if (!user || !profile || user.id === profile.id) return;
+    
+    try {
+      const { data } = await supabase
+        .from('connections')
+        .select('*')
+        .or(`and(requester_id.eq.${user.id},recipient_id.eq.${profile.id}),and(requester_id.eq.${profile.id},recipient_id.eq.${user.id})`)
+        .maybeSingle();
+
+      if (data) {
+        setConnectionId(data.id);
+        if (data.status === 'accepted') {
+          setConnectionStatus('accepted');
+        } else if (data.status === 'pending') {
+          if (data.requester_id === user.id) {
+            setConnectionStatus('pending_sent');
+          } else {
+            setConnectionStatus('pending_received');
+          }
+        }
+      } else {
+        setConnectionStatus('none');
+        setConnectionId(null);
+      }
+    } catch (err) {
+      console.error("Error checking connection status", err);
+    }
+  };
+
+  const handleConnect = async () => {
+    if (!user) {
+      // Redirect to login with return URL
+      // We encode the current pathname to return here after login
+      navigate(`/login?returnUrl=${encodeURIComponent(location.pathname)}`);
+      return;
+    }
+
+    if (user.id === profile.id) return;
+
+    setActionLoading(true);
+    try {
+      if (connectionStatus === 'none') {
+        // Send Request
+        const { error } = await supabase.from('connections').insert({
+          requester_id: user.id,
+          recipient_id: profile.id,
+          status: 'pending'
+        });
+        if (error) throw error;
+        showSuccess("Request sent!");
+        setConnectionStatus('pending_sent');
+        checkConnectionStatus();
+      } 
+      else if (connectionStatus === 'pending_received') {
+        // Accept Request
+        if (!connectionId) return;
+        const { error } = await supabase.from('connections')
+          .update({ status: 'accepted' })
+          .eq('id', connectionId);
+        if (error) throw error;
+        showSuccess("Connection accepted!");
+        setConnectionStatus('accepted');
+      }
+      else if (connectionStatus === 'accepted' || connectionStatus === 'pending_sent') {
+        // Remove/Cancel
+        if (!confirm("Are you sure you want to remove this connection?")) {
+           setActionLoading(false);
+           return;
+        }
+        if (!connectionId) return;
+        const { error } = await supabase.from('connections')
+          .delete()
+          .eq('id', connectionId);
+        if (error) throw error;
+        showSuccess("Connection removed");
+        setConnectionStatus('none');
+      }
+    } catch (err: any) {
+      showError("Action failed: " + err.message);
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -83,7 +183,6 @@ const PublicProfile = () => {
     );
   }
 
-  // Fallback defaults in case older profiles haven't updated
   const rawSettings = profile.public_settings || {};
   const settings: PublicSettings = {
     show_email: rawSettings.show_email ?? false,
@@ -97,11 +196,12 @@ const PublicProfile = () => {
   const customProperties = profile.custom_properties || {};
   const hasVisibleMeasurements = settings.show_measurements && (profile.height || profile.weight);
   const hasVisibleBirthday = settings.show_birthday && profile.birthday;
+  const isOwnProfile = user?.id === profile.id;
 
   return (
     <div className="min-h-screen bg-background py-8 px-4">
       {/* Navigation Header */}
-      <div className="max-w-3xl mx-auto mb-6">
+      <div className="max-w-3xl mx-auto mb-6 flex justify-between items-center">
         <Link to="/">
           <Button variant="ghost" className="gap-2 pl-0 hover:bg-transparent -ml-2">
             <ArrowLeft className="h-4 w-4" /> Back to Home
@@ -113,13 +213,35 @@ const PublicProfile = () => {
         {/* Header / Avatar */}
         <Card className="overflow-hidden">
           <div className="h-32 bg-gradient-to-r from-blue-500 to-purple-600"></div>
-          <div className="px-6 pb-6">
+          <div className="px-6 pb-6 relative">
             <div className="-mt-16 mb-4 inline-block">
               <Avatar className="h-32 w-32 border-4 border-background shadow-sm">
                 <AvatarImage src={profile.avatar_url} className="object-cover" />
                 <AvatarFallback><UserIcon className="h-16 w-16" /></AvatarFallback>
               </Avatar>
             </div>
+            
+            {/* Action Buttons */}
+            {!isOwnProfile && (
+              <div className="absolute top-4 right-4 md:static md:float-right md:mt-2">
+                <Button 
+                  onClick={handleConnect} 
+                  disabled={actionLoading}
+                  variant={connectionStatus === 'accepted' ? "secondary" : "default"}
+                  className="gap-2"
+                >
+                  {actionLoading ? <Loader2 className="animate-spin h-4 w-4" /> : (
+                    <>
+                      {connectionStatus === 'none' && <><UserPlus className="h-4 w-4" /> Connect</>}
+                      {connectionStatus === 'pending_sent' && <><Loader2 className="h-4 w-4" /> Request Sent</>}
+                      {connectionStatus === 'pending_received' && <><Check className="h-4 w-4" /> Accept Request</>}
+                      {connectionStatus === 'accepted' && <><UserMinus className="h-4 w-4" /> Connected</>}
+                    </>
+                  )}
+                </Button>
+              </div>
+            )}
+
             <div className="flex flex-col items-start space-y-1">
               <h1 className="text-3xl font-bold break-words">{profile.first_name} {profile.last_name}</h1>
               <p className="text-muted-foreground font-medium text-lg">@{profile.username}</p>

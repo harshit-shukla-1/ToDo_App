@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useSession } from '@/integrations/supabase/auth';
 import { useTheme } from "@/components/ThemeProvider";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 const Login: React.FC = () => {
   const { session } = useSession();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const returnUrl = searchParams.get('returnUrl');
   const { mode, setMode } = useTheme();
   
   const [loading, setLoading] = useState(false);
@@ -32,9 +34,13 @@ const Login: React.FC = () => {
 
   useEffect(() => {
     if (session) {
-      navigate('/');
+      if (returnUrl) {
+        navigate(decodeURIComponent(returnUrl));
+      } else {
+        navigate('/');
+      }
     }
-  }, [session, navigate]);
+  }, [session, navigate, returnUrl]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,7 +53,7 @@ const Login: React.FC = () => {
 
       if (error) throw error;
       showSuccess("Welcome back!");
-      // Navigation happens automatically via session listener in App.tsx
+      // Navigation happens automatically via session listener effect above or in App.tsx
     } catch (error: any) {
       showError(error.message);
     } finally {
