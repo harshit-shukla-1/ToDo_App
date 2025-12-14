@@ -401,7 +401,7 @@ const Messages = () => {
         
         {/* Sidebar / List */}
         <div className={cn(
-          "w-full md:w-1/3 flex-col border-r md:border bg-card md:rounded-lg overflow-hidden",
+          "w-full md:w-1/3 flex-col border-r md:border bg-card md:rounded-lg overflow-hidden h-full",
           selectedUserId ? "hidden md:flex" : "flex"
         )}>
           {/* Sidebar Header */}
