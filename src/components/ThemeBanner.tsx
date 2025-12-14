@@ -13,10 +13,12 @@ const ThemeBanner = () => {
   const { user } = useSession();
   const [isVisible, setIsVisible] = useState(true);
 
-  // If already on christmas theme, don't show the banner (or show a different one? No, just hide it to not annoy)
-  if (theme === "christmas" || !isVisible) {
-    return null;
-  }
+  // Hook must be called unconditionally before any early returns
+  useEffect(() => {
+    if (sessionStorage.getItem("hide_christmas_banner") === "true") {
+      setIsVisible(false);
+    }
+  }, []);
 
   const handleApplyTheme = () => {
     setTheme("christmas");
@@ -30,11 +32,10 @@ const ThemeBanner = () => {
     sessionStorage.setItem("hide_christmas_banner", "true");
   };
 
-  useEffect(() => {
-    if (sessionStorage.getItem("hide_christmas_banner") === "true") {
-      setIsVisible(false);
-    }
-  }, []);
+  // If already on christmas theme, don't show the banner (or show a different one? No, just hide it to not annoy)
+  if (theme === "christmas" || !isVisible) {
+    return null;
+  }
 
   return (
     <AnimatePresence>
