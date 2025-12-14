@@ -72,7 +72,7 @@ const Profile = () => {
   const [hobbies, setHobbies] = useState(""); // Comma separated string
   const [avatarUrl, setAvatarUrl] = useState("");
   const [email, setEmail] = useState("");
-  const [contact, setContact] = useState(""); // New Contact Field
+  const [contact, setContact] = useState(""); 
   
   // Birthday Select State
   const currentYear = new Date().getFullYear();
@@ -261,7 +261,7 @@ const Profile = () => {
         last_name: lastName,
         about,
         contact,
-        email: email, // Sync email to profile for public visibility
+        email: email,
         birthday: birthday ? format(birthday, 'yyyy-MM-dd') : null,
         height: height ? parseFloat(height) : null,
         weight: weight ? parseFloat(weight) : null,
@@ -329,14 +329,26 @@ const Profile = () => {
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     try {
       if (!event.target.files || event.target.files.length === 0) return;
+      if (!user) return;
       
       const file = event.target.files[0];
       const fileExt = file.name.split('.').pop();
-      // Use user ID as folder for better organization
-      const filePath = `${user?.id}/${Date.now()}.${fileExt}`;
+      // Generate unique name to prevent caching issues
+      const fileName = `${Date.now()}.${fileExt}`;
+      const filePath = `${user.id}/${fileName}`;
 
       setUpdating(true);
       
+      // 1. Cleanup old files
+      const { data: list } = await supabase.storage.from('avatar_bucket').list(user.id);
+      if (list && list.length > 0) {
+        const filesToRemove = list.map(f => `${user.id}/${f.name}`);
+        if (filesToRemove.length > 0) {
+          await supabase.storage.from('avatar_bucket').remove(filesToRemove);
+        }
+      }
+
+      // 2. Upload new file
       const { error: uploadError } = await supabase.storage
         .from('avatar_bucket')
         .upload(filePath, file, {
@@ -348,12 +360,25 @@ const Profile = () => {
       }
 
       const { data } = supabase.storage.from('avatar_bucket').getPublicUrl(filePath);
-      setAvatarUrl(data.publicUrl);
-      showSuccess("Image uploaded successfully!");
+      const publicUrl = data.publicUrl;
+      
+      setAvatarUrl(publicUrl);
+
+      // 3. Save to DB immediately
+      const { error: dbError } = await supabase
+        .from('profiles')
+        .update({ avatar_url: publicUrl, updated_at: new Date().toISOString() })
+        .eq('id', user.id);
+
+      if (dbError) throw dbError;
+
+      showSuccess("Avatar uploaded and profile updated!");
     } catch (error: any) {
       showError("Upload failed: " + error.message);
     } finally {
       setUpdating(false);
+      // Clear input
+      event.target.value = "";
     }
   };
 
@@ -420,7 +445,10 @@ const Profile = () => {
                     <button 
                       key={i}
                       type="button"
-                      onClick={() => setAvatarUrl(url)}
+                      onClick={() => {
+                        setAvatarUrl(url);
+                        // Optional: auto-save on select too if desired, currently user hits save
+                      }}
                       className={`rounded-full overflow-hidden border-2 transition-all ${avatarUrl === url ? 'border-primary ring-2 ring-primary/30' : 'border-transparent hover:border-muted'}`}
                     >
                       <img src={url} alt="Avatar option" className="h-full w-full object-cover" />
