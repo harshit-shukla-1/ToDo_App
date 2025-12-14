@@ -15,7 +15,6 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { 
-  User, 
   Send, 
   Search, 
   MessageSquare, 
@@ -27,7 +26,10 @@ import {
   X,
   AlertCircle,
   Eye,
-  Ban
+  Ban,
+  Image as ImageIcon,
+  Camera,
+  Paperclip
 } from "lucide-react";
 import { format } from "date-fns";
 import { showSuccess, showError } from "@/utils/toast";
@@ -35,12 +37,14 @@ import { cn } from "@/lib/utils";
 import { useNavigate, useParams, Link } from "react-router-dom";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import ConfirmDialog from "@/components/ConfirmDialog";
+import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 
 interface Message {
   id: string;
   sender_id: string;
   receiver_id: string;
   content: string;
+  image_url?: string | null;
   created_at: string;
   updated_at?: string | null;
   read: boolean;
@@ -68,11 +72,16 @@ const Messages = () => {
   const [loading, setLoading] = useState(true);
   const [searchResults, setSearchResults] = useState<Profile[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeProfile, setActiveProfile] = useState<Profile | null>(null); // To store profile if not in conversations map
+  const [activeProfile, setActiveProfile] = useState<Profile | null>(null);
   
   // Current user profile state
   const [currentUserProfile, setCurrentUserProfile] = useState<Profile | null>(null);
-  const [hasUsername, setHasUsername] = useState(true); // Optimistic default
+  const [hasUsername, setHasUsername] = useState(true);
+
+  // File Upload State
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
@@ -85,7 +94,9 @@ const Messages = () => {
   // Blocking State
   const [blockDialogOpen, setBlockDialogOpen] = useState(false);
 
-  // Fetch current user profile to check for username
+  // Enlarged Image State
+  const [viewImage, setViewImage] = useState<string | null>(null);
+
   useEffect(() => {
     if (user) {
       const fetchCurrentUser = async () => {
@@ -106,7 +117,6 @@ const Messages = () => {
     }
   }, [user]);
 
-  // Fetch conversations list
   useEffect(() => {
     if (user) {
       fetchConversations();
@@ -114,13 +124,12 @@ const Messages = () => {
       const channel = supabase
         .channel('public:messages')
         .on('postgres_changes', { 
-          event: '*', // Listen to all events to catch updates/deletes too
+          event: '*', 
           schema: 'public', 
           table: 'messages',
           filter: `receiver_id=eq.${user.id}` 
         }, (payload) => {
           fetchConversations();
-          // If we are looking at this chat
           if (selectedUserId && (payload.new as any).sender_id === selectedUserId) {
             if (payload.eventType === 'INSERT') {
                setMessages(prev => [...prev, payload.new as Message]);
@@ -140,19 +149,16 @@ const Messages = () => {
     }
   }, [user, selectedUserId]);
 
-  // Fetch specific conversation messages and profile details if needed
   useEffect(() => {
     if (selectedUserId && user) {
       fetchMessages(selectedUserId);
       setEditingMessageId(null);
       setNewMessage("");
 
-      // Ensure we have the profile data for the header
       const conversation = conversations.get(selectedUserId);
       if (conversation?.profile) {
         setActiveProfile(conversation.profile);
       } else {
-        // Fallback fetch if navigating directly or starting new chat
         fetchProfile(selectedUserId);
       }
     } else {
@@ -160,7 +166,6 @@ const Messages = () => {
     }
   }, [selectedUserId, user, conversations]);
 
-  // Auto-scroll to bottom of chat
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, selectedUserId]);
@@ -245,14 +250,19 @@ const Messages = () => {
     fetchConversations();
   };
 
-  const handleSend = async () => {
-    if (!newMessage.trim() || !selectedUserId || !user) return;
+  const handleSend = async (imageUrl?: string) => {
+    // Determine if we can send (needs text OR image)
+    const hasContent = newMessage.trim().length > 0;
+    const hasImage = !!imageUrl;
+    
+    if ((!hasContent && !hasImage) || !selectedUserId || !user) return;
+    
     if (!hasUsername) {
       showError("Please set a username in your profile to send messages.");
       return;
     }
 
-    if (editingMessageId) {
+    if (editingMessageId && !hasImage) {
       // Update existing message
       const { error } = await supabase
         .from('messages')
@@ -280,17 +290,17 @@ const Messages = () => {
       const msg = {
         sender_id: user.id,
         receiver_id: selectedUserId,
-        content: newMessage.trim(),
+        content: newMessage.trim(), // Can be empty string if image is present
+        image_url: imageUrl || null
       };
 
       const { data, error } = await supabase.from('messages').insert([msg]).select().single();
 
       if (error) {
-        // Handle specific RLS or Trigger errors
         if (error.message.includes('Rate limit')) {
-           showError("Rate limit exceeded. Please wait before sending more messages.");
-        } else if (error.code === '42501') { // RLS violation
-           showError("Failed to send. You may have been blocked by this user.");
+           showError("Rate limit exceeded.");
+        } else if (error.code === '42501') {
+           showError("Failed to send. Blocked or restricted.");
         } else {
            showError("Failed to send message: " + error.message);
         }
@@ -300,6 +310,39 @@ const Messages = () => {
       setMessages([...messages, data]);
       setNewMessage("");
       fetchConversations();
+    }
+  };
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    try {
+      const file = event.target.files?.[0];
+      if (!file || !user) return;
+
+      setIsUploading(true);
+      
+      // Generate a unique file path
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Math.random().toString(36).substring(2, 15)}_${Date.now()}.${fileExt}`;
+      const filePath = `${user.id}/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('chat_bucket')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data } = supabase.storage.from('chat_bucket').getPublicUrl(filePath);
+      
+      // Send message immediately with the image
+      await handleSend(data.publicUrl);
+      
+    } catch (error: any) {
+      showError("Upload failed: " + error.message);
+    } finally {
+      setIsUploading(false);
+      // Reset inputs
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      if (cameraInputRef.current) cameraInputRef.current.value = "";
     }
   };
 
@@ -327,21 +370,15 @@ const Messages = () => {
           blocked_id: activeProfile.id
        });
        
-       if (error) {
-         if (error.code === '23505') { // Unique violation
-           showError("User is already blocked");
-         } else {
-           throw error;
-         }
-       } else {
-         showSuccess(`Blocked @${activeProfile.username}`);
-         // Optionally clean up connections
-         await supabase.from('connections').delete().or(`and(requester_id.eq.${user.id},recipient_id.eq.${activeProfile.id}),and(requester_id.eq.${activeProfile.id},recipient_id.eq.${user.id})`);
-         
-         navigate('/messages');
-       }
+       if (error && error.code !== '23505') throw error;
+       
+       showSuccess(`Blocked @${activeProfile.username}`);
+       // Cleanup connections
+       await supabase.from('connections').delete().or(`and(requester_id.eq.${user.id},recipient_id.eq.${activeProfile.id}),and(requester_id.eq.${activeProfile.id},recipient_id.eq.${user.id})`);
+       
+       navigate('/messages');
     } catch (err: any) {
-       showError("Failed to block user: " + err.message);
+       showError("Failed to block: " + err.message);
     } finally {
       setBlockDialogOpen(false);
     }
@@ -390,7 +427,6 @@ const Messages = () => {
     return "U";
   };
 
-  // Helper to check if message was edited
   const isEdited = (msg: Message) => {
     return !!msg.updated_at;
   };
@@ -399,7 +435,7 @@ const Messages = () => {
     <div className="flex flex-col h-full w-full md:p-4">
       <div className="flex flex-1 overflow-hidden bg-background md:gap-4 h-full">
         
-        {/* Sidebar / List */}
+        {/* Sidebar */}
         <div className={cn(
           "w-full md:w-1/3 flex-col border-r md:border bg-card md:rounded-lg overflow-hidden h-full",
           selectedUserId ? "hidden md:flex" : "flex"
@@ -477,7 +513,7 @@ const Messages = () => {
                         (data.lastMessage.receiver_id === user?.id && !data.lastMessage.read) ? "font-semibold text-foreground" : "text-muted-foreground"
                       )}>
                         {data.lastMessage.sender_id === user?.id && "You: "}
-                        {data.lastMessage.content}
+                        {data.lastMessage.image_url ? "📷 Image" : data.lastMessage.content}
                       </p>
                     </div>
                   </button>
@@ -511,7 +547,7 @@ const Messages = () => {
             </div>
           ) : (
             <>
-              {/* Header */}
+              {/* Chat Header */}
               <div className="p-3 border-b flex items-center gap-3 bg-card z-10 shadow-sm flex-none justify-between h-[60px]">
                 <div className="flex items-center gap-3">
                   <Button variant="ghost" size="icon" className="md:hidden -ml-2" onClick={() => navigate('/messages')}>
@@ -529,7 +565,7 @@ const Messages = () => {
                   </div>
                 </div>
                 
-                {/* View Profile / Actions */}
+                {/* Actions Menu */}
                 {activeProfile?.username && (
                    <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -570,7 +606,19 @@ const Messages = () => {
                             "px-4 py-2 rounded-2xl text-sm shadow-sm",
                             isMe ? "bg-primary text-primary-foreground rounded-tr-none" : "bg-card text-card-foreground border rounded-tl-none"
                           )}>
-                            <p>{msg.content}</p>
+                            {msg.image_url && (
+                              <div className="mb-2 -mx-2 -mt-1">
+                                <img 
+                                  src={msg.image_url} 
+                                  alt="Shared" 
+                                  className="rounded-lg max-h-[300px] object-cover cursor-pointer hover:opacity-95"
+                                  onClick={() => setViewImage(msg.image_url || null)}
+                                />
+                              </div>
+                            )}
+                            
+                            {msg.content && <p>{msg.content}</p>}
+                            
                             <div className="flex items-center justify-end gap-1 mt-1">
                                {isEdited(msg) && (
                                  <span className="text-[9px] opacity-70 italic mr-1 flex items-center">
@@ -580,7 +628,7 @@ const Messages = () => {
                                <p className={cn("text-[9px] opacity-70", isMe ? "text-primary-foreground" : "text-muted-foreground")}>
                                 {format(new Date(msg.created_at), 'h:mm a')}
                               </p>
-                              {/* Dropdown Menu Trigger for Edit/Delete */}
+                              {/* Menu Trigger */}
                               {isMe && (
                                 <DropdownMenu>
                                   <DropdownMenuTrigger asChild>
@@ -589,9 +637,11 @@ const Messages = () => {
                                     </Button>
                                   </DropdownMenuTrigger>
                                   <DropdownMenuContent align="end">
-                                    <DropdownMenuItem onClick={() => startEditing(msg)}>
-                                      <Pencil className="mr-2 h-3 w-3" /> Edit
-                                    </DropdownMenuItem>
+                                    {msg.content && (
+                                      <DropdownMenuItem onClick={() => startEditing(msg)}>
+                                        <Pencil className="mr-2 h-3 w-3" /> Edit
+                                      </DropdownMenuItem>
+                                    )}
                                     <DropdownMenuItem onClick={() => handleDeleteClick(msg.id)} className="text-destructive">
                                       <Trash2 className="mr-2 h-3 w-3" /> Delete
                                     </DropdownMenuItem>
@@ -631,16 +681,45 @@ const Messages = () => {
                         </Button>
                       </div>
                     )}
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 items-center">
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        className="hidden" 
+                        ref={fileInputRef} 
+                        onChange={handleFileUpload} 
+                      />
+                       <input 
+                        type="file" 
+                        accept="image/*"
+                        capture="environment"
+                        className="hidden" 
+                        ref={cameraInputRef} 
+                        onChange={handleFileUpload} 
+                      />
+                      
+                      <Button variant="ghost" size="icon" onClick={() => fileInputRef.current?.click()} disabled={isUploading} className="shrink-0 text-muted-foreground">
+                        <ImageIcon className="h-5 w-5" />
+                      </Button>
+                       <Button variant="ghost" size="icon" onClick={() => cameraInputRef.current?.click()} disabled={isUploading} className="shrink-0 text-muted-foreground hidden sm:inline-flex">
+                        <Camera className="h-5 w-5" />
+                      </Button>
+
                       <Input 
                         value={newMessage}
                         onChange={(e) => setNewMessage(e.target.value)}
                         onKeyPress={(e) => e.key === 'Enter' && handleSend()}
                         placeholder={editingMessageId ? "Update message..." : "Type a message..."}
                         className="flex-1 bg-muted/50 rounded-full px-4"
+                        disabled={isUploading}
                       />
-                      <Button size="icon" onClick={handleSend} disabled={!newMessage.trim()} className="rounded-full h-10 w-10 shrink-0">
-                        <Send className="h-4 w-4" />
+                      <Button 
+                        size="icon" 
+                        onClick={() => handleSend()} 
+                        disabled={(!newMessage.trim() && !isUploading) || isUploading} 
+                        className="rounded-full h-10 w-10 shrink-0"
+                      >
+                         {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                       </Button>
                     </div>
                    </>
@@ -651,6 +730,7 @@ const Messages = () => {
         </div>
       </div>
       
+      {/* Modals/Dialogs */}
       <ConfirmDialog
         open={!!deleteMessageId}
         onOpenChange={(open) => !open && setDeleteMessageId(null)}
@@ -670,6 +750,19 @@ const Messages = () => {
         confirmText="Block User"
         variant="destructive"
       />
+
+      {/* Image Viewer */}
+      <Dialog open={!!viewImage} onOpenChange={(open) => !open && setViewImage(null)}>
+        <DialogContent className="max-w-4xl p-0 overflow-hidden bg-transparent border-none shadow-none flex items-center justify-center">
+            {viewImage && (
+              <img 
+                src={viewImage} 
+                alt="Full size" 
+                className="max-w-full max-h-[90vh] object-contain rounded-md"
+              />
+            )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
