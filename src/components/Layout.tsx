@@ -195,7 +195,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             // For fixed layout pages (Messages, Todo List), we pass full height down
             // The pages themselves handle scrolling areas
             <div className={cn(
-              "flex-1 flex flex-col h-full w-full",
+              "flex-1 flex flex-col h-full w-full min-h-0",
               // Mobile nav padding
               "pb-[64px] md:pb-0", 
               // Container constraints for Todos, but full width for Messages

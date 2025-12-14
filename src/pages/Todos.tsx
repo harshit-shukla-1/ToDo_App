@@ -136,7 +136,7 @@ const Todos = () => {
   const activeFiltersCount = (search ? 1 : 0) + (statusFilter !== "all" ? 1 : 0) + (categoryFilter !== "all" ? 1 : 0);
 
   return (
-    <div className="flex flex-col h-full gap-4">
+    <div className="flex flex-col flex-1 min-h-0 gap-4">
       {/* Fixed Header Section */}
       <div className="flex-none space-y-4 pb-2 border-b">
         <div className="flex justify-between items-center">
