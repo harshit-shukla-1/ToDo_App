@@ -137,7 +137,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const isTodoListPage = location.pathname === "/todos";
   
   // Pages that manage their own scroll containers (fixed layout)
-  // This prevents double scrollbars and allows for fixed headers/footers within the page component
   const isFixedLayout = isMessagesPage || isTodoListPage;
 
   // Helper to determine page title
@@ -152,7 +151,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   };
 
   return (
-    <div className="fixed inset-0 w-full flex overflow-hidden bg-background">
+    <div className="absolute inset-0 w-full flex overflow-hidden">
       {/* Desktop Sidebar - Fixed Width */}
       <aside className="hidden md:block w-64 border-r bg-card h-full flex-none z-30">
         <NavContent />
