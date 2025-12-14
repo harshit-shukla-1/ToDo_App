@@ -88,6 +88,45 @@
     --sidebar-border: 240 3.7% 15.9%;
     --sidebar-ring: 217.2 91.2% 59.8%;
   }
+
+  .christmas {
+    --background: 220 30% 15%; /* Dark winter blue/green */
+    --foreground: 0 0% 98%;
+
+    --card: 220 25% 20%;
+    --card-foreground: 0 0% 98%;
+
+    --popover: 220 25% 20%;
+    --popover-foreground: 0 0% 98%;
+
+    --primary: 350 80% 50%; /* Festive Red */
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 145 60% 35%; /* Christmas Green */
+    --secondary-foreground: 0 0% 100%;
+
+    --muted: 220 20% 25%;
+    --muted-foreground: 220 10% 70%;
+
+    --accent: 45 90% 60%; /* Gold */
+    --accent-foreground: 220 30% 15%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 220 20% 30%;
+    --input: 220 20% 30%;
+    --ring: 350 80% 50%;
+
+    --sidebar-background: 220 30% 12%;
+    --sidebar-foreground: 0 0% 98%;
+    --sidebar-primary: 350 80% 50%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 145 60% 35%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 220 20% 30%;
+    --sidebar-ring: 350 80% 50%;
+  }
 }
 
 @layer base {

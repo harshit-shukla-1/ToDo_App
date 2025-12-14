@@ -9,7 +9,8 @@ import { Input } from "@/components/ui/input";
 import { useTheme } from "@/components/ThemeProvider";
 import { supabase } from "@/integrations/supabase/client";
 import { showSuccess, showError } from "@/utils/toast";
-import { Bell, Moon, Sun, Lock, Loader2 } from "lucide-react";
+import { Bell, Moon, Sun, Lock, Loader2, Snowflake } from "lucide-react";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 const Settings = () => {
   const { setTheme, theme } = useTheme();
@@ -33,7 +34,6 @@ const Settings = () => {
     if (Notification.permission === "granted") {
       // We can't actually revoke permissions via JS, just update state
       showSuccess("Notifications are enabled.");
-      // In a real app, you might unsubscribe from a push service here
     } else if (Notification.permission !== "denied") {
       const permission = await Notification.requestPermission();
       if (permission === "granted") {
@@ -82,18 +82,49 @@ const Settings = () => {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label>Dark Mode</Label>
-              <div className="text-sm text-muted-foreground">
-                Enable dark mode for better viewing at night
-              </div>
+          <RadioGroup value={theme} onValueChange={(val: any) => setTheme(val)} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+               <RadioGroupItem value="light" id="light" className="peer sr-only" />
+               <Label
+                  htmlFor="light"
+                  className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"
+                >
+                  <Sun className="mb-3 h-6 w-6" />
+                  Light Mode
+                </Label>
             </div>
-            <Switch
-              checked={theme === "dark"}
-              onCheckedChange={(checked) => setTheme(checked ? "dark" : "light")}
-            />
-          </div>
+            <div>
+               <RadioGroupItem value="dark" id="dark" className="peer sr-only" />
+               <Label
+                  htmlFor="dark"
+                  className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"
+                >
+                  <Moon className="mb-3 h-6 w-6" />
+                  Dark Mode
+                </Label>
+            </div>
+             <div>
+               <RadioGroupItem value="system" id="system" className="peer sr-only" />
+               <Label
+                  htmlFor="system"
+                  className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"
+                >
+                  <span className="mb-3 text-lg font-bold">Auto</span>
+                  System
+                </Label>
+            </div>
+            <div>
+               <RadioGroupItem value="christmas" id="christmas" className="peer sr-only" />
+               <Label
+                  htmlFor="christmas"
+                  className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer relative overflow-hidden"
+                >
+                   <div className="absolute inset-0 bg-gradient-to-r from-red-500/10 to-green-500/10 z-0"></div>
+                  <Snowflake className="mb-3 h-6 w-6 text-blue-400 z-10" />
+                  <span className="z-10 relative">Christmas</span>
+                </Label>
+            </div>
+          </RadioGroup>
         </CardContent>
       </Card>
 

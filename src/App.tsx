@@ -20,6 +20,8 @@ import { ThemeProvider } from "./components/ThemeProvider";
 import Layout from "./components/Layout";
 import React from "react";
 import NotificationManager from "./components/NotificationManager";
+import ThemeBanner from "./components/ThemeBanner";
+import ChristmasBackground from "./components/ChristmasBackground";
 
 // Configure Persistence with LocalStorage (or IDB if needed, but localStorage is simple for this scale)
 const queryClient = new QueryClient({
@@ -52,73 +54,79 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 
 const AppContent = () => (
   <BrowserRouter>
-    <Routes>
-      <Route path="/login" element={<Login />} />
-      <Route path="/auth/callback" element={<AuthCallback />} />
-      
-      <Route
-        path="/"
-        element={
-          <ProtectedRoute>
-            <Dashboard />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/todos"
-        element={
-          <ProtectedRoute>
-            <Todos />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/todos/new"
-        element={
-          <ProtectedRoute>
-            <TodoEditor />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/todos/:id"
-        element={
-          <ProtectedRoute>
-            <TodoEditor />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/messages"
-        element={
-          <ProtectedRoute>
-            <Messages />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/profile"
-        element={
-          <ProtectedRoute>
-            <Profile />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/settings"
-        element={
-          <ProtectedRoute>
-            <Settings />
-          </ProtectedRoute>
-        }
-      />
-      
-      {/* Public Profile Routes */}
-      <Route path="/@:username" element={<PublicProfile />} />
-      <Route path="/u/:username" element={<PublicProfile />} />
+    <div className="relative min-h-screen flex flex-col">
+      <ThemeBanner />
+      <ChristmasBackground />
+      <div className="flex-1 relative z-10">
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route path="/auth/callback" element={<AuthCallback />} />
+          
+          <Route
+            path="/"
+            element={
+              <ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/todos"
+            element={
+              <ProtectedRoute>
+                <Todos />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/todos/new"
+            element={
+              <ProtectedRoute>
+                <TodoEditor />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/todos/:id"
+            element={
+              <ProtectedRoute>
+                <TodoEditor />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/messages"
+            element={
+              <ProtectedRoute>
+                <Messages />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/profile"
+            element={
+              <ProtectedRoute>
+                <Profile />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/settings"
+            element={
+              <ProtectedRoute>
+                <Settings />
+              </ProtectedRoute>
+            }
+          />
+          
+          {/* Public Profile Routes */}
+          <Route path="/@:username" element={<PublicProfile />} />
+          <Route path="/u/:username" element={<PublicProfile />} />
 
-      <Route path="*" element={<NotFound />} />
-    </Routes>
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </div>
+    </div>
   </BrowserRouter>
 );
 
