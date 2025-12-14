@@ -16,15 +16,6 @@ const ProfileCompletionBanner = () => {
   const [completion, setCompletion] = useState(100);
   const [loading, setLoading] = useState(true);
 
-  // Don't show on the profile page itself
-  if (location.pathname === "/profile") return null;
-
-  useEffect(() => {
-    if (user) {
-      checkProfileCompletion();
-    }
-  }, [user]);
-
   const checkProfileCompletion = async () => {
     try {
       const { data, error } = await supabase
@@ -73,12 +64,23 @@ const ProfileCompletionBanner = () => {
     }
   };
 
+  useEffect(() => {
+    if (user) {
+      checkProfileCompletion();
+    }
+  }, [user]);
+
   const handleDismiss = () => {
     setIsVisible(false);
     sessionStorage.setItem("dismiss_profile_banner", "true");
   };
 
-  if (!isVisible || loading) return null;
+  // MOVED CONDITIONAL CHECK HERE:
+  // Hooks must always execute. We only conditionally return AFTER all hooks.
+  // Don't show on the profile page itself, or if loading/hidden.
+  if (location.pathname === "/profile" || !isVisible || loading) {
+    return null;
+  }
 
   return (
     <div className="p-4 bg-orange-50 dark:bg-orange-950/20 border-b border-orange-200 dark:border-orange-800">
