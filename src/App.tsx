@@ -23,6 +23,7 @@ import React from "react";
 import NotificationManager from "./components/NotificationManager";
 import ThemeBanner from "./components/ThemeBanner";
 import BackgroundDecorations from "./components/BackgroundDecorations";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 // Configure Persistence with LocalStorage
 const queryClient = new QueryClient({
@@ -50,6 +51,17 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
   }
 
   return <Layout>{children}</Layout>;
+};
+
+// Wrapper to handle responsive toaster positioning
+const AppToaster = () => {
+  const isMobile = useIsMobile();
+  return (
+    <>
+      <Toaster />
+      <Sonner position={isMobile ? "top-center" : "bottom-right"} />
+    </>
+  );
 };
 
 const AppContent = () => (
@@ -153,8 +165,7 @@ const App = () => (
     <SessionContextProvider>
       <ThemeProvider defaultMode="system" defaultColor="default">
         <TooltipProvider>
-          <Toaster />
-          <Sonner />
+          <AppToaster />
           <NotificationManager />
           <AppContent />
         </TooltipProvider>
