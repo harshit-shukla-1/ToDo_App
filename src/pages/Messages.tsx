@@ -12,6 +12,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { 
   User, 
@@ -25,7 +26,8 @@ import {
   Trash2, 
   X,
   AlertCircle,
-  Eye
+  Eye,
+  Ban
 } from "lucide-react";
 import { format } from "date-fns";
 import { showSuccess, showError } from "@/utils/toast";
@@ -79,6 +81,9 @@ const Messages = () => {
   
   // Deleting State
   const [deleteMessageId, setDeleteMessageId] = useState<string | null>(null);
+
+  // Blocking State
+  const [blockDialogOpen, setBlockDialogOpen] = useState(false);
 
   // Fetch current user profile to check for username
   useEffect(() => {
@@ -281,7 +286,14 @@ const Messages = () => {
       const { data, error } = await supabase.from('messages').insert([msg]).select().single();
 
       if (error) {
-        showError("Failed to send");
+        // Handle specific RLS or Trigger errors
+        if (error.message.includes('Rate limit')) {
+           showError("Rate limit exceeded. Please wait before sending more messages.");
+        } else if (error.code === '42501') { // RLS violation
+           showError("Failed to send. You may have been blocked by this user.");
+        } else {
+           showError("Failed to send message: " + error.message);
+        }
         return;
       }
 
@@ -305,6 +317,34 @@ const Messages = () => {
     }
     setMessages(prev => prev.filter(m => m.id !== deleteMessageId));
     setDeleteMessageId(null);
+  };
+
+  const confirmBlockUser = async () => {
+    if (!activeProfile || !user) return;
+    try {
+       const { error } = await supabase.from('blocks').insert({
+          blocker_id: user.id,
+          blocked_id: activeProfile.id
+       });
+       
+       if (error) {
+         if (error.code === '23505') { // Unique violation
+           showError("User is already blocked");
+         } else {
+           throw error;
+         }
+       } else {
+         showSuccess(`Blocked @${activeProfile.username}`);
+         // Optionally clean up connections
+         await supabase.from('connections').delete().or(`and(requester_id.eq.${user.id},recipient_id.eq.${activeProfile.id}),and(requester_id.eq.${activeProfile.id},recipient_id.eq.${user.id})`);
+         
+         navigate('/messages');
+       }
+    } catch (err: any) {
+       showError("Failed to block user: " + err.message);
+    } finally {
+      setBlockDialogOpen(false);
+    }
   };
 
   const startEditing = (msg: Message) => {
@@ -487,7 +527,7 @@ const Messages = () => {
                   </div>
                 </div>
                 
-                {/* View Profile Action */}
+                {/* View Profile / Actions */}
                 {activeProfile?.username && (
                    <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -498,6 +538,13 @@ const Messages = () => {
                     <DropdownMenuContent align="end">
                       <DropdownMenuItem onClick={() => navigate(`/u/${activeProfile.username}`)}>
                         <Eye className="mr-2 h-4 w-4" /> View Profile
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem 
+                        onClick={() => setBlockDialogOpen(true)} 
+                        className="text-destructive focus:text-destructive"
+                      >
+                        <Ban className="mr-2 h-4 w-4" /> Block User
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -609,6 +656,16 @@ const Messages = () => {
         description="Are you sure you want to delete this message? This action cannot be undone."
         onConfirm={confirmDeleteMessage}
         confirmText="Delete"
+        variant="destructive"
+      />
+
+      <ConfirmDialog
+        open={blockDialogOpen}
+        onOpenChange={setBlockDialogOpen}
+        title={`Block @${activeProfile?.username}?`}
+        description="They will no longer be able to message you or see your profile. This action will also remove any existing connection."
+        onConfirm={confirmBlockUser}
+        confirmText="Block User"
         variant="destructive"
       />
     </div>
