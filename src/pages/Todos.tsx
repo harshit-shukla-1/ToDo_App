@@ -313,41 +313,41 @@ const Todos = () => {
                   key={todo.id}
                   className="hover:shadow-md transition-shadow duration-200"
                 >
-                  <CardContent className="p-4 flex items-center gap-4">
+                  <CardContent className="p-3 md:p-4 flex items-center gap-3">
                     <Checkbox
                       checked={todo.completed}
                       onCheckedChange={() => toggleTodo(todo.id, todo.completed)}
                       className="h-5 w-5 shrink-0"
                     />
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <p
                           className={cn(
-                            "font-medium truncate",
+                            "font-medium break-words line-clamp-2",
                             todo.completed && "line-through text-muted-foreground"
                           )}
                         >
                           {todo.text}
                         </p>
                         {isShared && (
-                          <Badge variant="outline" className="text-[9px] h-4 px-1 text-blue-500 border-blue-200">
+                          <Badge variant="outline" className="text-[9px] h-4 px-1 text-blue-500 border-blue-200 shrink-0">
                              Shared
                           </Badge>
                         )}
                       </div>
-                      <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground">
-                        <Badge variant="secondary" className="text-[10px] px-1.5 h-5">
+                      <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground flex-wrap">
+                        <Badge variant="secondary" className="text-[10px] px-1.5 h-5 shrink-0">
                           {todo.category}
                         </Badge>
                         {todo.due_date && (
-                          <span className="flex items-center gap-1 text-[10px]">
+                          <span className="flex items-center gap-1 text-[10px] shrink-0">
                             <CalendarIcon className="h-3 w-3" />
                             {format(new Date(todo.due_date), "MMM d, h:mm a")}
                           </span>
                         )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-0.5 shrink-0">
                       {/* Share Button for owner */}
                       {todo.user_id === user?.id && (
                         <Button 
