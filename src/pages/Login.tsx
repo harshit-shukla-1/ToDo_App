@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useSession } from '@/integrations/supabase/auth';
 import { useTheme } from "@/components/ThemeProvider";
@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Sun, Moon, Loader2, Mail, Lock, User } from "lucide-react";
+import { Sun, Moon, Loader2, Lock, User } from "lucide-react";
 import { showSuccess, showError } from "@/utils/toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -44,31 +44,6 @@ const Login: React.FC = () => {
     }
   }, [session, navigate, returnUrl]);
 
-  // Attempt to seed admin user if requested (Hidden logic)
-  const seedAdmin = async () => {
-    if (emailOrUsername.toLowerCase() === 'admin' && password === 'Admin1@') {
-      // Try to sign up first (creates if not exists)
-      const { data, error } = await supabase.auth.signUp({
-        email: ADMIN_EMAIL,
-        password: 'Admin1@',
-        options: {
-          data: {
-            first_name: 'System',
-            last_name: 'Admin',
-            username: 'admin',
-            role: 'admin'
-          }
-        }
-      });
-      
-      // If error says already registered, that's fine, we proceed to login
-      if (!error || error.message.includes("already registered")) {
-        return true;
-      }
-    }
-    return false;
-  };
-
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -78,10 +53,9 @@ const Login: React.FC = () => {
       
       // Special Admin Handling
       if (emailOrUsername.toLowerCase() === 'admin') {
-         await seedAdmin(); // Ensure admin exists
          finalEmail = ADMIN_EMAIL;
       } 
-      // Basic Username Handling (Mapping username to email is complex without Edge Function, assuming email for regular users for now unless it looks like an email)
+      // Basic Username Handling
       else if (!emailOrUsername.includes('@')) {
          showError("Please use your email address to login (unless you are Admin).");
          setLoading(false);
@@ -96,6 +70,7 @@ const Login: React.FC = () => {
       if (error) throw error;
       showSuccess("Welcome back!");
     } catch (error: any) {
+      console.error("Login error:", error);
       showError(error.message);
     } finally {
       setLoading(false);
