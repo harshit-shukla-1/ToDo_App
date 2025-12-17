@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardFooter } from '@/components/ui/card';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useSession } from '@/integrations/supabase/auth';
 import { useTheme } from "@/components/ThemeProvider";
@@ -14,8 +14,6 @@ import { Sun, Moon, Loader2, Lock, User } from "lucide-react";
 import { showSuccess, showError } from "@/utils/toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-const ADMIN_EMAIL = "admin@mazdatodo.local";
-
 const Login: React.FC = () => {
   const { session } = useSession();
   const navigate = useNavigate();
@@ -24,7 +22,7 @@ const Login: React.FC = () => {
   const { mode, setMode } = useTheme();
   
   const [loading, setLoading] = useState(false);
-  const [emailOrUsername, setEmailOrUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
   
@@ -49,21 +47,8 @@ const Login: React.FC = () => {
     setLoading(true);
     
     try {
-      let finalEmail = emailOrUsername;
-      
-      // Special Admin Handling
-      if (emailOrUsername.toLowerCase() === 'admin') {
-         finalEmail = ADMIN_EMAIL;
-      } 
-      // Basic Username Handling
-      else if (!emailOrUsername.includes('@')) {
-         showError("Please use your email address to login (unless you are Admin).");
-         setLoading(false);
-         return;
-      }
-
       const { error } = await supabase.auth.signInWithPassword({
-        email: finalEmail,
+        email,
         password,
       });
 
@@ -136,16 +121,16 @@ const Login: React.FC = () => {
             <form onSubmit={handleLogin}>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="email">Email or Username</Label>
+                  <Label htmlFor="email">Email</Label>
                   <div className="relative">
                     <User className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                     <Input 
                       id="email" 
-                      type="text" 
-                      placeholder="m@example.com or 'admin'" 
+                      type="email" 
+                      placeholder="m@example.com" 
                       className="pl-9"
-                      value={emailOrUsername}
-                      onChange={(e) => setEmailOrUsername(e.target.value)}
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
                       required
                     />
                   </div>
@@ -174,7 +159,7 @@ const Login: React.FC = () => {
                     htmlFor="remember"
                     className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                   >
-                    Remember me for 7 days
+                    Remember me
                   </label>
                 </div>
               </CardContent>
