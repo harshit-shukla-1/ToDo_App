@@ -16,6 +16,7 @@ import AuthCallback from "./pages/AuthCallback";
 import NotFound from "./pages/NotFound";
 import Messages from "./pages/Messages";
 import Connections from "./pages/Connections";
+import Teams from "./pages/Teams";
 import { SessionContextProvider, useSession } from "./integrations/supabase/auth";
 import { ThemeProvider } from "./components/ThemeProvider";
 import Layout from "./components/Layout";
@@ -130,6 +131,14 @@ const AppContent = () => (
             element={
               <ProtectedRoute>
                 <Connections />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/teams"
+            element={
+              <ProtectedRoute>
+                <Teams />
               </ProtectedRoute>
             }
           />

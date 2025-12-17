@@ -12,7 +12,8 @@ import {
   MessageSquare,
   Sun,
   Moon,
-  Users
+  Users,
+  Briefcase
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
@@ -71,6 +72,16 @@ export const NavContent = ({ setIsMobileOpen }: { setIsMobileOpen?: (open: boole
           >
             <ListTodo className="mr-2 h-4 w-4" />
             My Todos
+          </Button>
+        </Link>
+        <Link to="/teams">
+           <Button
+            variant={location.pathname.startsWith("/teams") ? "secondary" : "ghost"}
+            className="w-full justify-start"
+            onClick={close}
+          >
+            <Briefcase className="mr-2 h-4 w-4" />
+            Teams
           </Button>
         </Link>
         <Link to="/messages">
@@ -145,6 +156,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     if (pathname.startsWith("/todos")) return "My Todos";
     if (pathname.startsWith("/messages")) return "Messages";
     if (pathname.startsWith("/connections")) return "Connections";
+    if (pathname.startsWith("/teams")) return "Teams";
     if (pathname === "/profile") return "Profile";
     if (pathname === "/settings") return "Settings";
     return "Mazda Todo";

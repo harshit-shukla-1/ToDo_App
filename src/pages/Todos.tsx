@@ -25,7 +25,8 @@ import {
   Edit,
   Loader2,
   Tag,
-  X
+  X,
+  Share2
 } from "lucide-react";
 import { format } from "date-fns";
 import { showSuccess, showError } from "@/utils/toast";
@@ -33,6 +34,7 @@ import { cn } from "@/lib/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useIsMobile } from "@/hooks/use-mobile";
 import ConfirmDialog from "@/components/ConfirmDialog";
+import ShareTodoDialog from "@/components/ShareTodoDialog";
 
 interface Todo {
   id: string;
@@ -41,6 +43,8 @@ interface Todo {
   category: string;
   due_date: string | null;
   created_at: string;
+  user_id: string;
+  team_id?: string;
 }
 
 const Todos = () => {
@@ -58,6 +62,9 @@ const Todos = () => {
 
   // Dialog State
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  
+  // Share State
+  const [shareId, setShareId] = useState<string | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -298,59 +305,82 @@ const Todos = () => {
           </div>
         ) : (
           <div className="grid gap-3 pb-20 md:pb-4">
-            {filteredTodos.map((todo) => (
-              <Card
-                key={todo.id}
-                className="hover:shadow-md transition-shadow duration-200"
-              >
-                <CardContent className="p-4 flex items-center gap-4">
-                  <Checkbox
-                    checked={todo.completed}
-                    onCheckedChange={() => toggleTodo(todo.id, todo.completed)}
-                    className="h-5 w-5 shrink-0"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <p
-                      className={cn(
-                        "font-medium break-words",
-                        todo.completed && "line-through text-muted-foreground"
-                      )}
-                    >
-                      {todo.text}
-                    </p>
-                    <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground">
-                      <Badge variant="secondary" className="text-[10px] px-1.5 h-5 shrink-0">
-                        {todo.category}
-                      </Badge>
-                      {todo.due_date && (
-                        <span className="flex items-center gap-1 text-[10px] shrink-0">
-                          <CalendarIcon className="h-3 w-3" />
-                          {format(new Date(todo.due_date), "MMM d, h:mm a")}
-                        </span>
-                      )}
+            {filteredTodos.map((todo) => {
+              const isShared = todo.team_id !== null || todo.user_id !== user?.id;
+              
+              return (
+                <Card
+                  key={todo.id}
+                  className="hover:shadow-md transition-shadow duration-200"
+                >
+                  <CardContent className="p-4 flex items-center gap-4">
+                    <Checkbox
+                      checked={todo.completed}
+                      onCheckedChange={() => toggleTodo(todo.id, todo.completed)}
+                      className="h-5 w-5 shrink-0"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p
+                          className={cn(
+                            "font-medium truncate",
+                            todo.completed && "line-through text-muted-foreground"
+                          )}
+                        >
+                          {todo.text}
+                        </p>
+                        {isShared && (
+                          <Badge variant="outline" className="text-[9px] h-4 px-1 text-blue-500 border-blue-200">
+                             Shared
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground">
+                        <Badge variant="secondary" className="text-[10px] px-1.5 h-5">
+                          {todo.category}
+                        </Badge>
+                        {todo.due_date && (
+                          <span className="flex items-center gap-1 text-[10px]">
+                            <CalendarIcon className="h-3 w-3" />
+                            {format(new Date(todo.due_date), "MMM d, h:mm a")}
+                          </span>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-1 shrink-0">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => navigate(`/todos/${todo.id}`)}
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                      onClick={() => handleDeleteClick(todo.id)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                    <div className="flex items-center gap-1">
+                      {/* Share Button for owner */}
+                      {todo.user_id === user?.id && (
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-8 w-8 text-blue-500 hover:bg-blue-50"
+                          onClick={() => setShareId(todo.id)}
+                        >
+                          <Share2 className="h-4 w-4" />
+                        </Button>
+                      )}
+                      
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => navigate(`/todos/${todo.id}`)}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                        onClick={() => handleDeleteClick(todo.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         )}
       </div>
@@ -363,6 +393,12 @@ const Todos = () => {
         onConfirm={confirmDelete}
         confirmText="Delete"
         variant="destructive"
+      />
+      
+      <ShareTodoDialog 
+        open={!!shareId} 
+        onOpenChange={(open) => !open && setShareId(null)}
+        todoId={shareId}
       />
     </div>
   );
