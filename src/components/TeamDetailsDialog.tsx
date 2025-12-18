@@ -54,7 +54,7 @@ const TeamDetailsDialog: React.FC<TeamDetailsDialogProps> = ({ team, open, onOpe
   const [todos, setTodos] = useState<Todo[]>([]);
   const [connections, setConnections] = useState<Member[]>([]);
   const [loading, setLoading] = useState(false);
-  const [addingMember, setAddingMember] = useState(false);
+  const [addingMemberId, setAddingMemberId] = useState<string | null>(null);
 
   const isOwner = team?.created_by === currentUserId;
 
@@ -120,7 +120,7 @@ const TeamDetailsDialog: React.FC<TeamDetailsDialogProps> = ({ team, open, onOpe
 
   const addMember = async (userId: string) => {
     if (!team) return;
-    setAddingMember(true);
+    setAddingMemberId(userId);
     try {
       const { error } = await supabase.from('team_members').insert({
         team_id: team.id,
@@ -128,16 +128,24 @@ const TeamDetailsDialog: React.FC<TeamDetailsDialogProps> = ({ team, open, onOpe
         role: 'member'
       });
 
-      if (error) throw error;
+      if (error) {
+        // If duplicate key error (23505), just ignore and refresh list
+        if (error.code === '23505') {
+          showSuccess("Member already added");
+        } else {
+          throw error;
+        }
+      } else {
+        showSuccess("Member added successfully");
+      }
       
-      showSuccess("Member added successfully");
       // Refresh data
-      fetchData();
+      await fetchData();
     } catch (err: any) {
       console.error(err);
       showError("Failed to add member: " + err.message);
     } finally {
-      setAddingMember(false);
+      setAddingMemberId(null);
     }
   };
 
@@ -278,8 +286,13 @@ const TeamDetailsDialog: React.FC<TeamDetailsDialogProps> = ({ team, open, onOpe
                                   </Avatar>
                                   <span className="text-sm">{c.first_name || c.username}</span>
                                </div>
-                               <Button size="sm" variant="ghost" onClick={() => addMember(c.id)} disabled={addingMember}>
-                                 <Plus className="h-4 w-4" />
+                               <Button 
+                                  size="sm" 
+                                  variant="ghost" 
+                                  onClick={() => addMember(c.id)} 
+                                  disabled={addingMemberId === c.id}
+                                >
+                                 {addingMemberId === c.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
                                </Button>
                              </div>
                            ))}
