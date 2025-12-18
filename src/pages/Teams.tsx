@@ -8,23 +8,14 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { showSuccess, showError } from "@/utils/toast";
-import { Loader2, Plus, Users, UserPlus, Trash2, Crown, Pencil, Settings } from "lucide-react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Loader2, Plus, Users, Trash2, Crown, Pencil } from "lucide-react";
 import ConfirmDialog from "@/components/ConfirmDialog";
+import TeamDetailsDialog from "@/components/TeamDetailsDialog";
 
 interface Team {
   id: string;
   name: string;
   created_by: string;
-}
-
-interface Member {
-  id: string; // profile id
-  username: string;
-  first_name: string;
-  last_name: string;
-  avatar_url: string;
-  role?: string;
 }
 
 const Teams = () => {
@@ -44,12 +35,9 @@ const Teams = () => {
   // Delete State
   const [deleteTeamId, setDeleteTeamId] = useState<string | null>(null);
   
-  // Member Management State
+  // Details/Manage Dialog State
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
-  const [teamMembers, setTeamMembers] = useState<Member[]>([]);
-  const [connections, setConnections] = useState<Member[]>([]);
-  const [manageDialogOpen, setManageDialogOpen] = useState(false);
-  const [memberLoading, setMemberLoading] = useState(false);
+  const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
 
   useEffect(() => {
     if (user) fetchTeams();
@@ -78,7 +66,7 @@ const Teams = () => {
       
       if (error) throw error;
       
-      // Auto add creator
+      // Auto add creator (although trigger or policy might handle this, explicit is safer)
       await supabase.from('team_members').insert({ 
         team_id: data.id, 
         user_id: user?.id, 
@@ -94,10 +82,16 @@ const Teams = () => {
     }
   };
 
-  const handleEditClick = (team: Team) => {
+  const handleEditClick = (team: Team, e: React.MouseEvent) => {
+    e.stopPropagation();
     setEditingTeam(team);
     setEditTeamName(team.name);
     setEditDialogOpen(true);
+  };
+
+  const handleDeleteClick = (teamId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setDeleteTeamId(teamId);
   };
 
   const updateTeam = async () => {
@@ -136,98 +130,9 @@ const Teams = () => {
     }
   };
 
-  const openManageDialog = async (team: Team) => {
+  const handleTeamClick = (team: Team) => {
     setSelectedTeam(team);
-    setManageDialogOpen(true);
-    setMemberLoading(true);
-    
-    try {
-      // Fetch Members
-      const { data: members } = await supabase
-        .from('team_members')
-        .select('user_id, role, profiles:user_id(*)')
-        .eq('team_id', team.id);
-      
-      const formattedMembers = members?.map((m: any) => ({
-        ...m.profiles,
-        role: m.role
-      })).filter(p => p) || []; // Filter null profiles
-      
-      setTeamMembers(formattedMembers);
-
-      // Fetch Connections (Potential members)
-      const { data: connData } = await supabase
-        .from('connections')
-        .select(`
-          requester:profiles!requester_id(*),
-          recipient:profiles!recipient_id(*)
-        `)
-        .or(`requester_id.eq.${user?.id},recipient_id.eq.${user?.id}`)
-        .eq('status', 'accepted');
-
-      // Process connections to find the "other" person
-      const profiles = connData?.map((c: any) => {
-        const otherProfile = c.requester_id === user?.id ? c.recipient : c.requester;
-        return otherProfile;
-      }).filter(p => p && p.id !== user?.id) || []; // Ensure profile exists and is NOT me
-
-      // Filter out existing members from the potential list
-      const memberIds = new Set(formattedMembers.map((m: any) => m.id));
-      setConnections(profiles.filter((p: any) => !memberIds.has(p.id)));
-
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setMemberLoading(false);
-    }
-  };
-
-  const addMember = async (userId: string) => {
-    if (!selectedTeam) return;
-    try {
-      const { error } = await supabase.from('team_members').insert({
-        team_id: selectedTeam.id,
-        user_id: userId,
-        role: 'member'
-      });
-
-      if (error) throw error;
-      
-      // Refresh local state roughly
-      const addedProfile = connections.find(c => c.id === userId);
-      if (addedProfile) {
-        setTeamMembers([...teamMembers, { ...addedProfile, role: 'member' }]);
-        setConnections(connections.filter(c => c.id !== userId));
-      }
-      showSuccess("Member added");
-    } catch (err: any) {
-      console.error("Add member error:", err);
-      showError("Failed to add member: " + err.message);
-    }
-  };
-
-  const removeMember = async (userId: string) => {
-    if (!selectedTeam) return;
-    try {
-      const { error } = await supabase.from('team_members').delete()
-        .eq('team_id', selectedTeam.id)
-        .eq('user_id', userId);
-
-      if (error) throw error;
-        
-      setTeamMembers(teamMembers.filter(m => m.id !== userId));
-      showSuccess("Member removed");
-    } catch (err: any) {
-      console.error("Remove member error:", err);
-      showError("Failed to remove member: " + err.message);
-    }
-  };
-
-  const getInitials = (p: any) => {
-    if (!p) return "U";
-    if (p.first_name && p.last_name) return `${p.first_name[0]}${p.last_name[0]}`.toUpperCase();
-    if (p.username) return p.username[0].toUpperCase();
-    return "U";
+    setDetailsDialogOpen(true);
   };
 
   return (
@@ -273,7 +178,11 @@ const Teams = () => {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {teams.map(team => (
-            <Card key={team.id} className="flex flex-col">
+            <Card 
+              key={team.id} 
+              className="flex flex-col cursor-pointer hover:shadow-md transition-shadow active:scale-[0.99]"
+              onClick={() => handleTeamClick(team)}
+            >
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-lg truncate">{team.name}</CardTitle>
                 <Users className="h-4 w-4 text-muted-foreground" />
@@ -291,17 +200,13 @@ const Teams = () => {
                     )}
                  </div>
               </CardContent>
-              <CardFooter className="flex justify-between border-t pt-4 bg-muted/20">
-                 <Button variant="outline" size="sm" onClick={() => openManageDialog(team)}>
-                   Members
-                 </Button>
-                 
+              <CardFooter className="flex justify-end border-t pt-4 bg-muted/20 min-h-[50px]">
                  {team.created_by === user?.id && (
-                   <div className="flex gap-1">
-                     <Button variant="ghost" size="icon" onClick={() => handleEditClick(team)} title="Rename Team">
+                   <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+                     <Button variant="ghost" size="icon" onClick={(e) => handleEditClick(team, e)} title="Rename Team">
                        <Pencil className="h-4 w-4" />
                      </Button>
-                     <Button variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10" onClick={() => setDeleteTeamId(team.id)} title="Delete Team">
+                     <Button variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10" onClick={(e) => handleDeleteClick(team.id, e)} title="Delete Team">
                        <Trash2 className="h-4 w-4" />
                      </Button>
                    </div>
@@ -334,69 +239,13 @@ const Teams = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Manage Members Dialog */}
-      <Dialog open={manageDialogOpen} onOpenChange={setManageDialogOpen}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Manage {selectedTeam?.name}</DialogTitle>
-          </DialogHeader>
-          
-          <div className="space-y-6 py-4">
-            {/* Current Members */}
-            <div className="space-y-2">
-              <h4 className="text-sm font-medium text-muted-foreground">Team Members</h4>
-              {memberLoading ? <Loader2 className="animate-spin h-4 w-4" /> : (
-                <div className="space-y-2 max-h-[200px] overflow-y-auto">
-                   {teamMembers.map(m => (
-                     <div key={m.id} className="flex items-center justify-between p-2 rounded bg-muted/50">
-                        <div className="flex items-center gap-2">
-                           <Avatar className="h-6 w-6">
-                            <AvatarImage src={m.avatar_url} />
-                            <AvatarFallback>{getInitials(m)}</AvatarFallback>
-                          </Avatar>
-                          <span className="text-sm">{m.username || m.first_name}</span>
-                          {m.role === 'owner' && <Crown className="h-3 w-3 text-yellow-500" />}
-                        </div>
-                        {m.role !== 'owner' && selectedTeam?.created_by === user?.id && (
-                           <Button size="icon" variant="ghost" className="h-6 w-6 text-destructive" onClick={() => removeMember(m.id)}>
-                             <Trash2 className="h-3 w-3" />
-                           </Button>
-                        )}
-                     </div>
-                   ))}
-                </div>
-              )}
-            </div>
-
-            {/* Add Members */}
-            {selectedTeam?.created_by === user?.id && (
-               <div className="space-y-2">
-                 <h4 className="text-sm font-medium text-muted-foreground">Add from Connections</h4>
-                 {connections.length === 0 ? (
-                   <p className="text-xs text-muted-foreground italic">No available connections to add.</p>
-                 ) : (
-                   <div className="space-y-2 max-h-[200px] overflow-y-auto">
-                     {connections.map(c => (
-                        <div key={c.id} className="flex items-center justify-between p-2 border rounded">
-                           <div className="flex items-center gap-2">
-                              <Avatar className="h-6 w-6">
-                                <AvatarImage src={c.avatar_url} />
-                                <AvatarFallback>{getInitials(c)}</AvatarFallback>
-                              </Avatar>
-                              <span className="text-sm">{c.username || c.first_name}</span>
-                           </div>
-                           <Button size="sm" variant="ghost" onClick={() => addMember(c.id)}>
-                             <Plus className="h-4 w-4" />
-                           </Button>
-                        </div>
-                     ))}
-                   </div>
-                 )}
-               </div>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* Team Details & Management Dialog */}
+      <TeamDetailsDialog 
+        team={selectedTeam}
+        open={detailsDialogOpen}
+        onOpenChange={setDetailsDialogOpen}
+        currentUserId={user?.id}
+      />
       
       {/* Delete Confirmation */}
       <ConfirmDialog
