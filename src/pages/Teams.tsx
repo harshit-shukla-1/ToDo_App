@@ -185,11 +185,13 @@ const Teams = () => {
   const addMember = async (userId: string) => {
     if (!selectedTeam) return;
     try {
-      await supabase.from('team_members').insert({
+      const { error } = await supabase.from('team_members').insert({
         team_id: selectedTeam.id,
         user_id: userId,
         role: 'member'
       });
+
+      if (error) throw error;
       
       // Refresh local state roughly
       const addedProfile = connections.find(c => c.id === userId);
@@ -199,21 +201,25 @@ const Teams = () => {
       }
       showSuccess("Member added");
     } catch (err: any) {
-      showError("Failed to add member");
+      console.error("Add member error:", err);
+      showError("Failed to add member: " + err.message);
     }
   };
 
   const removeMember = async (userId: string) => {
     if (!selectedTeam) return;
     try {
-      await supabase.from('team_members').delete()
+      const { error } = await supabase.from('team_members').delete()
         .eq('team_id', selectedTeam.id)
         .eq('user_id', userId);
+
+      if (error) throw error;
         
       setTeamMembers(teamMembers.filter(m => m.id !== userId));
       showSuccess("Member removed");
     } catch (err: any) {
-      showError("Failed to remove member");
+      console.error("Remove member error:", err);
+      showError("Failed to remove member: " + err.message);
     }
   };
 
