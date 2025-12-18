@@ -27,7 +27,8 @@ import {
   Tag,
   X,
   Share2,
-  Users
+  Users,
+  Archive
 } from "lucide-react";
 import { format } from "date-fns";
 import { showSuccess, showError } from "@/utils/toast";
@@ -48,6 +49,7 @@ interface Todo {
   user_id: string;
   team_id?: string;
   priority?: string;
+  archived?: boolean;
 }
 
 const Todos = () => {
@@ -80,6 +82,7 @@ const Todos = () => {
       const { data, error } = await supabase
         .from("todos")
         .select("*")
+        .eq("archived", false) // Filter out archived todos
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -122,6 +125,23 @@ const Todos = () => {
   const handleEditClick = (id: string, e?: React.MouseEvent) => {
     e?.stopPropagation();
     navigate(`/todos/${id}`);
+  };
+
+  const handleArchiveClick = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      const { error } = await supabase
+        .from("todos")
+        .update({ archived: true })
+        .eq("id", id);
+
+      if (error) throw error;
+      
+      setTodos((prev) => prev.filter((t) => t.id !== id));
+      showSuccess("Todo moved to archives");
+    } catch (error: any) {
+      showError("Error archiving todo: " + error.message);
+    }
   };
 
   const confirmDelete = async () => {
@@ -326,7 +346,7 @@ const Todos = () => {
           </div>
         ) : filteredTodos.length === 0 ? (
           <div className="text-center py-12 text-muted-foreground">
-            {activeFiltersCount > 0 ? "No todos found matching your filters." : "You have no todos yet."}
+            {activeFiltersCount > 0 ? "No todos found matching your filters." : "You have no active todos."}
           </div>
         ) : (
           <div className="grid gap-3 pb-20 md:pb-4">
@@ -386,13 +406,13 @@ const Todos = () => {
                       </div>
                     </div>
                     <div className="flex items-center gap-0.5 shrink-0">
-                      {/* Share Button for owner */}
                       {isOwner && (
                         <Button 
                           variant="ghost" 
                           size="icon" 
                           className="h-8 w-8 text-blue-500 hover:bg-blue-50"
                           onClick={(e) => handleShareClick(todo.id, e)}
+                          title="Share"
                         >
                           <Share2 className="h-4 w-4" />
                         </Button>
@@ -403,9 +423,22 @@ const Todos = () => {
                         size="icon"
                         className="h-8 w-8"
                         onClick={(e) => handleEditClick(todo.id, e)}
+                        title="Edit"
                       >
                         <Edit className="h-4 w-4" />
                       </Button>
+
+                      {isOwner && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-muted-foreground hover:text-orange-500 hover:bg-orange-50"
+                          onClick={(e) => handleArchiveClick(todo.id, e)}
+                          title="Archive"
+                        >
+                          <Archive className="h-4 w-4" />
+                        </Button>
+                      )}
                       
                       {isOwner && (
                         <Button
@@ -413,6 +446,7 @@ const Todos = () => {
                           size="icon"
                           className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
                           onClick={(e) => handleDeleteClick(todo.id, e)}
+                          title="Delete"
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
