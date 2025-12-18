@@ -17,6 +17,7 @@ import NotFound from "./pages/NotFound";
 import Messages from "./pages/Messages";
 import Connections from "./pages/Connections";
 import Teams from "./pages/Teams";
+import Archives from "./pages/Archives";
 import { SessionContextProvider, useSession } from "./integrations/supabase/auth";
 import { ThemeProvider } from "./components/ThemeProvider";
 import Layout from "./components/Layout";
@@ -107,6 +108,14 @@ const AppContent = () => (
             element={
               <ProtectedRoute>
                 <TodoEditor />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/archives"
+            element={
+              <ProtectedRoute>
+                <Archives />
               </ProtectedRoute>
             }
           />

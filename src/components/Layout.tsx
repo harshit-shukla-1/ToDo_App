@@ -13,7 +13,8 @@ import {
   Sun,
   Moon,
   Users,
-  Briefcase
+  Briefcase,
+  Archive
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
@@ -72,6 +73,16 @@ export const NavContent = ({ setIsMobileOpen }: { setIsMobileOpen?: (open: boole
           >
             <ListTodo className="mr-2 h-4 w-4" />
             My Todos
+          </Button>
+        </Link>
+        <Link to="/archives">
+          <Button
+            variant={location.pathname === "/archives" ? "secondary" : "ghost"}
+            className="w-full justify-start"
+            onClick={close}
+          >
+            <Archive className="mr-2 h-4 w-4" />
+            Archives
           </Button>
         </Link>
         <Link to="/teams">
@@ -146,14 +157,16 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   
   const isMessagesPage = location.pathname.startsWith("/messages");
   const isTodoListPage = location.pathname === "/todos";
+  const isArchivesPage = location.pathname === "/archives";
   
   // Pages that manage their own scroll containers (fixed layout)
-  const isFixedLayout = isMessagesPage || isTodoListPage;
+  const isFixedLayout = isMessagesPage || isTodoListPage || isArchivesPage;
 
   // Helper to determine page title
   const getPageTitle = (pathname: string) => {
     if (pathname === "/") return "Dashboard";
     if (pathname.startsWith("/todos")) return "My Todos";
+    if (pathname === "/archives") return "Archives";
     if (pathname.startsWith("/messages")) return "Messages";
     if (pathname.startsWith("/connections")) return "Connections";
     if (pathname.startsWith("/teams")) return "Teams";
@@ -211,7 +224,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               // Mobile nav padding
               "pb-[64px] md:pb-0", 
               // Container constraints for Todos, but full width for Messages
-              isTodoListPage && "p-4 md:p-8 max-w-5xl mx-auto"
+              (isTodoListPage || isArchivesPage) && "p-4 md:p-8 max-w-5xl mx-auto"
             )}>
               {children}
             </div>

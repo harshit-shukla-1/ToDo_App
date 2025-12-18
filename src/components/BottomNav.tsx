@@ -12,7 +12,8 @@ import {
   Settings,
   Users,
   Grid,
-  LogOut
+  LogOut,
+  Archive
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -42,6 +43,7 @@ const BottomNav: React.FC<BottomNavProps> = ({ isMobileOpen, setIsMobileOpen }) 
     switch (key) {
       case 'dashboard': return LayoutDashboard;
       case 'todos': return ListTodo;
+      case 'archives': return Archive;
       case 'messages': return MessageSquare;
       case 'connections': return Users;
       case 'profile': return User;

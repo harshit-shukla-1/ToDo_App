@@ -93,6 +93,7 @@ const Settings = () => {
   const availableNavItems: { key: NavItemKey; label: string }[] = [
     { key: 'dashboard', label: 'Dashboard' },
     { key: 'todos', label: 'Todos' },
+    { key: 'archives', label: 'Archives' },
     { key: 'messages', label: 'Messages' },
     { key: 'connections', label: 'Connections' },
     { key: 'profile', label: 'Profile' },

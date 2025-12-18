@@ -9,7 +9,7 @@ export type ThemeColor = "default" | "ocean" | "forest" | "rose" | "christmas";
 export type MobileMenuType = "popover" | "drawer";
 
 // Available items for the mobile menu
-export type NavItemKey = "dashboard" | "todos" | "messages" | "connections" | "profile" | "settings";
+export type NavItemKey = "dashboard" | "todos" | "archives" | "messages" | "connections" | "profile" | "settings";
 
 type ThemeProviderProps = {
   children: React.ReactNode;
