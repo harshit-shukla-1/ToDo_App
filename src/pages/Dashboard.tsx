@@ -16,10 +16,25 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { CheckCircle2, Circle, Clock, ListTodo } from "lucide-react";
+import { CheckCircle2, Circle, Clock, ListTodo, Users, ArrowRight } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { useNavigate } from "react-router-dom";
+import { format } from "date-fns";
+
+interface Todo {
+  id: string;
+  user_id: string;
+  text: string;
+  completed: boolean;
+  category: string;
+  due_date: string | null;
+  priority?: string;
+}
 
 const Dashboard = () => {
   const { user } = useSession();
+  const navigate = useNavigate();
   const [stats, setStats] = useState({
     total: 0,
     completed: 0,
@@ -27,6 +42,7 @@ const Dashboard = () => {
     personal: 0,
     professional: 0,
   });
+  const [sharedTodos, setSharedTodos] = useState<Todo[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -37,19 +53,25 @@ const Dashboard = () => {
 
   const fetchStats = async () => {
     try {
+      // Fetch ALL visible todos (RLS policy allows seeing own + shared)
       const { data: todos, error } = await supabase
         .from("todos")
-        .select("*")
-        .eq("user_id", user?.id);
+        .select("*");
 
       if (error) throw error;
 
       if (todos) {
-        const total = todos.length;
-        const completed = todos.filter((t) => t.completed).length;
+        // Filter for My Stats
+        const myTodos = todos.filter(t => t.user_id === user?.id);
+        const shared = todos.filter(t => t.user_id !== user?.id);
+        
+        setSharedTodos(shared);
+
+        const total = myTodos.length;
+        const completed = myTodos.filter((t) => t.completed).length;
         const active = total - completed;
-        const personal = todos.filter((t) => t.category === "Personal").length;
-        const professional = todos.filter((t) => t.category === "Professional").length;
+        const personal = myTodos.filter((t) => t.category === "Personal").length;
+        const professional = myTodos.filter((t) => t.category === "Professional").length;
 
         setStats({ total, completed, active, personal, professional });
       }
@@ -75,13 +97,14 @@ const Dashboard = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-10">
       <h2 className="text-3xl font-bold tracking-tight hidden md:block">Dashboard</h2>
 
+      {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Todos</CardTitle>
+            <CardTitle className="text-sm font-medium">My Todos</CardTitle>
             <ListTodo className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -122,6 +145,7 @@ const Dashboard = () => {
         </Card>
       </div>
 
+      {/* Charts */}
       <div className="grid gap-4 md:grid-cols-2">
         <Card className="col-span-1">
           <CardHeader>
@@ -164,6 +188,53 @@ const Dashboard = () => {
             </ResponsiveContainer>
           </CardContent>
         </Card>
+      </div>
+
+      {/* Shared Todos Section */}
+      <div className="space-y-4">
+        <h3 className="text-lg font-semibold flex items-center gap-2">
+          <Users className="h-5 w-5" /> Shared with me
+        </h3>
+        
+        {sharedTodos.length === 0 ? (
+          <Card className="bg-muted/50 border-dashed">
+            <CardContent className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+              <p>No todos have been shared with you.</p>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+            {sharedTodos.map(todo => (
+              <Card key={todo.id} className="hover:bg-accent/50 transition-colors">
+                <CardContent className="p-4 space-y-2">
+                  <div className="flex justify-between items-start gap-2">
+                    <p className={`font-medium line-clamp-2 ${todo.completed ? 'line-through text-muted-foreground' : ''}`}>
+                      {todo.text}
+                    </p>
+                    <Badge variant="outline" className="shrink-0 text-[10px] border-blue-200 text-blue-600 bg-blue-50 dark:bg-blue-900/20">
+                      Shared
+                    </Badge>
+                  </div>
+                  
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <Badge variant="secondary" className="text-[10px] px-1.5 h-5 font-normal">
+                      {todo.category}
+                    </Badge>
+                    {todo.due_date && (
+                      <span>{format(new Date(todo.due_date), "MMM d")}</span>
+                    )}
+                  </div>
+                  
+                  <div className="pt-2 flex justify-end">
+                    <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => navigate(`/todos/${todo.id}`)}>
+                      View Details <ArrowRight className="ml-1 h-3 w-3" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
