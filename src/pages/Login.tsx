@@ -13,6 +13,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Sun, Moon, Loader2, Lock, User } from "lucide-react";
 import { showSuccess, showError } from "@/utils/toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { browserLocalPersistence, browserSessionPersistence } from '@supabase/supabase-js';
 
 const Login: React.FC = () => {
   const { session } = useSession();
@@ -47,6 +48,11 @@ const Login: React.FC = () => {
     setLoading(true);
     
     try {
+      // Set persistence based on "Remember Me" checkbox
+      await supabase.auth.setPersistence(
+        rememberMe ? browserLocalPersistence : browserSessionPersistence
+      );
+
       const { error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -159,7 +165,7 @@ const Login: React.FC = () => {
                     htmlFor="remember"
                     className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                   >
-                    Remember me
+                    Remember me (30 days)
                   </label>
                 </div>
               </CardContent>

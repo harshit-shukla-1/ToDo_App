@@ -581,12 +581,13 @@ const Messages = () => {
       return;
     }
 
+    // Search by username, first_name, or last_name
     const { data } = await supabase
       .from('profiles')
       .select('id, username, first_name, last_name, avatar_url')
-      .ilike('username', `%${query}%`)
+      .or(`username.ilike.%${query}%,first_name.ilike.%${query}%,last_name.ilike.%${query}%`)
       .neq('id', user?.id)
-      .limit(5);
+      .limit(20);
 
     setSearchResults(data || []);
   };
@@ -656,7 +657,7 @@ const Messages = () => {
             </div>
             {searchResults.length > 0 && (
               <div className="absolute top-full mt-2 left-0 z-50 w-full px-4">
-                <div className="bg-popover border rounded-md shadow-md p-2">
+                <div className="bg-popover border rounded-md shadow-md p-2 max-h-60 overflow-y-auto">
                   {searchResults.map(p => (
                     <div 
                       key={p.id} 
@@ -667,9 +668,13 @@ const Messages = () => {
                         <AvatarImage src={p.avatar_url} />
                         <AvatarFallback>{getInitials(p)}</AvatarFallback>
                       </Avatar>
-                      <div className="flex flex-col">
-                        <span className="text-sm font-medium">@{p.username}</span>
-                        <span className="text-xs text-muted-foreground">{p.first_name} {p.last_name}</span>
+                      <div className="flex flex-col overflow-hidden">
+                        <span className="text-sm font-medium truncate">
+                           {p.first_name && p.last_name 
+                             ? `${p.first_name} ${p.last_name}` 
+                             : p.username}
+                        </span>
+                        <span className="text-xs text-muted-foreground truncate">@{p.username}</span>
                       </div>
                     </div>
                   ))}

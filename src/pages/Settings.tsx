@@ -94,6 +94,7 @@ const Settings = () => {
     { key: 'dashboard', label: 'Dashboard' },
     { key: 'todos', label: 'Todos' },
     { key: 'archives', label: 'Archives' },
+    { key: 'teams', label: 'Teams' },
     { key: 'messages', label: 'Messages' },
     { key: 'connections', label: 'Connections' },
     { key: 'profile', label: 'Profile' },

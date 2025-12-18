@@ -13,6 +13,7 @@ import {
   Users,
   Grid,
   LogOut,
+  Briefcase,
   Archive
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -44,6 +45,7 @@ const BottomNav: React.FC<BottomNavProps> = ({ isMobileOpen, setIsMobileOpen }) 
       case 'dashboard': return LayoutDashboard;
       case 'todos': return ListTodo;
       case 'archives': return Archive;
+      case 'teams': return Briefcase;
       case 'messages': return MessageSquare;
       case 'connections': return Users;
       case 'profile': return User;
