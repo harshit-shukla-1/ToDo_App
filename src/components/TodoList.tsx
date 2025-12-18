@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import TodoItem from "./TodoItem";
-import { Plus, Calendar as CalendarIcon, Loader2 } from "lucide-react";
+import { Plus, Calendar as CalendarIcon, Loader2, Archive } from "lucide-react";
 import { showSuccess, showError } from "@/utils/toast";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { supabase } from "@/integrations/supabase/client";
@@ -27,6 +27,7 @@ interface Todo {
   due_date: string | null;
   category: string;
   team_id?: string;
+  archived?: boolean;
 }
 
 type Filter = "all" | "active" | "completed";
@@ -111,6 +112,23 @@ const TodoList: React.FC = () => {
     }
   });
 
+  const archiveTodoMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from("todos")
+        .update({ archived: true })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['todos'] });
+      showSuccess("Todo archived!");
+    },
+    onError: (error: any) => {
+      showError("Failed to archive: " + error.message);
+    }
+  });
+
   const deleteTodoMutation = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from("todos").delete().eq("id", id);
@@ -125,17 +143,20 @@ const TodoList: React.FC = () => {
     }
   });
 
-  const clearCompletedMutation = useMutation({
+  const archiveCompletedMutation = useMutation({
     mutationFn: async (ids: string[]) => {
-      const { error } = await supabase.from("todos").delete().in("id", ids);
+      const { error } = await supabase
+        .from("todos")
+        .update({ archived: true })
+        .in("id", ids);
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['todos'] });
-      showSuccess("Completed todos cleared!");
+      showSuccess("Completed todos archived!");
     },
     onError: (error: any) => {
-      showError("Failed to clear: " + error.message);
+      showError("Failed to archive: " + error.message);
     }
   });
 
@@ -168,6 +189,7 @@ const TodoList: React.FC = () => {
       completed: false,
       due_date: finalDate ? finalDate.toISOString() : null,
       category: category,
+      archived: false
     });
   };
 
@@ -177,16 +199,19 @@ const TodoList: React.FC = () => {
     }
   };
 
-  const clearCompleted = () => {
+  const archiveCompleted = () => {
     const completedIds = todos
-      .filter((t) => t.completed && t.user_id === user?.id) // Only clear own completed todos
+      .filter((t) => t.completed && !t.archived && t.user_id === user?.id)
       .map((t) => t.id);
       
     if (completedIds.length === 0) return;
-    clearCompletedMutation.mutate(completedIds);
+    archiveCompletedMutation.mutate(completedIds);
   };
 
   const filteredTodos = todos.filter((todo) => {
+    // Exclude archived todos from this list
+    if (todo.archived) return false;
+
     const matchesStatus =
       filter === "all"
         ? true
@@ -292,8 +317,8 @@ const TodoList: React.FC = () => {
           <div className="flex justify-center items-center py-8">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
-        ) : filteredTodos.length === 0 && todos.length === 0 ? (
-          <p className="text-center text-muted-foreground text-lg py-8">No todos yet! Add one above.</p>
+        ) : filteredTodos.length === 0 && todos.filter(t => !t.archived).length === 0 ? (
+          <p className="text-center text-muted-foreground text-lg py-8">No active todos. Add one above!</p>
         ) : filteredTodos.length === 0 ? (
           <p className="text-center text-muted-foreground text-lg py-8">No matching todos found.</p>
         ) : (
@@ -315,6 +340,7 @@ const TodoList: React.FC = () => {
                     isOwner={isOwner}
                     onToggle={(id, status) => toggleTodoMutation.mutate({ id, completed: !status })}
                     onDelete={(id) => deleteTodoMutation.mutate(id)}
+                    onArchive={(id) => archiveTodoMutation.mutate(id)}
                   />
                 );
               })}
@@ -324,13 +350,14 @@ const TodoList: React.FC = () => {
       </CardContent>
       <CardFooter className="flex justify-end p-4 border-t">
         <Button
-          onClick={clearCompleted}
-          variant="ghost"
+          onClick={archiveCompleted}
+          variant="outline"
           size="sm"
-          className="text-destructive hover:text-destructive hover:bg-destructive/10"
-          disabled={!todos.some(todo => todo.completed && todo.user_id === user?.id)}
+          className="gap-2"
+          disabled={!todos.some(todo => todo.completed && !todo.archived && todo.user_id === user?.id)}
         >
-          Clear Completed
+          <Archive className="h-4 w-4" />
+          Archive Completed
         </Button>
       </CardFooter>
     </Card>

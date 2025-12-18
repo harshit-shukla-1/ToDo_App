@@ -4,7 +4,7 @@ import React from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Trash2, CalendarIcon, Share2, Users } from "lucide-react";
+import { Trash2, CalendarIcon, Share2, Users, Archive, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
@@ -18,9 +18,13 @@ interface TodoItemProps {
   isShared?: boolean;
   isTeam?: boolean;
   isOwner?: boolean;
+  // If true, shows restore button instead of archive
+  isArchived?: boolean; 
   onToggle: (id: string, currentStatus: boolean) => void;
   onDelete: (id: string) => void;
   onShare?: (id: string) => void;
+  onArchive?: (id: string) => void;
+  onRestore?: (id: string) => void;
 }
 
 const TodoItem: React.FC<TodoItemProps> = ({
@@ -32,9 +36,12 @@ const TodoItem: React.FC<TodoItemProps> = ({
   isShared,
   isTeam,
   isOwner = true,
+  isArchived = false,
   onToggle,
   onDelete,
-  onShare
+  onShare,
+  onArchive,
+  onRestore
 }) => {
   return (
     <div className="flex items-center justify-between p-4 border-b last:border-b-0 group hover:bg-muted/50 transition-colors gap-3">
@@ -44,6 +51,7 @@ const TodoItem: React.FC<TodoItemProps> = ({
           checked={completed}
           onCheckedChange={() => onToggle(id, completed)}
           className="peer h-5 w-5 shrink-0"
+          disabled={isArchived} // Disable toggling if archived
         />
         <div className="flex flex-col gap-1 min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
@@ -64,6 +72,9 @@ const TodoItem: React.FC<TodoItemProps> = ({
             {isShared && !isTeam && (
                <Badge variant="outline" className="text-[9px] h-4 px-1 text-blue-500 border-blue-200 shrink-0">Shared</Badge>
             )}
+            {isArchived && (
+               <Badge variant="outline" className="text-[9px] h-4 px-1 text-gray-500 border-gray-300 bg-gray-100 shrink-0">Archived</Badge>
+            )}
           </div>
           <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
             {category && (
@@ -81,7 +92,31 @@ const TodoItem: React.FC<TodoItemProps> = ({
         </div>
       </div>
       <div className="flex items-center gap-1 shrink-0">
-        {onShare && isOwner && (
+        {onRestore && isArchived && (
+           <Button
+             variant="ghost"
+             size="icon"
+             onClick={() => onRestore(id)}
+             aria-label="Restore todo"
+             className="text-blue-500 hover:text-blue-600 hover:bg-blue-50"
+           >
+             <RotateCcw className="h-4 w-4" />
+           </Button>
+        )}
+        
+        {onArchive && !isArchived && isOwner && (
+           <Button
+             variant="ghost"
+             size="icon"
+             onClick={() => onArchive(id)}
+             aria-label="Archive todo"
+             className="text-muted-foreground hover:text-orange-500 hover:bg-orange-50 md:opacity-0 md:group-hover:opacity-100 transition-opacity"
+           >
+             <Archive className="h-4 w-4" />
+           </Button>
+        )}
+
+        {onShare && isOwner && !isArchived && (
            <Button
             variant="ghost"
             size="icon"
@@ -92,6 +127,7 @@ const TodoItem: React.FC<TodoItemProps> = ({
             <Share2 className="h-4 w-4" />
           </Button>
         )}
+        
         {isOwner && (
           <Button
             variant="ghost"

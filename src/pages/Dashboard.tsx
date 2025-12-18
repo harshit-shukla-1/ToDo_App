@@ -16,7 +16,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { CheckCircle2, Circle, Clock, ListTodo, Users, Briefcase } from "lucide-react";
+import { CheckCircle2, Circle, Clock, ListTodo, Users, Briefcase, Archive } from "lucide-react";
 
 const Dashboard = () => {
   const { user } = useSession();
@@ -24,6 +24,7 @@ const Dashboard = () => {
     total: 0,
     completed: 0,
     active: 0,
+    archived: 0,
     personal: 0,
     professional: 0,
     shared: 0,
@@ -39,7 +40,7 @@ const Dashboard = () => {
 
   const fetchStats = async () => {
     try {
-      // Fetch ALL visible todos (RLS policy allows seeing own + shared + team)
+      // Fetch ALL todos to calculate stats
       const { data: todos, error } = await supabase
         .from("todos")
         .select("*");
@@ -47,23 +48,28 @@ const Dashboard = () => {
       if (error) throw error;
 
       if (todos) {
-        const total = todos.length;
-        const completed = todos.filter((t) => t.completed).length;
+        // Separate archived from visible
+        const archivedTodos = todos.filter(t => t.archived);
+        const visibleTodos = todos.filter(t => !t.archived);
+        
+        const total = visibleTodos.length;
+        const completed = visibleTodos.filter((t) => t.completed).length;
         const active = total - completed;
+        const archived = archivedTodos.length;
         
-        // Categorization
-        const personal = todos.filter((t) => t.category === "Personal").length;
-        const professional = todos.filter((t) => t.category === "Professional").length;
+        // Categorization (based on visible todos)
+        const personal = visibleTodos.filter((t) => t.category === "Personal").length;
+        const professional = visibleTodos.filter((t) => t.category === "Professional").length;
         
-        // Ownership types
-        const teamTodos = todos.filter(t => t.team_id !== null).length;
-        // Direct shared: Not my user_id AND no team_id
-        const sharedWithMe = todos.filter(t => t.user_id !== user?.id && t.team_id === null).length;
+        // Ownership types (based on visible todos)
+        const teamTodos = visibleTodos.filter(t => t.team_id !== null).length;
+        const sharedWithMe = visibleTodos.filter(t => t.user_id !== user?.id && t.team_id === null).length;
 
         setStats({ 
           total, 
           completed, 
           active, 
+          archived,
           personal, 
           professional, 
           shared: sharedWithMe,
@@ -96,10 +102,10 @@ const Dashboard = () => {
       <h2 className="text-3xl font-bold tracking-tight hidden md:block">Dashboard</h2>
 
       {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">All Todos</CardTitle>
+            <CardTitle className="text-sm font-medium">Active Todos</CardTitle>
             <ListTodo className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -117,11 +123,20 @@ const Dashboard = () => {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active</CardTitle>
+            <CardTitle className="text-sm font-medium">Pending</CardTitle>
             <Circle className="h-4 w-4 text-orange-500" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.active}</div>
+          </CardContent>
+        </Card>
+        <Card className="bg-muted/30 border-dashed">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Archived</CardTitle>
+            <Archive className="h-4 w-4 text-gray-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.archived}</div>
           </CardContent>
         </Card>
         <Card>
@@ -135,7 +150,7 @@ const Dashboard = () => {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Shared (Direct)</CardTitle>
+            <CardTitle className="text-sm font-medium">Shared</CardTitle>
             <Users className="h-4 w-4 text-purple-500" />
           </CardHeader>
           <CardContent>
@@ -162,7 +177,7 @@ const Dashboard = () => {
       <div className="grid gap-4 md:grid-cols-2">
         <Card className="col-span-1">
           <CardHeader>
-            <CardTitle>Status Distribution</CardTitle>
+            <CardTitle>Status Distribution (Active List)</CardTitle>
           </CardHeader>
           <CardContent className="h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
