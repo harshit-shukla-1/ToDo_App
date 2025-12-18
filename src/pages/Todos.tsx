@@ -26,7 +26,8 @@ import {
   Loader2,
   Tag,
   X,
-  Share2
+  Share2,
+  Users
 } from "lucide-react";
 import { format } from "date-fns";
 import { showSuccess, showError } from "@/utils/toast";
@@ -91,7 +92,7 @@ const Todos = () => {
   };
 
   const toggleTodo = async (id: string, currentStatus: boolean, e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent opening detail view when checking box
+    e.stopPropagation(); 
     try {
       const { error } = await supabase
         .from("todos")
@@ -330,7 +331,8 @@ const Todos = () => {
         ) : (
           <div className="grid gap-3 pb-20 md:pb-4">
             {filteredTodos.map((todo) => {
-              const isShared = todo.team_id !== null || todo.user_id !== user?.id;
+              const isTeam = todo.team_id !== null;
+              const isShared = isTeam || todo.user_id !== user?.id;
               const isOwner = todo.user_id === user?.id;
               
               return (
@@ -342,8 +344,6 @@ const Todos = () => {
                   <CardContent className="p-3 md:p-4 flex items-center gap-3">
                     <Checkbox
                       checked={todo.completed}
-                      onCheckedChange={() => {}} // Controlled by the div click for safety, but we use onClick on the parent. 
-                      // actually better to separate it.
                       onClick={(e) => toggleTodo(todo.id, todo.completed, e)}
                       className="h-5 w-5 shrink-0 z-10"
                     />
@@ -357,7 +357,12 @@ const Todos = () => {
                         >
                           {todo.text}
                         </p>
-                        {isShared && (
+                        {isTeam && (
+                           <Badge variant="outline" className="text-[9px] h-4 px-1 text-purple-600 border-purple-200 bg-purple-50 dark:bg-purple-900/20 shrink-0 gap-1">
+                              <Users className="h-3 w-3" /> Team
+                           </Badge>
+                        )}
+                        {isShared && !isTeam && (
                           <Badge variant="outline" className="text-[9px] h-4 px-1 text-blue-500 border-blue-200 shrink-0">
                              Shared
                           </Badge>

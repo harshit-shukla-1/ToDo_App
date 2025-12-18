@@ -4,7 +4,7 @@ import React from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Trash2, CalendarIcon, Share2 } from "lucide-react";
+import { Trash2, CalendarIcon, Share2, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
@@ -16,6 +16,7 @@ interface TodoItemProps {
   dueDate?: string | null;
   category?: string;
   isShared?: boolean;
+  isTeam?: boolean;
   isOwner?: boolean;
   onToggle: (id: string, currentStatus: boolean) => void;
   onDelete: (id: string) => void;
@@ -29,7 +30,8 @@ const TodoItem: React.FC<TodoItemProps> = ({
   dueDate,
   category,
   isShared,
-  isOwner = true, // Default to true for backward compatibility if not passed
+  isTeam,
+  isOwner = true,
   onToggle,
   onDelete,
   onShare
@@ -54,7 +56,12 @@ const TodoItem: React.FC<TodoItemProps> = ({
             >
               {text}
             </Label>
-            {isShared && (
+            {isTeam && (
+               <Badge variant="outline" className="text-[9px] h-4 px-1 text-purple-600 border-purple-200 bg-purple-50 dark:bg-purple-900/20 shrink-0 gap-1">
+                  <Users className="h-3 w-3" /> Team
+               </Badge>
+            )}
+            {isShared && !isTeam && (
                <Badge variant="outline" className="text-[9px] h-4 px-1 text-blue-500 border-blue-200 shrink-0">Shared</Badge>
             )}
           </div>

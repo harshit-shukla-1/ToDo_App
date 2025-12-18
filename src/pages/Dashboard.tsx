@@ -16,17 +16,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { CheckCircle2, Circle, Clock, ListTodo, Users } from "lucide-react";
-
-interface Todo {
-  id: string;
-  user_id: string;
-  text: string;
-  completed: boolean;
-  category: string;
-  due_date: string | null;
-  priority?: string;
-}
+import { CheckCircle2, Circle, Clock, ListTodo, Users, Briefcase } from "lucide-react";
 
 const Dashboard = () => {
   const { user } = useSession();
@@ -37,6 +27,7 @@ const Dashboard = () => {
     personal: 0,
     professional: 0,
     shared: 0,
+    team: 0,
   });
   const [loading, setLoading] = useState(true);
 
@@ -48,7 +39,7 @@ const Dashboard = () => {
 
   const fetchStats = async () => {
     try {
-      // Fetch ALL visible todos (RLS policy allows seeing own + shared)
+      // Fetch ALL visible todos (RLS policy allows seeing own + shared + team)
       const { data: todos, error } = await supabase
         .from("todos")
         .select("*");
@@ -56,16 +47,18 @@ const Dashboard = () => {
       if (error) throw error;
 
       if (todos) {
-        // Filter for My Stats
-        const myTodos = todos.filter(t => t.user_id === user?.id);
-        const shared = todos.filter(t => t.user_id !== user?.id);
-        
-        const total = myTodos.length;
-        const completed = myTodos.filter((t) => t.completed).length;
+        const total = todos.length;
+        const completed = todos.filter((t) => t.completed).length;
         const active = total - completed;
-        const personal = myTodos.filter((t) => t.category === "Personal").length;
-        const professional = myTodos.filter((t) => t.category === "Professional").length;
-        const sharedCount = shared.length;
+        
+        // Categorization
+        const personal = todos.filter((t) => t.category === "Personal").length;
+        const professional = todos.filter((t) => t.category === "Professional").length;
+        
+        // Ownership types
+        const teamTodos = todos.filter(t => t.team_id !== null).length;
+        // Direct shared: Not my user_id AND no team_id
+        const sharedWithMe = todos.filter(t => t.user_id !== user?.id && t.team_id === null).length;
 
         setStats({ 
           total, 
@@ -73,7 +66,8 @@ const Dashboard = () => {
           active, 
           personal, 
           professional, 
-          shared: sharedCount 
+          shared: sharedWithMe,
+          team: teamTodos
         });
       }
     } catch (error) {
@@ -102,10 +96,10 @@ const Dashboard = () => {
       <h2 className="text-3xl font-bold tracking-tight hidden md:block">Dashboard</h2>
 
       {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">My Todos</CardTitle>
+            <CardTitle className="text-sm font-medium">All Todos</CardTitle>
             <ListTodo className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -132,7 +126,16 @@ const Dashboard = () => {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Shared With Me</CardTitle>
+            <CardTitle className="text-sm font-medium">Team Todos</CardTitle>
+            <Briefcase className="h-4 w-4 text-blue-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.team}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Shared (Direct)</CardTitle>
             <Users className="h-4 w-4 text-purple-500" />
           </CardHeader>
           <CardContent>
@@ -142,7 +145,7 @@ const Dashboard = () => {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Productivity</CardTitle>
-            <Clock className="h-4 w-4 text-blue-500" />
+            <Clock className="h-4 w-4 text-indigo-500" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
