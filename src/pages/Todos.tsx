@@ -157,9 +157,11 @@ const Todos = () => {
 
   const getPriorityColor = (priority?: string) => {
     switch (priority?.toLowerCase()) {
-      case 'high': return "text-red-500 bg-red-50 border-red-200";
-      case 'medium': return "text-orange-500 bg-orange-50 border-orange-200";
-      case 'low': return "text-green-500 bg-green-50 border-green-200";
+      case 'extreme': return "text-red-700 bg-red-100 border-red-300 dark:bg-red-900/40 dark:text-red-200 font-medium";
+      case 'high': return "text-red-500 bg-red-50 border-red-200 dark:bg-red-900/20";
+      case 'normal': 
+      case 'medium': return "text-orange-500 bg-orange-50 border-orange-200 dark:bg-orange-900/20";
+      case 'low': return "text-green-500 bg-green-50 border-green-200 dark:bg-green-900/20";
       default: return "";
     }
   };
@@ -359,7 +361,7 @@ const Todos = () => {
                              Shared
                           </Badge>
                         )}
-                        {todo.priority && todo.priority !== 'medium' && (
+                        {todo.priority && (todo.priority !== 'medium' && todo.priority !== 'normal') && (
                            <Badge variant="outline" className={cn("text-[9px] h-4 px-1 shrink-0", getPriorityColor(todo.priority))}>
                              {todo.priority}
                            </Badge>

@@ -42,7 +42,9 @@ const TodoDetailsDialog: React.FC<TodoDetailsDialogProps> = ({
 
   const getPriorityColor = (priority?: string) => {
     switch (priority?.toLowerCase()) {
+      case 'extreme': return "text-red-700 border-red-300 bg-red-100 dark:bg-red-900/40 dark:text-red-200";
       case 'high': return "text-red-500 border-red-200 bg-red-50 dark:bg-red-900/20";
+      case 'normal': 
       case 'medium': return "text-orange-500 border-orange-200 bg-orange-50 dark:bg-orange-900/20";
       case 'low': return "text-green-500 border-green-200 bg-green-50 dark:bg-green-900/20";
       default: return "text-gray-500";
@@ -108,7 +110,7 @@ const TodoDetailsDialog: React.FC<TodoDetailsDialogProps> = ({
                 </div>
                 <div>
                   <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Priority</p>
-                  <p className="font-medium text-sm capitalize">{todo.priority || "Medium"}</p>
+                  <p className="font-medium text-sm capitalize">{todo.priority || "Normal"}</p>
                 </div>
              </div>
           </div>

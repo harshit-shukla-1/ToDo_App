@@ -37,7 +37,7 @@ const TodoEditor = () => {
   const [formData, setFormData] = useState({
     text: "",
     category: "Personal",
-    priority: "medium",
+    priority: "normal",
     due_date: undefined as Date | undefined,
     completed: false,
     reminder_minutes_before: "0",
@@ -64,7 +64,7 @@ const TodoEditor = () => {
         setFormData({
           text: data.text,
           category: data.category || "Personal",
-          priority: data.priority || "medium",
+          priority: data.priority || "normal",
           due_date: data.due_date ? new Date(data.due_date) : undefined,
           completed: data.completed,
           reminder_minutes_before: data.reminder_minutes_before 
@@ -211,8 +211,9 @@ const TodoEditor = () => {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="low">Low</SelectItem>
-                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="normal">Normal</SelectItem>
                     <SelectItem value="high">High</SelectItem>
+                    <SelectItem value="extreme">Extreme</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
