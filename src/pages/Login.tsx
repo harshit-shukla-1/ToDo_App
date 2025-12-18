@@ -24,7 +24,7 @@ const Login: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [rememberMe, setRememberMe] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true); // Default to true
   
   // Signup states
   const [signupEmail, setSignupEmail] = useState("");
@@ -47,13 +47,6 @@ const Login: React.FC = () => {
     setLoading(true);
     
     try {
-      // Set persistence based on "Remember Me" checkbox using native browser storage
-      // window.localStorage persists across sessions (Remember Me)
-      // window.sessionStorage persists only for the current tab session
-      await supabase.auth.setPersistence(
-        rememberMe ? window.localStorage : window.sessionStorage
-      );
-
       const { error } = await supabase.auth.signInWithPassword({
         email,
         password,
