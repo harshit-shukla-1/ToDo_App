@@ -64,16 +64,17 @@ const PublicProfile = () => {
       
       console.log("Fetching profile for:", cleanUsername);
 
+      // We removed .eq("is_public", true) because RLS now handles visibility
+      // (Public profiles OR Connected profiles are visible)
       const { data, error } = await supabase
         .from("profiles")
         .select("*")
         .ilike("username", cleanUsername)
-        .eq("is_public", true)
         .single();
 
       if (error) {
         if (error.code === 'PGRST116') {
-             throw new Error("Profile not found or is set to private.");
+             throw new Error("Profile not found or is private.");
         }
         throw error;
       }
@@ -203,6 +204,11 @@ const PublicProfile = () => {
     show_hobbies: rawSettings.show_hobbies ?? true,
     show_custom: rawSettings.show_custom ?? true,
   };
+
+  // If we are connected (or it's me), we might want to override settings to show more?
+  // The user asked "I can see his public profile". 
+  // We'll stick to their public settings for now, but since we can SEE the profile at all, the main request is satisfied.
+  // The RLS allows fetching the data row.
 
   const customProperties = profile.custom_properties || {};
   const hasVisibleMeasurements = settings.show_measurements && (profile.height || profile.weight);

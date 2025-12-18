@@ -99,7 +99,7 @@ const Teams = () => {
       const formattedMembers = members?.map((m: any) => ({
         ...m.profiles,
         role: m.role
-      })) || [];
+      })).filter(p => p) || []; // Filter null profiles
       
       setTeamMembers(formattedMembers);
 
@@ -113,11 +113,13 @@ const Teams = () => {
         .or(`requester_id.eq.${user?.id},recipient_id.eq.${user?.id}`)
         .eq('status', 'accepted');
 
-      const profiles = connData?.map((c: any) => 
-        c.requester_id === user?.id ? c.recipient : c.requester
-      ) || [];
-      
-      // Filter out existing members
+      // Process connections to find the "other" person
+      const profiles = connData?.map((c: any) => {
+        const otherProfile = c.requester_id === user?.id ? c.recipient : c.requester;
+        return otherProfile;
+      }).filter(p => p && p.id !== user?.id) || []; // Ensure profile exists and is NOT me
+
+      // Filter out existing members from the potential list
       const memberIds = new Set(formattedMembers.map((m: any) => m.id));
       setConnections(profiles.filter((p: any) => !memberIds.has(p.id)));
 
@@ -164,6 +166,7 @@ const Teams = () => {
   };
 
   const getInitials = (p: any) => {
+    if (!p) return "U";
     if (p.first_name && p.last_name) return `${p.first_name[0]}${p.last_name[0]}`.toUpperCase();
     if (p.username) return p.username[0].toUpperCase();
     return "U";
