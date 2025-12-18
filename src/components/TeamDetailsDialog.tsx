@@ -68,7 +68,7 @@ const TeamDetailsDialog: React.FC<TeamDetailsDialogProps> = ({ team, open, onOpe
     if (!team) return;
     setLoading(true);
     try {
-      // Fetch Todos
+      // 1. Fetch Todos
       const { data: todosData } = await supabase
         .from('todos')
         .select('*')
@@ -77,20 +77,34 @@ const TeamDetailsDialog: React.FC<TeamDetailsDialogProps> = ({ team, open, onOpe
       
       setTodos(todosData || []);
 
-      // Fetch Members
-      const { data: membersData } = await supabase
+      // 2. Fetch Team Members (IDs and Roles)
+      const { data: teamMembersData } = await supabase
         .from('team_members')
-        .select('user_id, role, profiles:user_id(*)')
+        .select('user_id, role')
         .eq('team_id', team.id);
 
-      const formattedMembers = membersData?.map((m: any) => ({
-        ...m.profiles,
-        role: m.role
-      })).filter(p => p) || [];
+      const memberIds = teamMembersData?.map(m => m.user_id) || [];
+      const roleMap = new Map(teamMembersData?.map(m => [m.user_id, m.role]));
+
+      // 3. Fetch Profiles for those members
+      // We do this separately to avoid issues with missing FK relationships in the API layer
+      let formattedMembers: Member[] = [];
+      
+      if (memberIds.length > 0) {
+        const { data: profilesData } = await supabase
+          .from('profiles')
+          .select('*')
+          .in('id', memberIds);
+
+        formattedMembers = (profilesData || []).map((p: any) => ({
+          ...p,
+          role: roleMap.get(p.id) || 'member'
+        }));
+      }
       
       setMembers(formattedMembers);
 
-      // Fetch Connections (for adding members)
+      // 4. Fetch Connections (for adding new members)
       if (isOwner) {
         const { data: connData } = await supabase
           .from('connections')
@@ -106,8 +120,8 @@ const TeamDetailsDialog: React.FC<TeamDetailsDialogProps> = ({ team, open, onOpe
         }).filter(p => p && p.id !== currentUserId) || [];
 
         // Filter out existing members
-        const memberIds = new Set(formattedMembers.map(m => m.id));
-        setConnections(profiles.filter(p => !memberIds.has(p.id)));
+        const currentMemberIds = new Set(memberIds);
+        setConnections(profiles.filter(p => !currentMemberIds.has(p.id)));
       }
 
     } catch (err) {
@@ -121,6 +135,14 @@ const TeamDetailsDialog: React.FC<TeamDetailsDialogProps> = ({ team, open, onOpe
   const addMember = async (userId: string) => {
     if (!team) return;
     setAddingMemberId(userId);
+
+    // Optimistic Update: Immediately update UI
+    const userToAdd = connections.find(c => c.id === userId);
+    if (userToAdd) {
+       setMembers(prev => [...prev, { ...userToAdd, role: 'member' }]);
+       setConnections(prev => prev.filter(c => c.id !== userId));
+    }
+
     try {
       const { error } = await supabase.from('team_members').insert({
         team_id: team.id,
@@ -129,44 +151,82 @@ const TeamDetailsDialog: React.FC<TeamDetailsDialogProps> = ({ team, open, onOpe
       });
 
       if (error) {
-        // If duplicate key error (23505), just ignore and refresh list
         if (error.code === '23505') {
-          showSuccess("Member already added");
+           // Duplicate key, already added. Just ensure state is correct.
+           showSuccess("Member added");
         } else {
-          throw error;
+           // Revert on real error
+           throw error;
         }
       } else {
         showSuccess("Member added successfully");
       }
       
-      // Refresh data
-      await fetchData();
+      // We don't need to re-fetch full data if optimistic update worked,
+      // but let's do a quiet refresh of just members to be safe, without loading spinner.
+      refreshMembersQuietly(team.id);
+
     } catch (err: any) {
       console.error(err);
       showError("Failed to add member: " + err.message);
+      // Revert optimistic update on error
+      if (userToAdd) {
+        setMembers(prev => prev.filter(m => m.id !== userId));
+        setConnections(prev => [...prev, userToAdd]);
+      }
     } finally {
       setAddingMemberId(null);
     }
   };
 
+  const refreshMembersQuietly = async (teamId: string) => {
+      // Re-fetch logic just for members/profiles to ensure consistency
+      const { data: teamMembersData } = await supabase
+        .from('team_members')
+        .select('user_id, role')
+        .eq('team_id', teamId);
+
+      const memberIds = teamMembersData?.map(m => m.user_id) || [];
+      const roleMap = new Map(teamMembersData?.map(m => [m.user_id, m.role]));
+
+      if (memberIds.length > 0) {
+        const { data: profilesData } = await supabase
+          .from('profiles')
+          .select('*')
+          .in('id', memberIds);
+
+        const formattedMembers = (profilesData || []).map((p: any) => ({
+          ...p,
+          role: roleMap.get(p.id) || 'member'
+        }));
+        setMembers(formattedMembers);
+      }
+  };
+
   const removeMember = async (userId: string) => {
     if (!team) return;
+    
+    // Optimistic Update
+    const removedMember = members.find(m => m.id === userId);
+    setMembers(prev => prev.filter(m => m.id !== userId));
+    if (removedMember && isOwner) {
+       setConnections(prev => [...prev, removedMember]);
+    }
+
     try {
       const { error } = await supabase.from('team_members').delete()
         .eq('team_id', team.id)
         .eq('user_id', userId);
 
       if (error) throw error;
-      
-      setMembers(prev => prev.filter(m => m.id !== userId));
-      // Add back to connections list if applicable
-      const removedMember = members.find(m => m.id === userId);
-      if (removedMember && connections.every(c => c.id !== userId)) {
-         setConnections(prev => [...prev, removedMember]);
-      }
       showSuccess("Member removed");
     } catch (err: any) {
       showError("Failed to remove member");
+      // Revert
+      if (removedMember) {
+         setMembers(prev => [...prev, removedMember]);
+         setConnections(prev => prev.filter(c => c.id !== userId));
+      }
     }
   };
 
