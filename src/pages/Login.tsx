@@ -13,7 +13,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Sun, Moon, Loader2, Lock, User } from "lucide-react";
 import { showSuccess, showError } from "@/utils/toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { browserLocalPersistence, browserSessionPersistence } from '@supabase/supabase-js';
 
 const Login: React.FC = () => {
   const { session } = useSession();
@@ -48,9 +47,11 @@ const Login: React.FC = () => {
     setLoading(true);
     
     try {
-      // Set persistence based on "Remember Me" checkbox
+      // Set persistence based on "Remember Me" checkbox using native browser storage
+      // window.localStorage persists across sessions (Remember Me)
+      // window.sessionStorage persists only for the current tab session
       await supabase.auth.setPersistence(
-        rememberMe ? browserLocalPersistence : browserSessionPersistence
+        rememberMe ? window.localStorage : window.sessionStorage
       );
 
       const { error } = await supabase.auth.signInWithPassword({
