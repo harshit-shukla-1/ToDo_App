@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { useSession } from "@/integrations/supabase/auth";
 import { supabase } from "@/integrations/supabase/client";
-import { Bell, Trash2, Mail, Info, Check, UserPlus, X } from "lucide-react";
+import { Bell, Trash2, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useNavigate } from "react-router-dom";
@@ -201,10 +201,18 @@ const NotificationBell = () => {
                     <div
                       key={msg.id}
                       onClick={handleMessageClick}
-                      className="p-3 text-left hover:bg-muted/50 transition-colors border-b last:border-0 w-full bg-primary/5 cursor-pointer flex gap-3 items-start"
+                      className="p-3 text-left hover:bg-muted/50 transition-colors border-b last:border-0 w-full bg-primary/5 cursor-pointer flex gap-3 items-start group"
                     >
-                      <div className="mt-1 shrink-0">
-                        <Mail className="h-4 w-4 text-green-500" />
+                      <div className="shrink-0 pt-0.5">
+                        <Button 
+                           variant="ghost" 
+                           size="icon" 
+                           className="h-6 w-6 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                           onClick={(e) => dismissMessageAlert(msg.id, e)}
+                           title="Dismiss"
+                        >
+                           <Trash2 className="h-4 w-4" />
+                        </Button>
                       </div>
                       <div className="flex-1 min-w-0">
                           <div className="flex justify-between items-start mb-0.5">
@@ -219,17 +227,6 @@ const NotificationBell = () => {
                           {msg.content}
                         </p>
                       </div>
-                      <div className="flex flex-col gap-1 shrink-0">
-                        <Button 
-                           variant="ghost" 
-                           size="icon" 
-                           className="h-7 w-7 hover:bg-muted"
-                           onClick={(e) => dismissMessageAlert(msg.id, e)}
-                           title="Dismiss"
-                        >
-                           <X className="h-4 w-4" />
-                        </Button>
-                      </div>
                     </div>
                   ))}
 
@@ -239,16 +236,20 @@ const NotificationBell = () => {
                       key={notif.id}
                       onClick={() => handleSystemNotificationClick(notif)}
                       className={cn(
-                        "p-3 border-b hover:bg-muted/30 transition-colors w-full flex gap-3 items-start cursor-pointer",
+                        "p-3 border-b hover:bg-muted/30 transition-colors w-full flex gap-3 items-start cursor-pointer group",
                         !notif.read && "bg-primary/5"
                       )}
                     >
-                      <div className="mt-1 shrink-0">
-                        {notif.type === 'connection_request' ? (
-                            <UserPlus className="h-4 w-4 text-blue-500" />
-                        ) : (
-                            <Info className="h-4 w-4 text-gray-500" />
-                        )}
+                      <div className="shrink-0 pt-0.5">
+                         <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-6 w-6 text-muted-foreground hover:text-destructive hover:bg-destructive/10" 
+                            onClick={(e) => deleteNotification(notif.id, e)} 
+                            title="Delete"
+                         >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                       </div>
                       <div className="flex-1 min-w-0 space-y-0.5">
                         <p className={`text-sm truncate ${!notif.read ? 'font-semibold' : ''}`}>{notif.title}</p>
@@ -260,17 +261,14 @@ const NotificationBell = () => {
                         </p>
                       </div>
                       
-                      {/* Actions Container */}
-                      <div className="flex flex-col gap-1 shrink-0">
-                          {!notif.read && (
-                            <Button variant="ghost" size="icon" className="h-7 w-7 text-primary hover:bg-primary/10" onClick={(e) => { e.stopPropagation(); markAsRead(notif.id); }} title="Mark as read">
+                      {/* Mark as read button on the right */}
+                      {!notif.read && (
+                        <div className="shrink-0 pt-0.5">
+                           <Button variant="ghost" size="icon" className="h-7 w-7 text-primary hover:bg-primary/10" onClick={(e) => { e.stopPropagation(); markAsRead(notif.id); }} title="Mark as read">
                               <Check className="h-4 w-4" />
-                            </Button>
-                          )}
-                          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:bg-destructive/10" onClick={(e) => deleteNotification(notif.id, e)} title="Delete">
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                      </div>
+                           </Button>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -287,10 +285,18 @@ const NotificationBell = () => {
                     <div
                       key={msg.id}
                       onClick={handleMessageClick}
-                      className="p-3 text-left hover:bg-muted/50 transition-colors border-b last:border-0 w-full flex gap-3 items-start cursor-pointer"
+                      className="p-3 text-left hover:bg-muted/50 transition-colors border-b last:border-0 w-full flex gap-3 items-start cursor-pointer group"
                     >
-                      <div className="mt-1 shrink-0">
-                        <Mail className="h-4 w-4 text-green-500" />
+                      <div className="shrink-0 pt-0.5">
+                        <Button 
+                           variant="ghost" 
+                           size="icon" 
+                           className="h-6 w-6 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                           onClick={(e) => dismissMessageAlert(msg.id, e)}
+                           title="Dismiss"
+                        >
+                           <Trash2 className="h-4 w-4" />
+                        </Button>
                       </div>
                       <div className="flex-1 min-w-0">
                           <div className="flex justify-between items-start mb-0.5">
@@ -304,17 +310,6 @@ const NotificationBell = () => {
                         <p className="text-xs text-muted-foreground break-all line-clamp-2">
                           {msg.content}
                         </p>
-                      </div>
-                      <div className="flex flex-col gap-1 shrink-0">
-                        <Button 
-                           variant="ghost" 
-                           size="icon" 
-                           className="h-7 w-7 hover:bg-muted"
-                           onClick={(e) => dismissMessageAlert(msg.id, e)}
-                           title="Dismiss"
-                        >
-                           <X className="h-4 w-4" />
-                        </Button>
                       </div>
                     </div>
                   ))
