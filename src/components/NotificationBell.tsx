@@ -125,6 +125,7 @@ const NotificationBell = () => {
   };
 
   const markAsRead = async (id: string) => {
+    // Persist read status
     await supabase.from('notifications').update({ read: true }).eq('id', id);
     setSystemNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
     setUnreadCount(prev => Math.max(0, prev - 1));
@@ -132,6 +133,7 @@ const NotificationBell = () => {
 
   const deleteNotification = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
+    // Persist deletion
     await supabase.from('notifications').delete().eq('id', id);
     setSystemNotifications(prev => prev.filter(n => n.id !== id));
   };
@@ -144,7 +146,7 @@ const NotificationBell = () => {
     showSuccess("Notifications cleared");
   };
 
-  // For messages, "delete" from bell just means marking as read so it disappears from the unread list
+  // For messages, "delete" from bell means marking as read so it disappears from the unread list
   const dismissMessageAlert = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     await supabase.from('messages').update({ read: true }).eq('id', id);
@@ -207,13 +209,13 @@ const NotificationBell = () => {
           </div>
           
           <TabsContent value="all" className="m-0">
-            <ScrollArea className="h-[300px]">
+            <ScrollArea className="h-[300px] w-full">
               {systemNotifications.length === 0 && messageNotifications.length === 0 ? (
                 <div className="p-8 text-center text-sm text-muted-foreground">
                   No new notifications
                 </div>
               ) : (
-                <div className="flex flex-col">
+                <div className="flex flex-col w-full">
                   {/* Message Notifications */}
                   {messageNotifications.map((msg) => (
                     <div
@@ -221,7 +223,7 @@ const NotificationBell = () => {
                       onClick={handleMessageClick}
                       className="relative p-3 text-left hover:bg-muted/50 transition-colors border-b last:border-0 w-full bg-primary/5 cursor-pointer group"
                     >
-                      <div className="flex gap-3 pr-6">
+                      <div className="flex gap-3 pr-8 w-full">
                         <div className="mt-1 shrink-0">
                           <Mail className="h-4 w-4 text-green-500" />
                         </div>
@@ -244,11 +246,11 @@ const NotificationBell = () => {
                       <Button 
                          variant="ghost" 
                          size="icon" 
-                         className="absolute top-2 right-2 h-6 w-6 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity"
+                         className="absolute top-2 right-2 h-7 w-7 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity z-10 hover:bg-muted"
                          onClick={(e) => dismissMessageAlert(msg.id, e)}
                          title="Dismiss"
                       >
-                         <X className="h-3 w-3" />
+                         <X className="h-4 w-4" />
                       </Button>
                     </div>
                   ))}
@@ -259,11 +261,11 @@ const NotificationBell = () => {
                       key={notif.id}
                       onClick={() => handleSystemNotificationClick(notif)}
                       className={cn(
-                        "p-3 border-b hover:bg-muted/30 transition-colors relative group cursor-pointer",
+                        "p-3 border-b hover:bg-muted/30 transition-colors relative group cursor-pointer w-full",
                         !notif.read && "bg-primary/5"
                       )}
                     >
-                      <div className="flex gap-3">
+                      <div className="flex gap-3 w-full">
                         <div className="mt-1 shrink-0">
                           {notif.type === 'connection_request' ? (
                              <UserPlus className="h-4 w-4 text-blue-500" />
@@ -273,21 +275,23 @@ const NotificationBell = () => {
                         </div>
                         <div className="flex-1 space-y-0.5 min-w-0">
                           <p className={`text-sm truncate ${!notif.read ? 'font-semibold' : ''}`}>{notif.title}</p>
-                          <p className="text-xs text-muted-foreground break-words whitespace-normal leading-tight">{notif.message}</p>
+                          <p className="text-xs text-muted-foreground break-words whitespace-normal leading-tight pr-8">
+                            {notif.message}
+                          </p>
                           <p className="text-[10px] text-muted-foreground pt-1">
                             {format(new Date(notif.created_at), 'MMM d, h:mm a')}
                           </p>
                         </div>
                         
                         {/* Actions Container */}
-                        <div className="flex flex-col gap-1 items-end justify-start shrink-0 pl-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                        <div className="absolute top-2 right-2 flex flex-col gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                            {!notif.read && (
-                             <Button variant="ghost" size="icon" className="h-6 w-6 text-primary hover:bg-primary/10" onClick={(e) => { e.stopPropagation(); markAsRead(notif.id); }} title="Mark as read">
-                               <Check className="h-3 w-3" />
+                             <Button variant="ghost" size="icon" className="h-7 w-7 text-primary hover:bg-primary/10" onClick={(e) => { e.stopPropagation(); markAsRead(notif.id); }} title="Mark as read">
+                               <Check className="h-4 w-4" />
                              </Button>
                            )}
-                           <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:bg-destructive/10" onClick={(e) => deleteNotification(notif.id, e)} title="Delete">
-                             <Trash2 className="h-3 w-3" />
+                           <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:bg-destructive/10" onClick={(e) => deleteNotification(notif.id, e)} title="Delete">
+                             <Trash2 className="h-4 w-4" />
                            </Button>
                         </div>
                       </div>
@@ -299,7 +303,7 @@ const NotificationBell = () => {
           </TabsContent>
           
           <TabsContent value="messages" className="m-0">
-             <ScrollArea className="h-[300px]">
+             <ScrollArea className="h-[300px] w-full">
                 {messageNotifications.length === 0 ? (
                   <div className="p-8 text-center text-sm text-muted-foreground">No unread messages</div>
                 ) : (
@@ -309,7 +313,7 @@ const NotificationBell = () => {
                       onClick={handleMessageClick}
                       className="relative p-3 text-left hover:bg-muted/50 transition-colors border-b last:border-0 w-full cursor-pointer group"
                     >
-                      <div className="flex gap-3 pr-6">
+                      <div className="flex gap-3 pr-8 w-full">
                         <div className="mt-1 shrink-0">
                           <Mail className="h-4 w-4 text-green-500" />
                         </div>
@@ -330,11 +334,11 @@ const NotificationBell = () => {
                       <Button 
                          variant="ghost" 
                          size="icon" 
-                         className="absolute top-2 right-2 h-6 w-6 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity"
+                         className="absolute top-2 right-2 h-7 w-7 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity z-10 hover:bg-muted"
                          onClick={(e) => dismissMessageAlert(msg.id, e)}
                          title="Dismiss"
                       >
-                         <X className="h-3 w-3" />
+                         <X className="h-4 w-4" />
                       </Button>
                     </div>
                   ))
