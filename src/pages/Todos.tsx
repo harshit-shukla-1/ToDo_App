@@ -35,6 +35,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { useIsMobile } from "@/hooks/use-mobile";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import ShareTodoDialog from "@/components/ShareTodoDialog";
+import TodoDetailsDialog from "@/components/TodoDetailsDialog";
 
 interface Todo {
   id: string;
@@ -45,6 +46,7 @@ interface Todo {
   created_at: string;
   user_id: string;
   team_id?: string;
+  priority?: string;
 }
 
 const Todos = () => {
@@ -60,11 +62,10 @@ const Todos = () => {
   const [statusFilter, setStatusFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
 
-  // Dialog State
+  // Dialog States
   const [deleteId, setDeleteId] = useState<string | null>(null);
-  
-  // Share State
   const [shareId, setShareId] = useState<string | null>(null);
+  const [viewTodo, setViewTodo] = useState<Todo | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -89,7 +90,8 @@ const Todos = () => {
     }
   };
 
-  const toggleTodo = async (id: string, currentStatus: boolean) => {
+  const toggleTodo = async (id: string, currentStatus: boolean, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent opening detail view when checking box
     try {
       const { error } = await supabase
         .from("todos")
@@ -106,8 +108,19 @@ const Todos = () => {
     }
   };
 
-  const handleDeleteClick = (id: string) => {
+  const handleDeleteClick = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
     setDeleteId(id);
+  };
+
+  const handleShareClick = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShareId(id);
+  };
+
+  const handleEditClick = (id: string, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    navigate(`/todos/${id}`);
   };
 
   const confirmDelete = async () => {
@@ -141,6 +154,15 @@ const Todos = () => {
   });
 
   const activeFiltersCount = (search ? 1 : 0) + (statusFilter !== "all" ? 1 : 0) + (categoryFilter !== "all" ? 1 : 0);
+
+  const getPriorityColor = (priority?: string) => {
+    switch (priority?.toLowerCase()) {
+      case 'high': return "text-red-500 bg-red-50 border-red-200";
+      case 'medium': return "text-orange-500 bg-orange-50 border-orange-200";
+      case 'low': return "text-green-500 bg-green-50 border-green-200";
+      default: return "";
+    }
+  };
 
   return (
     <div className="flex flex-col flex-1 min-h-0 gap-4">
@@ -311,13 +333,16 @@ const Todos = () => {
               return (
                 <Card
                   key={todo.id}
-                  className="hover:shadow-md transition-shadow duration-200"
+                  className="hover:shadow-md transition-shadow duration-200 cursor-pointer group active:scale-[0.99] transition-transform"
+                  onClick={() => setViewTodo(todo)}
                 >
                   <CardContent className="p-3 md:p-4 flex items-center gap-3">
                     <Checkbox
                       checked={todo.completed}
-                      onCheckedChange={() => toggleTodo(todo.id, todo.completed)}
-                      className="h-5 w-5 shrink-0"
+                      onCheckedChange={() => {}} // Controlled by the div click for safety, but we use onClick on the parent. 
+                      // actually better to separate it.
+                      onClick={(e) => toggleTodo(todo.id, todo.completed, e)}
+                      className="h-5 w-5 shrink-0 z-10"
                     />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
@@ -333,6 +358,11 @@ const Todos = () => {
                           <Badge variant="outline" className="text-[9px] h-4 px-1 text-blue-500 border-blue-200 shrink-0">
                              Shared
                           </Badge>
+                        )}
+                        {todo.priority && todo.priority !== 'medium' && (
+                           <Badge variant="outline" className={cn("text-[9px] h-4 px-1 shrink-0", getPriorityColor(todo.priority))}>
+                             {todo.priority}
+                           </Badge>
                         )}
                       </div>
                       <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground flex-wrap">
@@ -354,7 +384,7 @@ const Todos = () => {
                           variant="ghost" 
                           size="icon" 
                           className="h-8 w-8 text-blue-500 hover:bg-blue-50"
-                          onClick={() => setShareId(todo.id)}
+                          onClick={(e) => handleShareClick(todo.id, e)}
                         >
                           <Share2 className="h-4 w-4" />
                         </Button>
@@ -364,7 +394,7 @@ const Todos = () => {
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8"
-                        onClick={() => navigate(`/todos/${todo.id}`)}
+                        onClick={(e) => handleEditClick(todo.id, e)}
                       >
                         <Edit className="h-4 w-4" />
                       </Button>
@@ -372,7 +402,7 @@ const Todos = () => {
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                        onClick={() => handleDeleteClick(todo.id)}
+                        onClick={(e) => handleDeleteClick(todo.id, e)}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -399,6 +429,13 @@ const Todos = () => {
         open={!!shareId} 
         onOpenChange={(open) => !open && setShareId(null)}
         todoId={shareId}
+      />
+      
+      <TodoDetailsDialog 
+        open={!!viewTodo}
+        onOpenChange={(open) => !open && setViewTodo(null)}
+        todo={viewTodo}
+        onEdit={(id) => handleEditClick(id)}
       />
     </div>
   );
