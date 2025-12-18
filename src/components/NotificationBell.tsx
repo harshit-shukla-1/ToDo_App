@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { useSession } from "@/integrations/supabase/auth";
 import { supabase } from "@/integrations/supabase/client";
-import { Bell, Trash2, Mail, Info, Check, UserPlus } from "lucide-react";
+import { Bell, Trash2, Mail, Info, Check, UserPlus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useNavigate } from "react-router-dom";
@@ -16,6 +16,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { format } from "date-fns";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
+import { showSuccess } from "@/utils/toast";
 
 const NotificationBell = () => {
   const { user } = useSession();
@@ -29,7 +30,6 @@ const NotificationBell = () => {
     if (user) {
       fetchAll();
       
-      // Subscribe to messages
       const msgChannel = supabase.channel('bell-messages')
         .on('postgres_changes', { 
           event: 'INSERT', 
@@ -37,13 +37,10 @@ const NotificationBell = () => {
           table: 'messages', 
           filter: `receiver_id=eq.${user.id}` 
         }, (payload) => {
-          console.log("Bell: New message received", payload);
-          // Manually add to state to ensure UI updates immediately
           fetchNewMessage(payload.new.id);
         })
         .subscribe();
         
-      // Subscribe to system notifications
       const notifChannel = supabase.channel('bell-notifications')
         .on('postgres_changes', { 
           event: 'INSERT', 
@@ -51,7 +48,6 @@ const NotificationBell = () => {
           table: 'notifications', 
           filter: `user_id=eq.${user.id}` 
         }, (payload) => {
-          console.log("Bell: New notification received", payload);
           setSystemNotifications(prev => [payload.new, ...prev]);
           setUnreadCount(prev => prev + 1);
         })
@@ -119,7 +115,7 @@ const NotificationBell = () => {
       .select('*')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
-      .limit(20);
+      .limit(50);
 
     setMessageNotifications(msgsWithSenders || []);
     setSystemNotifications(notifs || []);
@@ -138,6 +134,22 @@ const NotificationBell = () => {
     e.stopPropagation();
     await supabase.from('notifications').delete().eq('id', id);
     setSystemNotifications(prev => prev.filter(n => n.id !== id));
+  };
+
+  const clearAllNotifications = async () => {
+    if (systemNotifications.length === 0) return;
+    await supabase.from('notifications').delete().eq('user_id', user?.id);
+    setSystemNotifications([]);
+    setUnreadCount(prev => Math.max(0, prev - systemNotifications.filter(n => !n.read).length));
+    showSuccess("Notifications cleared");
+  };
+
+  // For messages, "delete" from bell just means marking as read so it disappears from the unread list
+  const dismissMessageAlert = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    await supabase.from('messages').update({ read: true }).eq('id', id);
+    setMessageNotifications(prev => prev.filter(m => m.id !== id));
+    setUnreadCount(prev => Math.max(0, prev - 1));
   };
 
   const handleMessageClick = () => {
@@ -174,11 +186,24 @@ const NotificationBell = () => {
       <PopoverContent className="w-80 max-w-[calc(100vw-32px)] p-0" align="end">
         <Tabs defaultValue="all" className="w-full">
           <div className="flex items-center justify-between px-4 py-2 border-b">
-            <span className="font-semibold">Notifications</span>
-            <TabsList className="h-8">
-              <TabsTrigger value="all" className="text-xs h-6 px-2">All</TabsTrigger>
-              <TabsTrigger value="messages" className="text-xs h-6 px-2">Chats</TabsTrigger>
-            </TabsList>
+            <span className="font-semibold text-sm">Notifications</span>
+            <div className="flex items-center gap-2">
+              <TabsList className="h-7">
+                <TabsTrigger value="all" className="text-xs h-5 px-2">All</TabsTrigger>
+                <TabsTrigger value="messages" className="text-xs h-5 px-2">Chats</TabsTrigger>
+              </TabsList>
+              {systemNotifications.length > 0 && (
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-6 w-6 text-muted-foreground hover:text-destructive" 
+                  onClick={clearAllNotifications}
+                  title="Clear all system notifications"
+                >
+                  <Trash2 className="h-3 w-3" />
+                </Button>
+              )}
+            </div>
           </div>
           
           <TabsContent value="all" className="m-0">
@@ -189,19 +214,19 @@ const NotificationBell = () => {
                 </div>
               ) : (
                 <div className="flex flex-col">
-                  {/* Message Notifications mixed in or top */}
+                  {/* Message Notifications */}
                   {messageNotifications.map((msg) => (
-                    <button
+                    <div
                       key={msg.id}
                       onClick={handleMessageClick}
-                      className="p-3 text-left hover:bg-muted/50 transition-colors border-b last:border-0 w-full bg-primary/10"
+                      className="relative p-3 text-left hover:bg-muted/50 transition-colors border-b last:border-0 w-full bg-primary/5 cursor-pointer group"
                     >
-                      <div className="flex gap-3">
+                      <div className="flex gap-3 pr-6">
                         <div className="mt-1 shrink-0">
                           <Mail className="h-4 w-4 text-green-500" />
                         </div>
                         <div className="flex-1 min-w-0">
-                           <div className="flex justify-between items-start mb-1">
+                           <div className="flex justify-between items-start mb-0.5">
                             <span className="font-medium text-sm truncate pr-1">
                               {msg.sender?.first_name || 'User'}
                             </span>
@@ -209,12 +234,23 @@ const NotificationBell = () => {
                               {format(new Date(msg.created_at), 'h:mm a')}
                             </span>
                           </div>
-                          <p className="text-xs text-muted-foreground truncate">
+                          <p className="text-xs text-muted-foreground break-all line-clamp-2">
                             {msg.content}
                           </p>
                         </div>
                       </div>
-                    </button>
+                      
+                      {/* Dismiss/Mark Read Button for Messages */}
+                      <Button 
+                         variant="ghost" 
+                         size="icon" 
+                         className="absolute top-2 right-2 h-6 w-6 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity"
+                         onClick={(e) => dismissMessageAlert(msg.id, e)}
+                         title="Dismiss"
+                      >
+                         <X className="h-3 w-3" />
+                      </Button>
+                    </div>
                   ))}
 
                   {/* System Notifications */}
@@ -235,20 +271,22 @@ const NotificationBell = () => {
                              <Info className="h-4 w-4 text-gray-500" />
                           )}
                         </div>
-                        <div className="flex-1 space-y-1 min-w-0">
+                        <div className="flex-1 space-y-0.5 min-w-0">
                           <p className={`text-sm truncate ${!notif.read ? 'font-semibold' : ''}`}>{notif.title}</p>
-                          <p className="text-xs text-muted-foreground break-words whitespace-normal leading-relaxed">{notif.message}</p>
+                          <p className="text-xs text-muted-foreground break-words whitespace-normal leading-tight">{notif.message}</p>
                           <p className="text-[10px] text-muted-foreground pt-1">
                             {format(new Date(notif.created_at), 'MMM d, h:mm a')}
                           </p>
                         </div>
-                        <div className="flex flex-col gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity shrink-0 pl-1">
+                        
+                        {/* Actions Container */}
+                        <div className="flex flex-col gap-1 items-end justify-start shrink-0 pl-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                            {!notif.read && (
-                             <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => { e.stopPropagation(); markAsRead(notif.id); }} title="Mark as read">
+                             <Button variant="ghost" size="icon" className="h-6 w-6 text-primary hover:bg-primary/10" onClick={(e) => { e.stopPropagation(); markAsRead(notif.id); }} title="Mark as read">
                                <Check className="h-3 w-3" />
                              </Button>
                            )}
-                           <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={(e) => deleteNotification(notif.id, e)} title="Delete">
+                           <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:bg-destructive/10" onClick={(e) => deleteNotification(notif.id, e)} title="Delete">
                              <Trash2 className="h-3 w-3" />
                            </Button>
                         </div>
@@ -266,17 +304,17 @@ const NotificationBell = () => {
                   <div className="p-8 text-center text-sm text-muted-foreground">No unread messages</div>
                 ) : (
                    messageNotifications.map((msg) => (
-                    <button
+                    <div
                       key={msg.id}
                       onClick={handleMessageClick}
-                      className="p-3 text-left hover:bg-muted/50 transition-colors border-b last:border-0 w-full"
+                      className="relative p-3 text-left hover:bg-muted/50 transition-colors border-b last:border-0 w-full cursor-pointer group"
                     >
-                      <div className="flex gap-3">
+                      <div className="flex gap-3 pr-6">
                         <div className="mt-1 shrink-0">
                           <Mail className="h-4 w-4 text-green-500" />
                         </div>
                         <div className="flex-1 min-w-0">
-                           <div className="flex justify-between items-start mb-1">
+                           <div className="flex justify-between items-start mb-0.5">
                             <span className="font-medium text-sm truncate pr-1">
                               {msg.sender?.first_name || 'User'}
                             </span>
@@ -284,12 +322,21 @@ const NotificationBell = () => {
                               {format(new Date(msg.created_at), 'h:mm a')}
                             </span>
                           </div>
-                          <p className="text-xs text-muted-foreground truncate">
+                          <p className="text-xs text-muted-foreground break-all line-clamp-2">
                             {msg.content}
                           </p>
                         </div>
                       </div>
-                    </button>
+                      <Button 
+                         variant="ghost" 
+                         size="icon" 
+                         className="absolute top-2 right-2 h-6 w-6 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity"
+                         onClick={(e) => dismissMessageAlert(msg.id, e)}
+                         title="Dismiss"
+                      >
+                         <X className="h-3 w-3" />
+                      </Button>
+                    </div>
                   ))
                 )}
              </ScrollArea>
