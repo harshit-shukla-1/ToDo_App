@@ -5,10 +5,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/integrations/supabase/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { showSuccess, showError } from "@/utils/toast";
-import { Loader2, Plus, Users, UserPlus, Trash2, Crown } from "lucide-react";
+import { Loader2, Plus, Users, UserPlus, Trash2, Crown, Pencil, Settings } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import ConfirmDialog from "@/components/ConfirmDialog";
 
@@ -31,8 +31,18 @@ const Teams = () => {
   const { user } = useSession();
   const [teams, setTeams] = useState<Team[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // Create State
   const [newTeamName, setNewTeamName] = useState("");
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  
+  // Edit State
+  const [editingTeam, setEditingTeam] = useState<Team | null>(null);
+  const [editTeamName, setEditTeamName] = useState("");
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  
+  // Delete State
+  const [deleteTeamId, setDeleteTeamId] = useState<string | null>(null);
   
   // Member Management State
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
@@ -81,6 +91,48 @@ const Teams = () => {
       showSuccess("Team created!");
     } catch (err: any) {
       showError(err.message);
+    }
+  };
+
+  const handleEditClick = (team: Team) => {
+    setEditingTeam(team);
+    setEditTeamName(team.name);
+    setEditDialogOpen(true);
+  };
+
+  const updateTeam = async () => {
+    if (!editingTeam || !editTeamName.trim()) return;
+    try {
+      const { error } = await supabase
+        .from('teams')
+        .update({ name: editTeamName })
+        .eq('id', editingTeam.id);
+
+      if (error) throw error;
+      
+      setTeams(teams.map(t => t.id === editingTeam.id ? { ...t, name: editTeamName } : t));
+      setEditDialogOpen(false);
+      showSuccess("Team updated");
+    } catch (err: any) {
+      showError("Failed to update team");
+    }
+  };
+
+  const deleteTeam = async () => {
+    if (!deleteTeamId) return;
+    try {
+      const { error } = await supabase
+        .from('teams')
+        .delete()
+        .eq('id', deleteTeamId);
+
+      if (error) throw error;
+      
+      setTeams(teams.filter(t => t.id !== deleteTeamId));
+      setDeleteTeamId(null);
+      showSuccess("Team deleted");
+    } catch (err: any) {
+      showError("Failed to delete team");
     }
   };
 
@@ -197,7 +249,9 @@ const Teams = () => {
                   onChange={(e) => setNewTeamName(e.target.value)}
                 />
               </div>
-              <Button onClick={createTeam} className="w-full" disabled={!newTeamName.trim()}>Create</Button>
+              <DialogFooter>
+                <Button onClick={createTeam} className="w-full" disabled={!newTeamName.trim()}>Create</Button>
+              </DialogFooter>
             </div>
           </DialogContent>
         </Dialog>
@@ -211,27 +265,68 @@ const Teams = () => {
           <p>You haven't joined any teams yet.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {teams.map(team => (
-            <Card key={team.id}>
+            <Card key={team.id} className="flex flex-col">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-lg">{team.name}</CardTitle>
+                <CardTitle className="text-lg truncate">{team.name}</CardTitle>
                 <Users className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
-              <CardContent>
-                <div className="flex justify-between items-center mt-2">
-                   <span className="text-xs text-muted-foreground">
-                     {team.created_by === user?.id ? "Owner" : "Member"}
-                   </span>
-                   <Button variant="outline" size="sm" onClick={() => openManageDialog(team)}>
-                     Manage Members
-                   </Button>
-                </div>
+              <CardContent className="flex-1">
+                 <div className="text-sm text-muted-foreground mb-4">
+                    {team.created_by === user?.id ? (
+                      <span className="flex items-center gap-1 text-yellow-600 dark:text-yellow-500 font-medium">
+                        <Crown className="h-3 w-3" /> Team Owner
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1">
+                        <Users className="h-3 w-3" /> Member
+                      </span>
+                    )}
+                 </div>
               </CardContent>
+              <CardFooter className="flex justify-between border-t pt-4 bg-muted/20">
+                 <Button variant="outline" size="sm" onClick={() => openManageDialog(team)}>
+                   Members
+                 </Button>
+                 
+                 {team.created_by === user?.id && (
+                   <div className="flex gap-1">
+                     <Button variant="ghost" size="icon" onClick={() => handleEditClick(team)} title="Rename Team">
+                       <Pencil className="h-4 w-4" />
+                     </Button>
+                     <Button variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10" onClick={() => setDeleteTeamId(team.id)} title="Delete Team">
+                       <Trash2 className="h-4 w-4" />
+                     </Button>
+                   </div>
+                 )}
+              </CardFooter>
             </Card>
           ))}
         </div>
       )}
+
+      {/* Edit Team Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Rename Team</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Input 
+                placeholder="Team Name" 
+                value={editTeamName}
+                onChange={(e) => setEditTeamName(e.target.value)}
+              />
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setEditDialogOpen(false)}>Cancel</Button>
+              <Button onClick={updateTeam} disabled={!editTeamName.trim()}>Save</Button>
+            </DialogFooter>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Manage Members Dialog */}
       <Dialog open={manageDialogOpen} onOpenChange={setManageDialogOpen}>
@@ -245,7 +340,7 @@ const Teams = () => {
             <div className="space-y-2">
               <h4 className="text-sm font-medium text-muted-foreground">Team Members</h4>
               {memberLoading ? <Loader2 className="animate-spin h-4 w-4" /> : (
-                <div className="space-y-2">
+                <div className="space-y-2 max-h-[200px] overflow-y-auto">
                    {teamMembers.map(m => (
                      <div key={m.id} className="flex items-center justify-between p-2 rounded bg-muted/50">
                         <div className="flex items-center gap-2">
@@ -296,6 +391,17 @@ const Teams = () => {
           </div>
         </DialogContent>
       </Dialog>
+      
+      {/* Delete Confirmation */}
+      <ConfirmDialog
+        open={!!deleteTeamId}
+        onOpenChange={(open) => !open && setDeleteTeamId(null)}
+        title="Delete Team"
+        description="Are you sure you want to delete this team? This will remove all members and cannot be undone."
+        onConfirm={deleteTeam}
+        confirmText="Delete Team"
+        variant="destructive"
+      />
     </div>
   );
 };
