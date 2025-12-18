@@ -94,8 +94,8 @@ const TodoEditor = () => {
         ? null 
         : parseInt(formData.reminder_minutes_before);
 
-      const payload = {
-        user_id: user?.id,
+      // Base payload without user_id to prevent ownership transfer on edit
+      const basePayload = {
         text: formData.text,
         category: formData.category,
         priority: formData.priority,
@@ -106,12 +106,16 @@ const TodoEditor = () => {
       if (isEditing) {
         const { error } = await supabase
           .from("todos")
-          .update(payload)
+          .update(basePayload)
           .eq("id", id);
         if (error) throw error;
         showSuccess("Todo updated successfully");
       } else {
-        const { error } = await supabase.from("todos").insert([payload]);
+        // For new todos, we attach the creator's user_id
+        const { error } = await supabase.from("todos").insert([{
+          ...basePayload,
+          user_id: user?.id
+        }]);
         if (error) throw error;
         showSuccess("Todo created successfully");
       }
