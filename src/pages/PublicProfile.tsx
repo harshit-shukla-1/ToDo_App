@@ -7,7 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Loader2, User as UserIcon, Calendar, ArrowLeft, Ruler, Weight, Mail, Home, UserPlus, Check, UserMinus, Phone } from "lucide-react";
+import { Loader2, User as UserIcon, Calendar, ArrowLeft, Ruler, Weight, Mail, Home, UserPlus, Check, UserMinus, Phone, MessageSquare } from "lucide-react";
 import { useSession } from "@/integrations/supabase/auth";
 import { showSuccess, showError } from "@/utils/toast";
 import ConfirmDialog from "@/components/ConfirmDialog";
@@ -205,11 +205,6 @@ const PublicProfile = () => {
     show_custom: rawSettings.show_custom ?? true,
   };
 
-  // If we are connected (or it's me), we might want to override settings to show more?
-  // The user asked "I can see his public profile". 
-  // We'll stick to their public settings for now, but since we can SEE the profile at all, the main request is satisfied.
-  // The RLS allows fetching the data row.
-
   const customProperties = profile.custom_properties || {};
   const hasVisibleMeasurements = settings.show_measurements && (profile.height || profile.weight);
   const hasVisibleBirthday = settings.show_birthday && profile.birthday;
@@ -240,7 +235,18 @@ const PublicProfile = () => {
             
             {/* Action Buttons */}
             {!isOwnProfile && (
-              <div className="absolute top-4 right-4 md:static md:float-right md:mt-2">
+              <div className="absolute top-4 right-4 md:static md:float-right md:mt-2 flex gap-2">
+                
+                {/* Message Button - Only if connected */}
+                {connectionStatus === 'accepted' && (
+                  <Button 
+                    onClick={() => navigate(`/messages/${profile.id}`)}
+                    className="gap-2"
+                  >
+                    <MessageSquare className="h-4 w-4" /> Message
+                  </Button>
+                )}
+
                 <Button 
                   onClick={handleConnect} 
                   disabled={actionLoading}
