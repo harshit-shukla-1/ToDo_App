@@ -89,7 +89,6 @@ const NotificationBell = () => {
     if (!user) return;
     
     // Fetch unread messages
-    // Refactored to manual join to avoid FK errors
     const { data: msgs } = await supabase
       .from('messages')
       .select('*')
@@ -172,7 +171,7 @@ const NotificationBell = () => {
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-80 p-0" align="end">
+      <PopoverContent className="w-80 max-w-[calc(100vw-32px)] p-0" align="end">
         <Tabs defaultValue="all" className="w-full">
           <div className="flex items-center justify-between px-4 py-2 border-b">
             <span className="font-semibold">Notifications</span>
@@ -198,15 +197,15 @@ const NotificationBell = () => {
                       className="p-3 text-left hover:bg-muted/50 transition-colors border-b last:border-0 w-full bg-primary/10"
                     >
                       <div className="flex gap-3">
-                        <div className="mt-1">
+                        <div className="mt-1 shrink-0">
                           <Mail className="h-4 w-4 text-green-500" />
                         </div>
-                        <div className="flex-1 overflow-hidden">
+                        <div className="flex-1 min-w-0">
                            <div className="flex justify-between items-start mb-1">
-                            <span className="font-medium text-sm truncate">
+                            <span className="font-medium text-sm truncate pr-1">
                               {msg.sender?.first_name || 'User'}
                             </span>
-                            <span className="text-[10px] text-muted-foreground shrink-0 ml-1">
+                            <span className="text-[10px] text-muted-foreground shrink-0">
                               {format(new Date(msg.created_at), 'h:mm a')}
                             </span>
                           </div>
@@ -229,21 +228,21 @@ const NotificationBell = () => {
                       )}
                     >
                       <div className="flex gap-3">
-                        <div className="mt-1">
+                        <div className="mt-1 shrink-0">
                           {notif.type === 'connection_request' ? (
                              <UserPlus className="h-4 w-4 text-blue-500" />
                           ) : (
                              <Info className="h-4 w-4 text-gray-500" />
                           )}
                         </div>
-                        <div className="flex-1 space-y-1 overflow-hidden">
+                        <div className="flex-1 space-y-1 min-w-0">
                           <p className={`text-sm truncate ${!notif.read ? 'font-semibold' : ''}`}>{notif.title}</p>
-                          <p className="text-xs text-muted-foreground break-words">{notif.message}</p>
+                          <p className="text-xs text-muted-foreground break-words whitespace-normal leading-relaxed">{notif.message}</p>
                           <p className="text-[10px] text-muted-foreground pt-1">
                             {format(new Date(notif.created_at), 'MMM d, h:mm a')}
                           </p>
                         </div>
-                        <div className="flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="flex flex-col gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity shrink-0 pl-1">
                            {!notif.read && (
                              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => { e.stopPropagation(); markAsRead(notif.id); }} title="Mark as read">
                                <Check className="h-3 w-3" />
@@ -273,19 +272,19 @@ const NotificationBell = () => {
                       className="p-3 text-left hover:bg-muted/50 transition-colors border-b last:border-0 w-full"
                     >
                       <div className="flex gap-3">
-                        <div className="mt-1">
+                        <div className="mt-1 shrink-0">
                           <Mail className="h-4 w-4 text-green-500" />
                         </div>
-                        <div className="flex-1">
+                        <div className="flex-1 min-w-0">
                            <div className="flex justify-between items-start mb-1">
-                            <span className="font-medium text-sm">
+                            <span className="font-medium text-sm truncate pr-1">
                               {msg.sender?.first_name || 'User'}
                             </span>
-                            <span className="text-[10px] text-muted-foreground">
+                            <span className="text-[10px] text-muted-foreground shrink-0">
                               {format(new Date(msg.created_at), 'h:mm a')}
                             </span>
                           </div>
-                          <p className="text-xs text-muted-foreground line-clamp-1">
+                          <p className="text-xs text-muted-foreground truncate">
                             {msg.content}
                           </p>
                         </div>
