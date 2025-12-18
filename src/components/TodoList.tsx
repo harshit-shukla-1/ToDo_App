@@ -26,6 +26,7 @@ interface Todo {
   created_at: string;
   due_date: string | null;
   category: string;
+  team_id?: string;
 }
 
 type Filter = "all" | "active" | "completed";
@@ -177,7 +178,10 @@ const TodoList: React.FC = () => {
   };
 
   const clearCompleted = () => {
-    const completedIds = todos.filter((t) => t.completed).map((t) => t.id);
+    const completedIds = todos
+      .filter((t) => t.completed && t.user_id === user?.id) // Only clear own completed todos
+      .map((t) => t.id);
+      
     if (completedIds.length === 0) return;
     clearCompletedMutation.mutate(completedIds);
   };
@@ -295,18 +299,25 @@ const TodoList: React.FC = () => {
         ) : (
           <ScrollArea className="h-[400px] w-full rounded-md border">
             <div>
-              {filteredTodos.map((todo) => (
-                <TodoItem
-                  key={todo.id}
-                  id={todo.id}
-                  text={todo.text}
-                  completed={todo.completed}
-                  dueDate={todo.due_date}
-                  category={todo.category}
-                  onToggle={(id, status) => toggleTodoMutation.mutate({ id, completed: !status })}
-                  onDelete={(id) => deleteTodoMutation.mutate(id)}
-                />
-              ))}
+              {filteredTodos.map((todo) => {
+                 const isShared = todo.team_id !== null || todo.user_id !== user?.id;
+                 const isOwner = todo.user_id === user?.id;
+                 
+                 return (
+                  <TodoItem
+                    key={todo.id}
+                    id={todo.id}
+                    text={todo.text}
+                    completed={todo.completed}
+                    dueDate={todo.due_date}
+                    category={todo.category}
+                    isShared={isShared}
+                    isOwner={isOwner}
+                    onToggle={(id, status) => toggleTodoMutation.mutate({ id, completed: !status })}
+                    onDelete={(id) => deleteTodoMutation.mutate(id)}
+                  />
+                );
+              })}
             </div>
           </ScrollArea>
         )}
@@ -317,7 +328,7 @@ const TodoList: React.FC = () => {
           variant="ghost"
           size="sm"
           className="text-destructive hover:text-destructive hover:bg-destructive/10"
-          disabled={!todos.some(todo => todo.completed)}
+          disabled={!todos.some(todo => todo.completed && todo.user_id === user?.id)}
         >
           Clear Completed
         </Button>

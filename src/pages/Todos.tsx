@@ -331,6 +331,7 @@ const Todos = () => {
           <div className="grid gap-3 pb-20 md:pb-4">
             {filteredTodos.map((todo) => {
               const isShared = todo.team_id !== null || todo.user_id !== user?.id;
+              const isOwner = todo.user_id === user?.id;
               
               return (
                 <Card
@@ -381,7 +382,7 @@ const Todos = () => {
                     </div>
                     <div className="flex items-center gap-0.5 shrink-0">
                       {/* Share Button for owner */}
-                      {todo.user_id === user?.id && (
+                      {isOwner && (
                         <Button 
                           variant="ghost" 
                           size="icon" 
@@ -400,14 +401,17 @@ const Todos = () => {
                       >
                         <Edit className="h-4 w-4" />
                       </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                        onClick={(e) => handleDeleteClick(todo.id, e)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      
+                      {isOwner && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                          onClick={(e) => handleDeleteClick(todo.id, e)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
                     </div>
                   </CardContent>
                 </Card>

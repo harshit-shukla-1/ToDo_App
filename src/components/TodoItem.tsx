@@ -16,6 +16,7 @@ interface TodoItemProps {
   dueDate?: string | null;
   category?: string;
   isShared?: boolean;
+  isOwner?: boolean;
   onToggle: (id: string, currentStatus: boolean) => void;
   onDelete: (id: string) => void;
   onShare?: (id: string) => void;
@@ -28,6 +29,7 @@ const TodoItem: React.FC<TodoItemProps> = ({
   dueDate,
   category,
   isShared,
+  isOwner = true, // Default to true for backward compatibility if not passed
   onToggle,
   onDelete,
   onShare
@@ -72,7 +74,7 @@ const TodoItem: React.FC<TodoItemProps> = ({
         </div>
       </div>
       <div className="flex items-center gap-1 shrink-0">
-        {onShare && (
+        {onShare && isOwner && (
            <Button
             variant="ghost"
             size="icon"
@@ -83,15 +85,17 @@ const TodoItem: React.FC<TodoItemProps> = ({
             <Share2 className="h-4 w-4" />
           </Button>
         )}
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => onDelete(id)}
-          aria-label="Delete todo"
-          className="text-destructive md:opacity-0 md:group-hover:opacity-100 transition-opacity"
-        >
-          <Trash2 className="h-5 w-5" />
-        </Button>
+        {isOwner && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => onDelete(id)}
+            aria-label="Delete todo"
+            className="text-destructive md:opacity-0 md:group-hover:opacity-100 transition-opacity"
+          >
+            <Trash2 className="h-5 w-5" />
+          </Button>
+        )}
       </div>
     </div>
   );
