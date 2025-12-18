@@ -132,9 +132,18 @@ const NotificationBell = () => {
 
   const deleteNotification = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
+    
+    // Check if it was unread before deleting to update count
+    const notif = systemNotifications.find(n => n.id === id);
+    const wasUnread = notif && !notif.read;
+
     // Persist deletion
     await supabase.from('notifications').delete().eq('id', id);
     setSystemNotifications(prev => prev.filter(n => n.id !== id));
+
+    if (wasUnread) {
+      setUnreadCount(prev => Math.max(0, prev - 1));
+    }
   };
 
   // For messages, "delete" from bell means marking as read so it disappears from the unread list
@@ -214,7 +223,7 @@ const NotificationBell = () => {
                            <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
-                      <div className="flex-1 min-w-0">
+                      <div className="flex-1 w-0 min-w-0">
                           <div className="flex justify-between items-start mb-0.5">
                           <span className="font-medium text-sm truncate pr-1">
                             {msg.sender?.first_name || 'User'}
@@ -251,7 +260,7 @@ const NotificationBell = () => {
                             <Trash2 className="h-4 w-4" />
                           </Button>
                       </div>
-                      <div className="flex-1 min-w-0 space-y-0.5">
+                      <div className="flex-1 w-0 min-w-0 space-y-0.5">
                         <p className={`text-sm truncate ${!notif.read ? 'font-semibold' : ''}`}>{notif.title}</p>
                         <p className="text-xs text-muted-foreground break-words whitespace-normal leading-tight">
                           {notif.message}
@@ -298,7 +307,7 @@ const NotificationBell = () => {
                            <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
-                      <div className="flex-1 min-w-0">
+                      <div className="flex-1 w-0 min-w-0">
                           <div className="flex justify-between items-start mb-0.5">
                           <span className="font-medium text-sm truncate pr-1">
                             {msg.sender?.first_name || 'User'}
