@@ -16,7 +16,6 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { format } from "date-fns";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
-import { showSuccess } from "@/utils/toast";
 
 const NotificationBell = () => {
   const { user } = useSession();
@@ -138,14 +137,6 @@ const NotificationBell = () => {
     setSystemNotifications(prev => prev.filter(n => n.id !== id));
   };
 
-  const clearAllNotifications = async () => {
-    if (systemNotifications.length === 0) return;
-    await supabase.from('notifications').delete().eq('user_id', user?.id);
-    setSystemNotifications([]);
-    setUnreadCount(prev => Math.max(0, prev - systemNotifications.filter(n => !n.read).length));
-    showSuccess("Notifications cleared");
-  };
-
   // For messages, "delete" from bell means marking as read so it disappears from the unread list
   const dismissMessageAlert = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -194,17 +185,6 @@ const NotificationBell = () => {
                 <TabsTrigger value="all" className="text-xs h-5 px-2">All</TabsTrigger>
                 <TabsTrigger value="messages" className="text-xs h-5 px-2">Chats</TabsTrigger>
               </TabsList>
-              {systemNotifications.length > 0 && (
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  className="h-6 w-6 text-muted-foreground hover:text-destructive" 
-                  onClick={clearAllNotifications}
-                  title="Clear all system notifications"
-                >
-                  <Trash2 className="h-3 w-3" />
-                </Button>
-              )}
             </div>
           </div>
           
@@ -221,37 +201,35 @@ const NotificationBell = () => {
                     <div
                       key={msg.id}
                       onClick={handleMessageClick}
-                      className="relative p-3 text-left hover:bg-muted/50 transition-colors border-b last:border-0 w-full bg-primary/5 cursor-pointer group"
+                      className="p-3 text-left hover:bg-muted/50 transition-colors border-b last:border-0 w-full bg-primary/5 cursor-pointer flex gap-3 items-start"
                     >
-                      <div className="flex gap-3 pr-8 w-full">
-                        <div className="mt-1 shrink-0">
-                          <Mail className="h-4 w-4 text-green-500" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                           <div className="flex justify-between items-start mb-0.5">
-                            <span className="font-medium text-sm truncate pr-1">
-                              {msg.sender?.first_name || 'User'}
-                            </span>
-                            <span className="text-[10px] text-muted-foreground shrink-0">
-                              {format(new Date(msg.created_at), 'h:mm a')}
-                            </span>
-                          </div>
-                          <p className="text-xs text-muted-foreground break-all line-clamp-2">
-                            {msg.content}
-                          </p>
-                        </div>
+                      <div className="mt-1 shrink-0">
+                        <Mail className="h-4 w-4 text-green-500" />
                       </div>
-                      
-                      {/* Dismiss/Mark Read Button for Messages */}
-                      <Button 
-                         variant="ghost" 
-                         size="icon" 
-                         className="absolute top-2 right-2 h-7 w-7 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity z-10 hover:bg-muted"
-                         onClick={(e) => dismissMessageAlert(msg.id, e)}
-                         title="Dismiss"
-                      >
-                         <X className="h-4 w-4" />
-                      </Button>
+                      <div className="flex-1 min-w-0">
+                          <div className="flex justify-between items-start mb-0.5">
+                          <span className="font-medium text-sm truncate pr-1">
+                            {msg.sender?.first_name || 'User'}
+                          </span>
+                          <span className="text-[10px] text-muted-foreground shrink-0">
+                            {format(new Date(msg.created_at), 'h:mm a')}
+                          </span>
+                        </div>
+                        <p className="text-xs text-muted-foreground break-all line-clamp-2">
+                          {msg.content}
+                        </p>
+                      </div>
+                      <div className="flex flex-col gap-1 shrink-0">
+                        <Button 
+                           variant="ghost" 
+                           size="icon" 
+                           className="h-7 w-7 hover:bg-muted"
+                           onClick={(e) => dismissMessageAlert(msg.id, e)}
+                           title="Dismiss"
+                        >
+                           <X className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
                   ))}
 
@@ -261,39 +239,37 @@ const NotificationBell = () => {
                       key={notif.id}
                       onClick={() => handleSystemNotificationClick(notif)}
                       className={cn(
-                        "p-3 border-b hover:bg-muted/30 transition-colors relative group cursor-pointer w-full",
+                        "p-3 border-b hover:bg-muted/30 transition-colors w-full flex gap-3 items-start cursor-pointer",
                         !notif.read && "bg-primary/5"
                       )}
                     >
-                      <div className="flex gap-3 w-full">
-                        <div className="mt-1 shrink-0">
-                          {notif.type === 'connection_request' ? (
-                             <UserPlus className="h-4 w-4 text-blue-500" />
-                          ) : (
-                             <Info className="h-4 w-4 text-gray-500" />
+                      <div className="mt-1 shrink-0">
+                        {notif.type === 'connection_request' ? (
+                            <UserPlus className="h-4 w-4 text-blue-500" />
+                        ) : (
+                            <Info className="h-4 w-4 text-gray-500" />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0 space-y-0.5">
+                        <p className={`text-sm truncate ${!notif.read ? 'font-semibold' : ''}`}>{notif.title}</p>
+                        <p className="text-xs text-muted-foreground break-words whitespace-normal leading-tight">
+                          {notif.message}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground pt-1">
+                          {format(new Date(notif.created_at), 'MMM d, h:mm a')}
+                        </p>
+                      </div>
+                      
+                      {/* Actions Container */}
+                      <div className="flex flex-col gap-1 shrink-0">
+                          {!notif.read && (
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-primary hover:bg-primary/10" onClick={(e) => { e.stopPropagation(); markAsRead(notif.id); }} title="Mark as read">
+                              <Check className="h-4 w-4" />
+                            </Button>
                           )}
-                        </div>
-                        <div className="flex-1 space-y-0.5 min-w-0">
-                          <p className={`text-sm truncate ${!notif.read ? 'font-semibold' : ''}`}>{notif.title}</p>
-                          <p className="text-xs text-muted-foreground break-words whitespace-normal leading-tight pr-8">
-                            {notif.message}
-                          </p>
-                          <p className="text-[10px] text-muted-foreground pt-1">
-                            {format(new Date(notif.created_at), 'MMM d, h:mm a')}
-                          </p>
-                        </div>
-                        
-                        {/* Actions Container */}
-                        <div className="absolute top-2 right-2 flex flex-col gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-                           {!notif.read && (
-                             <Button variant="ghost" size="icon" className="h-7 w-7 text-primary hover:bg-primary/10" onClick={(e) => { e.stopPropagation(); markAsRead(notif.id); }} title="Mark as read">
-                               <Check className="h-4 w-4" />
-                             </Button>
-                           )}
-                           <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:bg-destructive/10" onClick={(e) => deleteNotification(notif.id, e)} title="Delete">
-                             <Trash2 className="h-4 w-4" />
-                           </Button>
-                        </div>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:bg-destructive/10" onClick={(e) => deleteNotification(notif.id, e)} title="Delete">
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                       </div>
                     </div>
                   ))}
@@ -311,35 +287,35 @@ const NotificationBell = () => {
                     <div
                       key={msg.id}
                       onClick={handleMessageClick}
-                      className="relative p-3 text-left hover:bg-muted/50 transition-colors border-b last:border-0 w-full cursor-pointer group"
+                      className="p-3 text-left hover:bg-muted/50 transition-colors border-b last:border-0 w-full flex gap-3 items-start cursor-pointer"
                     >
-                      <div className="flex gap-3 pr-8 w-full">
-                        <div className="mt-1 shrink-0">
-                          <Mail className="h-4 w-4 text-green-500" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                           <div className="flex justify-between items-start mb-0.5">
-                            <span className="font-medium text-sm truncate pr-1">
-                              {msg.sender?.first_name || 'User'}
-                            </span>
-                            <span className="text-[10px] text-muted-foreground shrink-0">
-                              {format(new Date(msg.created_at), 'h:mm a')}
-                            </span>
-                          </div>
-                          <p className="text-xs text-muted-foreground break-all line-clamp-2">
-                            {msg.content}
-                          </p>
-                        </div>
+                      <div className="mt-1 shrink-0">
+                        <Mail className="h-4 w-4 text-green-500" />
                       </div>
-                      <Button 
-                         variant="ghost" 
-                         size="icon" 
-                         className="absolute top-2 right-2 h-7 w-7 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity z-10 hover:bg-muted"
-                         onClick={(e) => dismissMessageAlert(msg.id, e)}
-                         title="Dismiss"
-                      >
-                         <X className="h-4 w-4" />
-                      </Button>
+                      <div className="flex-1 min-w-0">
+                          <div className="flex justify-between items-start mb-0.5">
+                          <span className="font-medium text-sm truncate pr-1">
+                            {msg.sender?.first_name || 'User'}
+                          </span>
+                          <span className="text-[10px] text-muted-foreground shrink-0">
+                            {format(new Date(msg.created_at), 'h:mm a')}
+                          </span>
+                        </div>
+                        <p className="text-xs text-muted-foreground break-all line-clamp-2">
+                          {msg.content}
+                        </p>
+                      </div>
+                      <div className="flex flex-col gap-1 shrink-0">
+                        <Button 
+                           variant="ghost" 
+                           size="icon" 
+                           className="h-7 w-7 hover:bg-muted"
+                           onClick={(e) => dismissMessageAlert(msg.id, e)}
+                           title="Dismiss"
+                        >
+                           <X className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
                   ))
                 )}
