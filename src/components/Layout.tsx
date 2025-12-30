@@ -14,7 +14,8 @@ import {
   Moon,
   Users,
   Briefcase,
-  Archive
+  Archive,
+  FolderKanban
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
@@ -28,7 +29,6 @@ interface LayoutProps {
   children: React.ReactNode;
 }
 
-// Export NavContent so BottomNav can reuse it for the drawer
 export const NavContent = ({ setIsMobileOpen }: { setIsMobileOpen?: (open: boolean) => void }) => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -67,12 +67,22 @@ export const NavContent = ({ setIsMobileOpen }: { setIsMobileOpen?: (open: boole
         </Link>
         <Link to="/todos">
           <Button
-            variant={location.pathname.startsWith("/todos") ? "secondary" : "ghost"}
+            variant={location.pathname === "/todos" ? "secondary" : "ghost"}
             className="w-full justify-start"
             onClick={close}
           >
             <ListTodo className="mr-2 h-4 w-4" />
             My Todos
+          </Button>
+        </Link>
+        <Link to="/projects">
+          <Button
+            variant={location.pathname.startsWith("/projects") ? "secondary" : "ghost"}
+            className="w-full justify-start"
+            onClick={close}
+          >
+            <FolderKanban className="mr-2 h-4 w-4" />
+            Projects
           </Button>
         </Link>
         <Link to="/archives">
@@ -158,14 +168,12 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const isMessagesPage = location.pathname.startsWith("/messages");
   const isTodoListPage = location.pathname === "/todos";
   const isArchivesPage = location.pathname === "/archives";
-  
-  // Pages that manage their own scroll containers (fixed layout)
   const isFixedLayout = isMessagesPage || isTodoListPage || isArchivesPage;
 
-  // Helper to determine page title
   const getPageTitle = (pathname: string) => {
     if (pathname === "/") return "Dashboard";
-    if (pathname.startsWith("/todos")) return "My Todos";
+    if (pathname === "/todos") return "My Todos";
+    if (pathname === "/projects") return "Projects";
     if (pathname === "/archives") return "Archives";
     if (pathname.startsWith("/messages")) return "Messages";
     if (pathname.startsWith("/connections")) return "Connections";
@@ -177,15 +185,11 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
   return (
     <div className="absolute inset-0 w-full flex overflow-hidden">
-      {/* Desktop Sidebar - Fixed Width */}
       <aside className="hidden md:block w-64 border-r bg-card h-full flex-none z-30">
         <NavContent />
       </aside>
 
-      {/* Main Content Area */}
       <div className="flex-1 flex flex-col h-full relative min-w-0">
-        
-        {/* Header Bar - Fixed Height */}
         <header className="flex-none sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-4 h-16 flex items-center justify-between gap-2">
             <div className="font-semibold text-lg md:hidden">
               {getPageTitle(location.pathname)}
@@ -206,35 +210,25 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             </div>
         </header>
 
-        {/* Profile Completion Banner - Fixed below header */}
         <div className="flex-none z-30">
           <ProfileCompletionBanner />
         </div>
 
-        {/* Main Body - Scrollable Area */}
         <main className={cn(
           "flex-1 relative min-h-0 w-full",
           isFixedLayout ? "overflow-hidden flex flex-col" : "overflow-y-auto"
         )}>
           {isFixedLayout ? (
-            // For fixed layout pages (Messages, Todo List), we pass full height down
-            // The pages themselves handle scrolling areas
             <div className={cn(
-              "flex-1 flex flex-col h-full w-full min-h-0",
-              // Mobile nav padding
-              "pb-[64px] md:pb-0", 
-              // Container constraints for Todos, but full width for Messages
-              (isTodoListPage || isArchivesPage) && "p-4 md:p-8 max-w-5xl mx-auto"
+              "flex-1 flex flex-col h-full w-full min-h-0 pb-[64px] md:pb-0 p-4 md:p-8 max-w-5xl mx-auto"
             )}>
               {children}
             </div>
           ) : (
-            // For other pages, we provide standard scrolling container with padding
              <div className="p-4 md:p-8 pb-24 md:pb-8 max-w-5xl mx-auto">{children}</div>
           )}
         </main>
 
-        {/* Mobile Bottom Navigation */}
         <BottomNav isMobileOpen={isMobileOpen} setIsMobileOpen={setIsMobileOpen} />
       </div>
     </div>

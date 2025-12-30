@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -28,7 +28,8 @@ import {
   X,
   Share2,
   Users,
-  Archive
+  Archive,
+  FolderKanban
 } from "lucide-react";
 import { format } from "date-fns";
 import { showSuccess, showError } from "@/utils/toast";
@@ -50,20 +51,24 @@ interface Todo {
   team_id?: string;
   priority?: string;
   archived?: boolean;
+  project_id?: string | null;
 }
 
 const Todos = () => {
   const navigate = useNavigate();
   const { user } = useSession();
   const isMobile = useIsMobile();
+  const [searchParams] = useSearchParams();
   
   const [todos, setTodos] = useState<Todo[]>([]);
+  const [projects, setProjects] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   
   // Filter States
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
+  const [projectFilter, setProjectFilter] = useState(searchParams.get("project") || "all");
 
   // Dialog States
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -73,8 +78,14 @@ const Todos = () => {
   useEffect(() => {
     if (user) {
       fetchTodos();
+      fetchProjects();
     }
   }, [user]);
+
+  const fetchProjects = async () => {
+    const { data } = await supabase.from('projects').select('id, name');
+    setProjects(data || []);
+  };
 
   const fetchTodos = async () => {
     try {
@@ -82,7 +93,7 @@ const Todos = () => {
       const { data, error } = await supabase
         .from("todos")
         .select("*")
-        .eq("archived", false) // Filter out archived todos
+        .eq("archived", false)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -170,11 +181,18 @@ const Todos = () => {
         : !todo.completed;
     const matchesCategory =
       categoryFilter === "all" ? true : todo.category === categoryFilter;
+    
+    const matchesProject = 
+      projectFilter === "all" 
+        ? true 
+        : projectFilter === "miscellaneous" 
+          ? !todo.project_id 
+          : todo.project_id === projectFilter;
 
-    return matchesSearch && matchesStatus && matchesCategory;
+    return matchesSearch && matchesStatus && matchesCategory && matchesProject;
   });
 
-  const activeFiltersCount = (search ? 1 : 0) + (statusFilter !== "all" ? 1 : 0) + (categoryFilter !== "all" ? 1 : 0);
+  const activeFiltersCount = (search ? 1 : 0) + (statusFilter !== "all" ? 1 : 0) + (categoryFilter !== "all" ? 1 : 0) + (projectFilter !== "all" ? 1 : 0);
 
   const getPriorityColor = (priority?: string) => {
     switch (priority?.toLowerCase()) {
@@ -187,9 +205,14 @@ const Todos = () => {
     }
   };
 
+  const getProjectName = (id?: string | null) => {
+    if (!id) return "Miscellaneous";
+    const p = projects.find(proj => proj.id === id);
+    return p ? p.name : "Project";
+  };
+
   return (
     <div className="flex flex-col flex-1 min-h-0 gap-4">
-      {/* Fixed Header Section */}
       <div className="flex-none space-y-4 pb-2 border-b">
         <div className="flex justify-between items-center">
           <h2 className="text-3xl font-bold tracking-tight hidden md:block">My Todos</h2>
@@ -202,9 +225,7 @@ const Todos = () => {
 
         <div className="flex items-center gap-2">
           {isMobile ? (
-            /* Mobile View: Icon Popovers */
             <>
-              {/* Search Popover */}
               <Popover>
                 <PopoverTrigger asChild>
                   <Button variant={search ? "secondary" : "outline"} size="icon" className="h-9 w-9 shrink-0">
@@ -225,7 +246,31 @@ const Todos = () => {
                 </PopoverContent>
               </Popover>
 
-              {/* Status Filter Popover */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant={projectFilter !== "all" ? "secondary" : "outline"} size="icon" className="h-9 w-9 shrink-0">
+                    <FolderKanban className="h-4 w-4" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent align="start" className="w-56 p-2">
+                   <div className="space-y-2">
+                     <h4 className="font-medium leading-none text-sm">Project</h4>
+                     <Select value={projectFilter} onValueChange={setProjectFilter}>
+                        <SelectTrigger className="h-8">
+                          <SelectValue placeholder="Project" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Projects</SelectItem>
+                          <SelectItem value="miscellaneous">Miscellaneous</SelectItem>
+                          {projects.map(p => (
+                            <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                   </div>
+                </PopoverContent>
+              </Popover>
+
               <Popover>
                 <PopoverTrigger asChild>
                   <Button variant={statusFilter !== "all" ? "secondary" : "outline"} size="icon" className="h-9 w-9 shrink-0">
@@ -249,65 +294,48 @@ const Todos = () => {
                 </PopoverContent>
               </Popover>
 
-               {/* Category Filter Popover */}
-               <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant={categoryFilter !== "all" ? "secondary" : "outline"} size="icon" className="h-9 w-9 shrink-0">
-                    <Tag className="h-4 w-4" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent align="start" className="w-48 p-2">
-                   <div className="space-y-2">
-                     <h4 className="font-medium leading-none text-sm">Category</h4>
-                     <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                      <SelectTrigger className="h-8">
-                        <SelectValue placeholder="Category" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Categories</SelectItem>
-                        <SelectItem value="Personal">Personal</SelectItem>
-                        <SelectItem value="Professional">Professional</SelectItem>
-                      </SelectContent>
-                    </Select>
-                   </div>
-                </PopoverContent>
-              </Popover>
-
-              {/* Active Filter Chips (Mobile Only) */}
               <div className="flex-1 overflow-x-auto flex gap-2 no-scrollbar">
                  {search && (
                    <Badge variant="secondary" className="gap-1 pr-1 shrink-0">
                      "{search}" <X className="h-3 w-3 cursor-pointer" onClick={() => setSearch("")} />
                    </Badge>
                  )}
-                 {statusFilter !== "all" && (
+                 {projectFilter !== "all" && (
                    <Badge variant="secondary" className="gap-1 pr-1 shrink-0">
-                     {statusFilter === 'active' ? 'Active' : 'Completed'} 
-                     <X className="h-3 w-3 cursor-pointer" onClick={() => setStatusFilter("all")} />
-                   </Badge>
-                 )}
-                  {categoryFilter !== "all" && (
-                   <Badge variant="secondary" className="gap-1 pr-1 shrink-0">
-                     {categoryFilter} <X className="h-3 w-3 cursor-pointer" onClick={() => setCategoryFilter("all")} />
+                     {projectFilter === 'miscellaneous' ? 'Misc' : 'Project'} 
+                     <X className="h-3 w-3 cursor-pointer" onClick={() => setProjectFilter("all")} />
                    </Badge>
                  )}
               </div>
             </>
           ) : (
-            /* Desktop View: Full Inputs */
             <>
-              <div className="relative w-64">
+              <div className="relative w-48">
                 <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Search todos..."
+                  placeholder="Search..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   className="pl-8 h-9"
                 />
               </div>
 
+              <Select value={projectFilter} onValueChange={setProjectFilter}>
+                <SelectTrigger className="w-[140px] h-9">
+                   <FolderKanban className="h-4 w-4 mr-2 text-muted-foreground" />
+                  <SelectValue placeholder="Project" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Projects</SelectItem>
+                  <SelectItem value="miscellaneous">Miscellaneous</SelectItem>
+                  {projects.map(p => (
+                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-[150px] h-9">
+                <SelectTrigger className="w-[130px] h-9">
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -318,7 +346,7 @@ const Todos = () => {
               </Select>
 
               <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                <SelectTrigger className="w-[150px] h-9">
+                <SelectTrigger className="w-[130px] h-9">
                   <SelectValue placeholder="Category" />
                 </SelectTrigger>
                 <SelectContent>
@@ -338,7 +366,6 @@ const Todos = () => {
         </div>
       </div>
 
-      {/* Scrollable List Area */}
       <div className="flex-1 min-h-0 overflow-y-auto pr-1">
         {loading ? (
           <div className="flex justify-center p-12">
@@ -377,20 +404,15 @@ const Todos = () => {
                         >
                           {todo.text}
                         </p>
-                        {isTeam && (
-                           <Badge variant="outline" className="text-[9px] h-4 px-1 text-purple-600 border-purple-200 bg-purple-50 dark:bg-purple-900/20 shrink-0 gap-1">
-                              <Users className="h-3 w-3" /> Team
-                           </Badge>
-                        )}
-                        {isShared && !isTeam && (
-                          <Badge variant="outline" className="text-[9px] h-4 px-1 text-blue-500 border-blue-200 shrink-0">
-                             Shared
+                        {todo.project_id && (
+                          <Badge variant="outline" className="text-[9px] h-4 px-1 border-blue-200 bg-blue-50 text-blue-600 dark:bg-blue-900/20 shrink-0 gap-1">
+                            <FolderKanban className="h-3 w-3" /> {getProjectName(todo.project_id)}
                           </Badge>
                         )}
-                        {todo.priority && (todo.priority !== 'medium' && todo.priority !== 'normal') && (
-                           <Badge variant="outline" className={cn("text-[9px] h-4 px-1 shrink-0", getPriorityColor(todo.priority))}>
-                             {todo.priority}
-                           </Badge>
+                        {!todo.project_id && (
+                          <Badge variant="outline" className="text-[9px] h-4 px-1 border-gray-200 text-gray-500 shrink-0">
+                             Miscellaneous
+                          </Badge>
                         )}
                       </div>
                       <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground flex-wrap">

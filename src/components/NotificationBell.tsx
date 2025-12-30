@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { useSession } from "@/integrations/supabase/auth";
 import { supabase } from "@/integrations/supabase/client";
-import { Bell, Trash2, Check } from "lucide-react";
+import { Bell, Trash2, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useNavigate } from "react-router-dom";
@@ -16,6 +16,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { format } from "date-fns";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
+import { showSuccess, showError } from "@/utils/toast";
 
 const NotificationBell = () => {
   const { user } = useSession();
@@ -83,7 +84,6 @@ const NotificationBell = () => {
   const fetchAll = async () => {
     if (!user) return;
     
-    // Fetch unread messages
     const { data: msgs } = await supabase
       .from('messages')
       .select('*')
@@ -108,7 +108,6 @@ const NotificationBell = () => {
       }));
     }
       
-    // Fetch system notifications
     const { data: notifs } = await supabase
       .from('notifications')
       .select('*')
@@ -124,7 +123,6 @@ const NotificationBell = () => {
   };
 
   const markAsRead = async (id: string) => {
-    // Persist read status
     await supabase.from('notifications').update({ read: true }).eq('id', id);
     setSystemNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
     setUnreadCount(prev => Math.max(0, prev - 1));
@@ -132,21 +130,34 @@ const NotificationBell = () => {
 
   const deleteNotification = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    
-    // Check if it was unread before deleting to update count
     const notif = systemNotifications.find(n => n.id === id);
     const wasUnread = notif && !notif.read;
-
-    // Persist deletion
     await supabase.from('notifications').delete().eq('id', id);
     setSystemNotifications(prev => prev.filter(n => n.id !== id));
-
     if (wasUnread) {
       setUnreadCount(prev => Math.max(0, prev - 1));
     }
   };
 
-  // For messages, "delete" from bell means marking as read so it disappears from the unread list
+  const clearAllNotifications = async () => {
+    if (!user) return;
+    try {
+      const { error } = await supabase
+        .from('notifications')
+        .delete()
+        .eq('user_id', user.id);
+      
+      if (error) throw error;
+      
+      setSystemNotifications([]);
+      // Recalculate unread count based on messages only
+      setUnreadCount(messageNotifications.length);
+      showSuccess("All notifications cleared");
+    } catch (err: any) {
+      showError("Failed to clear notifications");
+    }
+  };
+
   const dismissMessageAlert = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     await supabase.from('messages').update({ read: true }).eq('id', id);
@@ -198,6 +209,17 @@ const NotificationBell = () => {
           </div>
           
           <TabsContent value="all" className="m-0">
+            <div className="p-2 border-b bg-muted/20 flex justify-end">
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="h-7 text-[10px] text-muted-foreground hover:text-destructive"
+                onClick={clearAllNotifications}
+                disabled={systemNotifications.length === 0}
+              >
+                Clear All Notifications
+              </Button>
+            </div>
             <ScrollArea className="h-[300px] w-full">
               {systemNotifications.length === 0 && messageNotifications.length === 0 ? (
                 <div className="p-8 text-center text-sm text-muted-foreground">
@@ -205,7 +227,6 @@ const NotificationBell = () => {
                 </div>
               ) : (
                 <div className="flex flex-col w-full">
-                  {/* Message Notifications */}
                   {messageNotifications.map((msg) => (
                     <div
                       key={msg.id}
@@ -239,7 +260,6 @@ const NotificationBell = () => {
                     </div>
                   ))}
 
-                  {/* System Notifications */}
                   {systemNotifications.map((notif) => (
                     <div
                       key={notif.id}
@@ -270,7 +290,6 @@ const NotificationBell = () => {
                         </p>
                       </div>
                       
-                      {/* Mark as read button on the right */}
                       {!notif.read && (
                         <div className="shrink-0 pt-0.5">
                            <Button variant="ghost" size="icon" className="h-7 w-7 text-primary hover:bg-primary/10" onClick={(e) => { e.stopPropagation(); markAsRead(notif.id); }} title="Mark as read">

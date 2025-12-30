@@ -24,9 +24,8 @@ const Login: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [rememberMe, setRememberMe] = useState(true); // Default to true
+  const [rememberMe, setRememberMe] = useState(true);
   
-  // Signup states
   const [signupEmail, setSignupEmail] = useState("");
   const [signupPassword, setSignupPassword] = useState("");
   const [firstName, setFirstName] = useState("");
@@ -66,10 +65,14 @@ const Login: React.FC = () => {
     e.preventDefault();
     setLoading(true);
     try {
+      // Use window.location.origin to ensure redirects don't point to localhost
+      const redirectTo = `${window.location.origin}/auth/callback`;
+      
       const { error } = await supabase.auth.signUp({
         email: signupEmail,
         password: signupPassword,
         options: {
+          emailRedirectTo: redirectTo,
           data: {
             first_name: firstName,
             last_name: lastName,

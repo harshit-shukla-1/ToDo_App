@@ -18,6 +18,7 @@ import Messages from "./pages/Messages";
 import Connections from "./pages/Connections";
 import Teams from "./pages/Teams";
 import Archives from "./pages/Archives";
+import Projects from "./pages/Projects";
 import { SessionContextProvider, useSession } from "./integrations/supabase/auth";
 import { ThemeProvider } from "./components/ThemeProvider";
 import Layout from "./components/Layout";
@@ -27,12 +28,11 @@ import ThemeBanner from "./components/ThemeBanner";
 import BackgroundDecorations from "./components/BackgroundDecorations";
 import { useIsMobile } from "@/hooks/use-mobile";
 
-// Configure Persistence with LocalStorage
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 1000 * 60 * 5, // 5 minutes
-      gcTime: 1000 * 60 * 60 * 24, // 24 hours
+      staleTime: 1000 * 60 * 5,
+      gcTime: 1000 * 60 * 60 * 24,
     },
   },
 });
@@ -45,7 +45,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
   const { session, isLoading } = useSession();
 
   if (isLoading) {
-    return <div className="min-h-screen flex items-center justify-center">Loading authentication...</div>;
+    return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
   }
 
   if (!session) {
@@ -55,7 +55,6 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
   return <Layout>{children}</Layout>;
 };
 
-// Wrapper to handle responsive toaster positioning
 const AppToaster = () => {
   const isMobile = useIsMobile();
   return (
@@ -79,94 +78,18 @@ const AppContent = () => (
           <Route path="/login" element={<Login />} />
           <Route path="/auth/callback" element={<AuthCallback />} />
           
-          <Route
-            path="/"
-            element={
-              <ProtectedRoute>
-                <Dashboard />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/todos"
-            element={
-              <ProtectedRoute>
-                <Todos />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/todos/new"
-            element={
-              <ProtectedRoute>
-                <TodoEditor />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/todos/:id"
-            element={
-              <ProtectedRoute>
-                <TodoEditor />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/archives"
-            element={
-              <ProtectedRoute>
-                <Archives />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/messages"
-            element={
-              <ProtectedRoute>
-                <Messages />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/messages/:id"
-            element={
-              <ProtectedRoute>
-                <Messages />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/connections"
-            element={
-              <ProtectedRoute>
-                <Connections />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/teams"
-            element={
-              <ProtectedRoute>
-                <Teams />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/profile"
-            element={
-              <ProtectedRoute>
-                <Profile />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/settings"
-            element={
-              <ProtectedRoute>
-                <Settings />
-              </ProtectedRoute>
-            }
-          />
+          <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+          <Route path="/todos" element={<ProtectedRoute><Todos /></ProtectedRoute>} />
+          <Route path="/todos/new" element={<ProtectedRoute><TodoEditor /></ProtectedRoute>} />
+          <Route path="/todos/:id" element={<ProtectedRoute><TodoEditor /></ProtectedRoute>} />
+          <Route path="/projects" element={<ProtectedRoute><Projects /></ProtectedRoute>} />
+          <Route path="/archives" element={<ProtectedRoute><Archives /></ProtectedRoute>} />
+          <Route path="/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
+          <Route path="/messages/:id" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
+          <Route path="/connections" element={<ProtectedRoute><Connections /></ProtectedRoute>} />
+          <Route path="/teams" element={<ProtectedRoute><Teams /></ProtectedRoute>} />
+          <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+          <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
           
           <Route path="/@:username" element={<PublicProfile />} />
           <Route path="/u/:username" element={<PublicProfile />} />
