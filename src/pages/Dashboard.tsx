@@ -16,7 +16,9 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { CheckCircle2, Circle, Clock, ListTodo, Users, Briefcase, Archive } from "lucide-react";
+import { CheckCircle2, Circle, Clock, ListTodo, Users, Briefcase, Archive, ExternalLink } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Button } from "@/components/ui/button";
 
 const Dashboard = () => {
   const { user } = useSession();
@@ -30,13 +32,24 @@ const Dashboard = () => {
     shared: 0,
     team: 0,
   });
+  const [username, setUsername] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (user) {
       fetchStats();
+      fetchUsername();
     }
   }, [user]);
+
+  const fetchUsername = async () => {
+    const { data } = await supabase
+      .from('profiles')
+      .select('username')
+      .eq('id', user?.id)
+      .single();
+    if (data?.username) setUsername(data.username);
+  };
 
   const fetchStats = async () => {
     try {
@@ -99,7 +112,17 @@ const Dashboard = () => {
 
   return (
     <div className="space-y-6 pb-10">
-      <h2 className="text-3xl font-bold tracking-tight hidden md:block">Dashboard</h2>
+      <div className="flex items-center justify-between">
+        <h2 className="text-3xl font-bold tracking-tight hidden md:block">Dashboard</h2>
+        {username && (
+          <Link to={`/u/${username}`}>
+            <Button variant="outline" size="sm" className="gap-2">
+              <ExternalLink className="h-4 w-4" />
+              My Public Profile
+            </Button>
+          </Link>
+        )}
+      </div>
 
       {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7">

@@ -24,6 +24,7 @@ import { useTheme } from "@/components/ThemeProvider";
 import BottomNav from "./BottomNav";
 import NotificationBell from "./NotificationBell";
 import ProfileCompletionBanner from "./ProfileCompletionBanner";
+import UsernameSetupDialog from "./UsernameSetupDialog";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -185,6 +186,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
   return (
     <div className="absolute inset-0 w-full flex overflow-hidden">
+      <UsernameSetupDialog />
       <aside className="hidden md:block w-64 border-r bg-card h-full flex-none z-30">
         <NavContent />
       </aside>

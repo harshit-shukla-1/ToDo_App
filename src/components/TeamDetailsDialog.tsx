@@ -13,14 +13,19 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
 import { showSuccess, showError } from "@/utils/toast";
-import { Loader2, Plus, Trash2, Crown, CheckCircle2, Circle, Users, Calendar } from "lucide-react";
+import { Loader2, Plus, Trash2, Crown, CheckCircle2, Circle, Users, Calendar, Pencil, Upload, Save, Info } from "lucide-react";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 
 interface Team {
   id: string;
   name: string;
   created_by: string;
+  description?: string;
+  avatar_url?: string;
 }
 
 interface Member {
@@ -54,13 +59,24 @@ const TeamDetailsDialog: React.FC<TeamDetailsDialogProps> = ({ team, open, onOpe
   const [todos, setTodos] = useState<Todo[]>([]);
   const [connections, setConnections] = useState<Member[]>([]);
   const [loading, setLoading] = useState(false);
+  const [updatingTeam, setUpdatingTeam] = useState(false);
   const [addingMemberId, setAddingMemberId] = useState<string | null>(null);
+
+  // Edit states for team details
+  const [editMode, setEditMode] = useState(false);
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState("");
 
   const isOwner = team?.created_by === currentUserId;
 
   useEffect(() => {
     if (open && team) {
       fetchData();
+      setName(team.name);
+      setDescription(team.description || "");
+      setAvatarUrl(team.avatar_url || "");
+      setEditMode(false);
     }
   }, [open, team]);
 
@@ -87,7 +103,6 @@ const TeamDetailsDialog: React.FC<TeamDetailsDialogProps> = ({ team, open, onOpe
       const roleMap = new Map(teamMembersData?.map(m => [m.user_id, m.role]));
 
       // 3. Fetch Profiles for those members
-      // We do this separately to avoid issues with missing FK relationships in the API layer
       let formattedMembers: Member[] = [];
       
       if (memberIds.length > 0) {
@@ -105,24 +120,22 @@ const TeamDetailsDialog: React.FC<TeamDetailsDialogProps> = ({ team, open, onOpe
       setMembers(formattedMembers);
 
       // 4. Fetch Connections (for adding new members)
-      if (isOwner) {
-        const { data: connData } = await supabase
-          .from('connections')
-          .select(`
-            requester:profiles!requester_id(*),
-            recipient:profiles!recipient_id(*)
-          `)
-          .or(`requester_id.eq.${currentUserId},recipient_id.eq.${currentUserId}`)
-          .eq('status', 'accepted');
+      const { data: connData } = await supabase
+        .from('connections')
+        .select(`
+          requester:profiles!requester_id(*),
+          recipient:profiles!recipient_id(*)
+        `)
+        .or(`requester_id.eq.${currentUserId},recipient_id.eq.${currentUserId}`)
+        .eq('status', 'accepted');
 
-        const profiles = connData?.map((c: any) => {
-          return c.requester_id === currentUserId ? c.recipient : c.requester;
-        }).filter(p => p && p.id !== currentUserId) || [];
+      const profiles = connData?.map((c: any) => {
+        return c.requester_id === currentUserId ? c.recipient : c.requester;
+      }).filter(p => p && p.id !== currentUserId) || [];
 
-        // Filter out existing members
-        const currentMemberIds = new Set(memberIds);
-        setConnections(profiles.filter(p => !currentMemberIds.has(p.id)));
-      }
+      // Filter out existing members
+      const currentMemberIds = new Set(memberIds);
+      setConnections(profiles.filter(p => !currentMemberIds.has(p.id)));
 
     } catch (err) {
       console.error(err);
@@ -132,11 +145,61 @@ const TeamDetailsDialog: React.FC<TeamDetailsDialogProps> = ({ team, open, onOpe
     }
   };
 
+  const updateTeamDetails = async () => {
+    if (!team) return;
+    setUpdatingTeam(true);
+    try {
+      const { error } = await supabase
+        .from('teams')
+        .update({ 
+          name, 
+          description, 
+          avatar_url: avatarUrl 
+        })
+        .eq('id', team.id);
+
+      if (error) throw error;
+      showSuccess("Team details updated!");
+      setEditMode(false);
+      // We'd ideally refresh the team object in parent, but for now we've updated local state
+    } catch (err: any) {
+      showError("Failed to update: " + err.message);
+    } finally {
+      setUpdatingTeam(false);
+    }
+  };
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    try {
+      if (!event.target.files || event.target.files.length === 0 || !team) return;
+      
+      const file = event.target.files[0];
+      const fileExt = file.name.split('.').pop();
+      const fileName = `team_${team.id}_${Date.now()}.${fileExt}`;
+      const filePath = `teams/${fileName}`;
+
+      setUpdatingTeam(true);
+      
+      const { error: uploadError } = await supabase.storage
+        .from('avatar_bucket')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data } = supabase.storage.from('avatar_bucket').getPublicUrl(filePath);
+      setAvatarUrl(data.publicUrl);
+      showSuccess("Avatar uploaded. Click Save to apply.");
+    } catch (error: any) {
+      showError("Upload failed: " + error.message);
+    } finally {
+      setUpdatingTeam(false);
+    }
+  };
+
   const addMember = async (userId: string) => {
     if (!team) return;
     setAddingMemberId(userId);
 
-    // Optimistic Update: Immediately update UI
     const userToAdd = connections.find(c => c.id === userId);
     if (userToAdd) {
        setMembers(prev => [...prev, { ...userToAdd, role: 'member' }]);
@@ -150,26 +213,11 @@ const TeamDetailsDialog: React.FC<TeamDetailsDialogProps> = ({ team, open, onOpe
         role: 'member'
       });
 
-      if (error) {
-        if (error.code === '23505') {
-           // Duplicate key, already added. Just ensure state is correct.
-           showSuccess("Member added");
-        } else {
-           // Revert on real error
-           throw error;
-        }
-      } else {
-        showSuccess("Member added successfully");
-      }
-      
-      // We don't need to re-fetch full data if optimistic update worked,
-      // but let's do a quiet refresh of just members to be safe, without loading spinner.
-      refreshMembersQuietly(team.id);
-
+      if (error) throw error;
+      showSuccess("Member added successfully");
     } catch (err: any) {
       console.error(err);
-      showError("Failed to add member: " + err.message);
-      // Revert optimistic update on error
+      showError("Failed to add member");
       if (userToAdd) {
         setMembers(prev => prev.filter(m => m.id !== userId));
         setConnections(prev => [...prev, userToAdd]);
@@ -179,37 +227,12 @@ const TeamDetailsDialog: React.FC<TeamDetailsDialogProps> = ({ team, open, onOpe
     }
   };
 
-  const refreshMembersQuietly = async (teamId: string) => {
-      // Re-fetch logic just for members/profiles to ensure consistency
-      const { data: teamMembersData } = await supabase
-        .from('team_members')
-        .select('user_id, role')
-        .eq('team_id', teamId);
-
-      const memberIds = teamMembersData?.map(m => m.user_id) || [];
-      const roleMap = new Map(teamMembersData?.map(m => [m.user_id, m.role]));
-
-      if (memberIds.length > 0) {
-        const { data: profilesData } = await supabase
-          .from('profiles')
-          .select('*')
-          .in('id', memberIds);
-
-        const formattedMembers = (profilesData || []).map((p: any) => ({
-          ...p,
-          role: roleMap.get(p.id) || 'member'
-        }));
-        setMembers(formattedMembers);
-      }
-  };
-
   const removeMember = async (userId: string) => {
     if (!team) return;
     
-    // Optimistic Update
     const removedMember = members.find(m => m.id === userId);
     setMembers(prev => prev.filter(m => m.id !== userId));
-    if (removedMember && isOwner) {
+    if (removedMember) {
        setConnections(prev => [...prev, removedMember]);
     }
 
@@ -222,7 +245,6 @@ const TeamDetailsDialog: React.FC<TeamDetailsDialogProps> = ({ team, open, onOpe
       showSuccess("Member removed");
     } catch (err: any) {
       showError("Failed to remove member");
-      // Revert
       if (removedMember) {
          setMembers(prev => [...prev, removedMember]);
          setConnections(prev => prev.filter(c => c.id !== userId));
@@ -241,130 +263,180 @@ const TeamDetailsDialog: React.FC<TeamDetailsDialogProps> = ({ team, open, onOpe
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col">
         <DialogHeader>
-          <DialogTitle className="text-xl flex items-center gap-2">
-            <Users className="h-5 w-5" /> {team?.name}
-          </DialogTitle>
+          <div className="flex items-center justify-between pr-6">
+            <div className="flex items-center gap-3">
+              <Avatar className="h-10 w-10 border">
+                <AvatarImage src={avatarUrl} />
+                <AvatarFallback><Users className="h-5 w-5" /></AvatarFallback>
+              </Avatar>
+              <div>
+                <DialogTitle className="text-xl">{name}</DialogTitle>
+                <p className="text-xs text-muted-foreground truncate max-w-[200px] sm:max-w-md">
+                  {description || "No description set"}
+                </p>
+              </div>
+            </div>
+            <Button variant="ghost" size="icon" onClick={() => setEditMode(!editMode)}>
+              {editMode ? <X className="h-4 w-4" /> : <Pencil className="h-4 w-4" />}
+            </Button>
+          </div>
         </DialogHeader>
 
-        <Tabs defaultValue="todos" value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="todos">Todos ({todos.length})</TabsTrigger>
-            <TabsTrigger value="members">Members ({members.length})</TabsTrigger>
-          </TabsList>
-
-          <div className="flex-1 min-h-0 mt-4 overflow-hidden relative">
-            {loading ? (
-              <div className="absolute inset-0 flex items-center justify-center bg-background/50 z-10">
-                <Loader2 className="animate-spin h-8 w-8 text-primary" />
+        {editMode ? (
+          <ScrollArea className="flex-1 px-1">
+            <div className="space-y-4 py-4 pr-4">
+              <div className="flex flex-col items-center gap-4 mb-4">
+                <Avatar className="h-20 w-20 border-2">
+                  <AvatarImage src={avatarUrl} />
+                  <AvatarFallback className="text-2xl"><Users className="h-10 w-10" /></AvatarFallback>
+                </Avatar>
+                <div className="flex gap-2">
+                  <Label htmlFor="team-avatar" className="cursor-pointer">
+                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-md border text-sm hover:bg-muted">
+                      <Upload className="h-4 w-4" /> Upload Avatar
+                    </div>
+                    <input id="team-avatar" type="file" accept="image/*" className="hidden" onChange={handleFileUpload} disabled={updatingTeam} />
+                  </Label>
+                </div>
               </div>
-            ) : null}
 
-            <TabsContent value="todos" className="h-[400px] m-0">
-              <ScrollArea className="h-full pr-4">
-                {todos.length === 0 ? (
-                  <div className="text-center py-12 text-muted-foreground border rounded-lg border-dashed">
-                    <p>No todos assigned to this team.</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {todos.map(todo => (
-                      <div key={todo.id} className="flex items-start gap-3 p-3 border rounded-lg hover:bg-muted/50">
-                        {todo.completed ? (
-                          <CheckCircle2 className="h-5 w-5 text-green-500 mt-0.5 shrink-0" />
-                        ) : (
-                          <Circle className="h-5 w-5 text-orange-500 mt-0.5 shrink-0" />
-                        )}
-                        <div className="flex-1 min-w-0">
-                          <p className={`font-medium text-sm ${todo.completed ? 'line-through text-muted-foreground' : ''}`}>
-                            {todo.text}
-                          </p>
-                          <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
-                            <Badge variant="secondary" className="text-[10px] h-5">{todo.category}</Badge>
-                            {todo.due_date && (
-                              <span className="flex items-center gap-1">
-                                <Calendar className="h-3 w-3" />
-                                {format(new Date(todo.due_date), 'MMM d')}
-                              </span>
-                            )}
+              <div className="space-y-2">
+                <Label>Team Name</Label>
+                <Input value={name} onChange={e => setName(e.target.value)} placeholder="Team Name" />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Description</Label>
+                <Textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Describe your team..." className="min-h-[100px]" />
+              </div>
+
+              <Button onClick={updateTeamDetails} className="w-full" disabled={updatingTeam || !name.trim()}>
+                {updatingTeam ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                Save Team Details
+              </Button>
+            </div>
+          </ScrollArea>
+        ) : (
+          <Tabs defaultValue="todos" value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="todos">Todos ({todos.length})</TabsTrigger>
+              <TabsTrigger value="members">Members ({members.length})</TabsTrigger>
+            </TabsList>
+
+            <div className="flex-1 min-h-0 mt-4 overflow-hidden relative">
+              {loading ? (
+                <div className="absolute inset-0 flex items-center justify-center bg-background/50 z-10">
+                  <Loader2 className="animate-spin h-8 w-8 text-primary" />
+                </div>
+              ) : null}
+
+              <TabsContent value="todos" className="h-[400px] m-0">
+                <ScrollArea className="h-full pr-4">
+                  {todos.length === 0 ? (
+                    <div className="text-center py-12 text-muted-foreground border rounded-lg border-dashed">
+                      <p>No todos assigned to this team.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {todos.map(todo => (
+                        <div key={todo.id} className="flex items-start gap-3 p-3 border rounded-lg hover:bg-muted/50">
+                          {todo.completed ? (
+                            <CheckCircle2 className="h-5 w-5 text-green-500 mt-0.5 shrink-0" />
+                          ) : (
+                            <Circle className="h-5 w-5 text-orange-500 mt-0.5 shrink-0" />
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <p className={`font-medium text-sm ${todo.completed ? 'line-through text-muted-foreground' : ''}`}>
+                              {todo.text}
+                            </p>
+                            <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
+                              <Badge variant="secondary" className="text-[10px] h-5">{todo.category}</Badge>
+                              {todo.due_date && (
+                                <span className="flex items-center gap-1">
+                                  <Calendar className="h-3 w-3" />
+                                  {format(new Date(todo.due_date), 'MMM d')}
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </ScrollArea>
-            </TabsContent>
+                      ))}
+                    </div>
+                  )}
+                </ScrollArea>
+              </TabsContent>
 
-            <TabsContent value="members" className="h-[400px] m-0 flex flex-col gap-4">
-              <div className="flex-1 min-h-0 flex flex-col gap-4">
-                {/* Current Members List */}
-                <div className="flex-1 min-h-0 border rounded-lg p-2">
-                   <h4 className="text-sm font-medium mb-2 px-2">Current Members</h4>
-                   <ScrollArea className="h-[150px] sm:h-[180px]">
-                      <div className="space-y-1 p-1">
-                        {members.map(m => (
-                          <div key={m.id} className="flex items-center justify-between p-2 rounded bg-muted/30">
-                            <div className="flex items-center gap-2">
-                              <Avatar className="h-6 w-6">
-                                <AvatarImage src={m.avatar_url} />
-                                <AvatarFallback>{getInitials(m)}</AvatarFallback>
-                              </Avatar>
-                              <div className="flex flex-col">
-                                <span className="text-sm font-medium">{m.first_name || m.username}</span>
-                                <span className="text-[10px] text-muted-foreground">@{m.username}</span>
-                              </div>
-                              {m.role === 'owner' && <Crown className="h-3 w-3 text-yellow-500 ml-1" />}
-                            </div>
-                            {isOwner && m.role !== 'owner' && (
-                              <Button size="icon" variant="ghost" className="h-6 w-6 text-destructive" onClick={() => removeMember(m.id)}>
-                                <Trash2 className="h-3 w-3" />
-                              </Button>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                   </ScrollArea>
-                </div>
-
-                {/* Add Members Section (Owner Only) */}
-                {isOwner && (
+              <TabsContent value="members" className="h-[400px] m-0 flex flex-col gap-4">
+                <div className="flex-1 min-h-0 flex flex-col gap-4">
+                  {/* Current Members List */}
                   <div className="flex-1 min-h-0 border rounded-lg p-2">
-                    <h4 className="text-sm font-medium mb-2 px-2">Add from Connections</h4>
-                    <ScrollArea className="h-[120px]">
-                       {connections.length === 0 ? (
-                         <div className="text-center py-4 text-xs text-muted-foreground">
-                           No more connections to add.
-                         </div>
-                       ) : (
-                         <div className="space-y-1 p-1">
-                           {connections.map(c => (
-                             <div key={c.id} className="flex items-center justify-between p-2 rounded border hover:bg-muted/50">
-                               <div className="flex items-center gap-2">
-                                  <Avatar className="h-6 w-6">
-                                    <AvatarImage src={c.avatar_url} />
-                                    <AvatarFallback>{getInitials(c)}</AvatarFallback>
-                                  </Avatar>
-                                  <span className="text-sm">{c.first_name || c.username}</span>
-                               </div>
-                               <Button 
-                                  size="sm" 
-                                  variant="ghost" 
-                                  onClick={() => addMember(c.id)} 
-                                  disabled={addingMemberId === c.id}
-                                >
-                                 {addingMemberId === c.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-                               </Button>
-                             </div>
-                           ))}
-                         </div>
-                       )}
-                    </ScrollArea>
+                     <h4 className="text-sm font-medium mb-2 px-2">Current Members</h4>
+                     <ScrollArea className="h-[150px] sm:h-[180px]">
+                        <div className="space-y-1 p-1">
+                          {members.map(m => (
+                            <div key={m.id} className="flex items-center justify-between p-2 rounded bg-muted/30">
+                              <div className="flex items-center gap-2">
+                                <Avatar className="h-6 w-6">
+                                  <AvatarImage src={m.avatar_url} />
+                                  <AvatarFallback>{getInitials(m)}</AvatarFallback>
+                                </Avatar>
+                                <div className="flex flex-col">
+                                  <span className="text-sm font-medium">{m.first_name || m.username}</span>
+                                  <span className="text-[10px] text-muted-foreground">@{m.username}</span>
+                                </div>
+                                {m.role === 'owner' && <Crown className="h-3 w-3 text-yellow-500 ml-1" />}
+                              </div>
+                              {isOwner && m.role !== 'owner' && (
+                                <Button size="icon" variant="ghost" className="h-6 w-6 text-destructive" onClick={() => removeMember(m.id)}>
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                     </ScrollArea>
                   </div>
-                )}
-              </div>
-            </TabsContent>
-          </div>
-        </Tabs>
+
+                  {/* Add Members Section (Owner Only) */}
+                  {isOwner && (
+                    <div className="flex-1 min-h-0 border rounded-lg p-2">
+                      <h4 className="text-sm font-medium mb-2 px-2">Add from Connections</h4>
+                      <ScrollArea className="h-[120px]">
+                         {connections.length === 0 ? (
+                           <div className="text-center py-4 text-xs text-muted-foreground">
+                             No more connections to add.
+                           </div>
+                         ) : (
+                           <div className="space-y-1 p-1">
+                             {connections.map(c => (
+                               <div key={c.id} className="flex items-center justify-between p-2 rounded border hover:bg-muted/50">
+                                 <div className="flex items-center gap-2">
+                                    <Avatar className="h-6 w-6">
+                                      <AvatarImage src={c.avatar_url} />
+                                      <AvatarFallback>{getInitials(c)}</AvatarFallback>
+                                    </Avatar>
+                                    <span className="text-sm">{c.first_name || c.username}</span>
+                                 </div>
+                                 <Button 
+                                    size="sm" 
+                                    variant="ghost" 
+                                    onClick={() => addMember(c.id)} 
+                                    disabled={addingMemberId === c.id}
+                                  >
+                                   {addingMemberId === c.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                                 </Button>
+                               </div>
+                             ))}
+                           </div>
+                         )}
+                      </ScrollArea>
+                    </div>
+                  )}
+                </div>
+              </TabsContent>
+            </div>
+          </Tabs>
+        )}
       </DialogContent>
     </Dialog>
   );

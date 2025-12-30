@@ -11,11 +11,14 @@ import { showSuccess, showError } from "@/utils/toast";
 import { Loader2, Plus, Users, Trash2, Crown, Pencil } from "lucide-react";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import TeamDetailsDialog from "@/components/TeamDetailsDialog";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 interface Team {
   id: string;
   name: string;
   created_by: string;
+  description?: string;
+  avatar_url?: string;
 }
 
 const Teams = () => {
@@ -66,7 +69,7 @@ const Teams = () => {
       
       if (error) throw error;
       
-      // Auto add creator (although trigger or policy might handle this, explicit is safer)
+      // Auto add creator
       await supabase.from('team_members').insert({ 
         team_id: data.id, 
         user_id: user?.id, 
@@ -183,12 +186,18 @@ const Teams = () => {
               className="flex flex-col cursor-pointer hover:shadow-md transition-shadow active:scale-[0.99]"
               onClick={() => handleTeamClick(team)}
             >
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-lg truncate">{team.name}</CardTitle>
-                <Users className="h-4 w-4 text-muted-foreground" />
+              <CardHeader className="flex flex-row items-center gap-3 pb-2">
+                <Avatar className="h-10 w-10 border">
+                  <AvatarImage src={team.avatar_url} />
+                  <AvatarFallback><Users className="h-5 w-5" /></AvatarFallback>
+                </Avatar>
+                <CardTitle className="text-lg truncate flex-1">{team.name}</CardTitle>
               </CardHeader>
               <CardContent className="flex-1">
-                 <div className="text-sm text-muted-foreground mb-4">
+                 <p className="text-xs text-muted-foreground line-clamp-2 mb-3">
+                   {team.description || "No description set"}
+                 </p>
+                 <div className="text-xs text-muted-foreground">
                     {team.created_by === user?.id ? (
                       <span className="flex items-center gap-1 text-yellow-600 dark:text-yellow-500 font-medium">
                         <Crown className="h-3 w-3" /> Team Owner
