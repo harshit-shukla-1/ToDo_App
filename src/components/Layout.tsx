@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import {
@@ -15,7 +15,8 @@ import {
   Users,
   Briefcase,
   Archive,
-  FolderKanban
+  FolderKanban,
+  ShieldAlert
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
@@ -25,6 +26,7 @@ import BottomNav from "./BottomNav";
 import NotificationBell from "./NotificationBell";
 import ProfileCompletionBanner from "./ProfileCompletionBanner";
 import UsernameSetupDialog from "./UsernameSetupDialog";
+import { useSession } from "@/integrations/supabase/auth";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -33,6 +35,22 @@ interface LayoutProps {
 export const NavContent = ({ setIsMobileOpen }: { setIsMobileOpen?: (open: boolean) => void }) => {
   const location = useLocation();
   const navigate = useNavigate();
+  const { user } = useSession();
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    if (user) {
+      const checkAdmin = async () => {
+        const { data } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', user.id)
+          .single();
+        setIsAdmin(data?.role === 'admin');
+      };
+      checkAdmin();
+    }
+  }, [user]);
 
   const handleLogout = async () => {
     try {
@@ -146,6 +164,21 @@ export const NavContent = ({ setIsMobileOpen }: { setIsMobileOpen?: (open: boole
             Settings
           </Button>
         </Link>
+        
+        {isAdmin && (
+          <div className="pt-4 mt-4 border-t border-border/50">
+             <Link to="/admin">
+              <Button
+                variant={location.pathname === "/admin" ? "secondary" : "ghost"}
+                className="w-full justify-start text-primary"
+                onClick={close}
+              >
+                <ShieldAlert className="mr-2 h-4 w-4" />
+                Admin Dashboard
+              </Button>
+            </Link>
+          </div>
+        )}
       </div>
       <div className="px-4 mt-auto pt-4 flex-none border-t border-border/50 mx-4 -mx-4">
         <Button
@@ -181,6 +214,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     if (pathname.startsWith("/teams")) return "Teams";
     if (pathname === "/profile") return "Profile";
     if (pathname === "/settings") return "Settings";
+    if (pathname === "/admin") return "Admin Control";
     return "Mazda Todo";
   };
 

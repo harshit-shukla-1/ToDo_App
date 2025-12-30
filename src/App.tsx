@@ -19,6 +19,7 @@ import Connections from "./pages/Connections";
 import Teams from "./pages/Teams";
 import Archives from "./pages/Archives";
 import Projects from "./pages/Projects";
+import Admin from "./pages/Admin";
 import { SessionContextProvider, useSession } from "./integrations/supabase/auth";
 import { ThemeProvider } from "./components/ThemeProvider";
 import Layout from "./components/Layout";
@@ -90,6 +91,7 @@ const AppContent = () => (
           <Route path="/teams" element={<ProtectedRoute><Teams /></ProtectedRoute>} />
           <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
           <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+          <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
           
           <Route path="/@:username" element={<PublicProfile />} />
           <Route path="/u/:username" element={<PublicProfile />} />
