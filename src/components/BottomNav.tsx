@@ -14,7 +14,8 @@ import {
   Grid,
   LogOut,
   Briefcase,
-  Archive
+  Archive,
+  ShieldAlert
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -50,11 +51,13 @@ const BottomNav: React.FC<BottomNavProps> = ({ isMobileOpen, setIsMobileOpen }) 
       case 'connections': return Users;
       case 'profile': return User;
       case 'settings': return Settings;
+      case 'admin': return ShieldAlert;
       default: return Grid;
     }
   };
 
   const getLabel = (key: NavItemKey) => {
+    if (key === 'admin') return "Admin Panel";
     return key.charAt(0).toUpperCase() + key.slice(1);
   };
 

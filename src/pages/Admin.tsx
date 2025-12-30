@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import { 
   Users, ListTodo, FolderKanban, ShieldAlert, Trash2, 
   Loader2, RefreshCcw, Search, ShieldCheck 
@@ -14,6 +15,7 @@ import { showSuccess, showError } from "@/utils/toast";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { cn } from "@/lib/utils";
 
 const Admin = () => {
   const { user } = useSession();
@@ -31,20 +33,21 @@ const Admin = () => {
 
   const fetchStats = async () => {
     try {
-      const [{ count: users }, { count: todos }, { count: projects }, { count: teams }] = await Promise.all([
+      const results = await Promise.all([
         supabase.from('profiles').select('*', { count: 'exact', head: true }),
         supabase.from('todos').select('*', { count: 'exact', head: true }),
         supabase.from('projects').select('*', { count: 'exact', head: true }),
         supabase.from('teams').select('*', { count: 'exact', head: true }),
       ]);
+      
       setStats({ 
-        users: users || 0, 
-        todos: todos || 0, 
-        projects: projects || 0, 
-        teams: teams || 0 
+        users: results[0].count || 0, 
+        todos: results[1].count || 0, 
+        projects: results[2].count || 0, 
+        teams: results[3].count || 0 
       });
     } catch (err) {
-      console.error(err);
+      console.error("Error fetching stats:", err);
     }
   };
 
@@ -67,8 +70,7 @@ const Admin = () => {
   const deleteUser = async () => {
     if (!deleteId) return;
     try {
-      // NOTE: Deleting from profiles is fine, but deleting from auth.users requires 
-      // service role or custom edge function usually. For now, we clear their data.
+      // Clear user data from profiles
       const { error } = await supabase.from('profiles').delete().eq('id', deleteId);
       if (error) throw error;
       
@@ -84,10 +86,7 @@ const Admin = () => {
   const resetApplicationData = async () => {
     try {
       setLoading(true);
-      // We'll reset everything except the admin profile
-      const { error } = await supabase.rpc('reset_app_data'); 
-      // Since we might not have a custom RPC yet, let's just run multiple deletes
-      
+      // Delete all key data except for system defaults
       await Promise.all([
         supabase.from('todos').delete().neq('id', '00000000-0000-0000-0000-000000000000'),
         supabase.from('projects').delete().neq('id', '00000000-0000-0000-0000-000000000000'),
@@ -244,7 +243,7 @@ const Admin = () => {
         open={!!deleteId}
         onOpenChange={(open) => !open && setDeleteId(null)}
         title="Delete User Data"
-        description="Are you sure? This will remove their public profile and linked data. Note: To fully delete the account, use the Supabase Auth dashboard."
+        description="Are you sure? This will remove their public profile and linked data."
         onConfirm={deleteUser}
         confirmText="Delete Data"
         variant="destructive"

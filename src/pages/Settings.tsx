@@ -11,13 +11,15 @@ import { supabase } from "@/integrations/supabase/client";
 import { showSuccess, showError } from "@/utils/toast";
 import { 
   Bell, Moon, Sun, Lock, Loader2, Monitor, Palette, Droplets, Trees, Heart, Snowflake, 
-  Menu, Check, PanelBottom, MousePointerClick
+  Menu, Check, PanelBottom, MousePointerClick, ShieldAlert
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { useSession } from "@/integrations/supabase/auth";
 
 const Settings = () => {
+  const { user } = useSession();
   const { 
     setMode, mode, 
     setColor, color, 
@@ -28,12 +30,27 @@ const Settings = () => {
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     if ("Notification" in window) {
       setNotificationsEnabled(Notification.permission === "granted");
     }
   }, []);
+
+  useEffect(() => {
+    if (user) {
+      const checkAdmin = async () => {
+        const { data } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', user.id)
+          .single();
+        setIsAdmin(data?.role === 'admin');
+      };
+      checkAdmin();
+    }
+  }, [user]);
 
   const handleNotificationToggle = async () => {
     if (!("Notification" in window)) {
@@ -100,6 +117,11 @@ const Settings = () => {
     { key: 'profile', label: 'Profile' },
     { key: 'settings', label: 'Settings' },
   ];
+
+  // Add Admin option if user is administrator
+  if (isAdmin) {
+    availableNavItems.push({ key: 'admin', label: 'Admin Panel' });
+  }
 
   return (
     <div className="space-y-8 max-w-4xl mx-auto pb-20">
