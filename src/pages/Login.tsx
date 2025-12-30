@@ -65,8 +65,8 @@ const Login: React.FC = () => {
     e.preventDefault();
     setLoading(true);
     try {
-      // Point redirects to the new verification page
-      const redirectTo = `${window.location.origin}/verifyemail`;
+      // Use production URL for email redirection
+      const redirectTo = `https://todo.harshitshukla.in/verifyemail`;
       
       const { error } = await supabase.auth.signUp({
         email: signupEmail,

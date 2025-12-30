@@ -300,10 +300,10 @@ const Profile = () => {
     
     try {
       setUpdating(true);
-      // Point updates to /verifyemail too
+      // Hardcode production URL for email redirection
       const { error } = await supabase.auth.updateUser(
         { email },
-        { emailRedirectTo: window.location.origin + '/verifyemail' }
+        { emailRedirectTo: 'https://todo.harshitshukla.in/verifyemail' }
       );
       if (error) throw error;
       showSuccess("Confirmation email sent to both old and new addresses.");
