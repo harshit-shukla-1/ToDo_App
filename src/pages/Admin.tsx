@@ -54,13 +54,16 @@ const Admin = () => {
   const fetchUsers = async () => {
     setLoading(true);
     try {
+      // Fetch users ordered by created_at (now that column is added)
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
         .order('created_at', { ascending: false });
+        
       if (error) throw error;
       setUsersList(data || []);
     } catch (err: any) {
+      console.error("Fetch users error:", err);
       showError(err.message);
     } finally {
       setLoading(false);
