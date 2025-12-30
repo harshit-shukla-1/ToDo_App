@@ -13,6 +13,7 @@ import Settings from "./pages/Settings";
 import Profile from "./pages/Profile";
 import PublicProfile from "./pages/PublicProfile";
 import AuthCallback from "./pages/AuthCallback";
+import VerifyEmail from "./pages/VerifyEmail";
 import NotFound from "./pages/NotFound";
 import Messages from "./pages/Messages";
 import Connections from "./pages/Connections";
@@ -78,6 +79,7 @@ const AppContent = () => (
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/auth/callback" element={<AuthCallback />} />
+          <Route path="/verifyemail" element={<VerifyEmail />} />
           
           <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/todos" element={<ProtectedRoute><Todos /></ProtectedRoute>} />

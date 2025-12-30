@@ -300,9 +300,10 @@ const Profile = () => {
     
     try {
       setUpdating(true);
+      // Point updates to /verifyemail too
       const { error } = await supabase.auth.updateUser(
         { email },
-        { emailRedirectTo: window.location.origin + '/auth/callback' }
+        { emailRedirectTo: window.location.origin + '/verifyemail' }
       );
       if (error) throw error;
       showSuccess("Confirmation email sent to both old and new addresses.");
@@ -656,8 +657,8 @@ const Profile = () => {
                   <Label htmlFor="hobbies">Hobbies</Label>
                   <Input 
                     id="hobbies" 
-                    value={hobbies} 
-                    onChange={e => setHobbies(e.target.value)} 
+                  value={hobbies} 
+                  onChange={e => setHobbies(e.target.value)} 
                     placeholder="Gaming, Reading, Hiking..." 
                   />
                 </div>

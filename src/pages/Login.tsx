@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Sun, Moon, Loader2, Lock, User } from "lucide-react";
+import { Sun, Moon, Loader2, Lock, User } from "lucide-center";
 import { showSuccess, showError } from "@/utils/toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -65,8 +65,8 @@ const Login: React.FC = () => {
     e.preventDefault();
     setLoading(true);
     try {
-      // Use window.location.origin to ensure redirects don't point to localhost
-      const redirectTo = `${window.location.origin}/auth/callback`;
+      // Point redirects to the new verification page
+      const redirectTo = `${window.location.origin}/verifyemail`;
       
       const { error } = await supabase.auth.signUp({
         email: signupEmail,
