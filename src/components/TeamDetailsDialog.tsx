@@ -13,7 +13,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
 import { showSuccess, showError } from "@/utils/toast";
-import { Loader2, Plus, Trash2, Crown, CheckCircle2, Circle, Users, Calendar, Pencil, Upload, Save, Info } from "lucide-react";
+import { Loader2, Plus, Trash2, Crown, CheckCircle2, Circle, Users, Calendar, Pencil, Upload, Save, Info, X } from "lucide-react";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
