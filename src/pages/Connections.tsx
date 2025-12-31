@@ -123,12 +123,12 @@ const Connections = () => {
     setSearchLoading(true);
     try {
       // Find users matching username/name who are NOT the current user
+      // We removed the 'is_public' filter to allow finding all users
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
         .or(`username.ilike.%${trimmedQuery}%,first_name.ilike.%${trimmedQuery}%,last_name.ilike.%${trimmedQuery}%`)
         .neq('id', user?.id)
-        .eq('is_public', true) // Only show public profiles in search
         .limit(10);
 
       if (error) throw error;
@@ -167,8 +167,6 @@ const Connections = () => {
       showSuccess("Connection request sent!");
       fetchConnections(); // Refresh lists
       
-      // Remove from search results to give visual feedback? 
-      // Or just keep it. We'll refresh list so it logic holds.
     } catch (err: any) {
       showError("Failed to send request: " + err.message);
     }
@@ -177,10 +175,6 @@ const Connections = () => {
   const updateStatus = async (connectionId: string, newStatus: 'accepted' | 'rejected') => {
     try {
       if (newStatus === 'rejected') {
-        // Just delete the row for rejection to keep table clean? 
-        // Or keep it as rejected. Let's delete for simplicity of re-requesting later, 
-        // or update to 'rejected' if we want to block spam.
-        // For now, let's just delete it on reject to allow future requests.
         await removeConnection(connectionId);
         showSuccess("Request rejected");
         return;
@@ -261,11 +255,9 @@ const Connections = () => {
             
             <div className="space-y-3 mt-4">
               {searchResults.length === 0 && searchQuery.length > 2 && !searchLoading && (
-                <p className="text-sm text-muted-foreground text-center py-4">No public profiles found.</p>
+                <p className="text-sm text-muted-foreground text-center py-4">No profiles found.</p>
               )}
               {searchResults.map(profile => {
-                // Check if already connected/pending to disable button
-                // This check is client-side simple check against current fetched lists
                 const isConnected = connections.some(c => c.profile.id === profile.id);
                 const isPending = [...pendingReceived, ...pendingSent].some(c => c.profile.id === profile.id);
                 
@@ -302,7 +294,6 @@ const Connections = () => {
         <div className="md:col-span-2">
           <Tabs defaultValue="my-connections" value={activeTab} onValueChange={(val) => {
              setActiveTab(val);
-             // Optional: Update URL without navigation to keep state in sync if desired
           }}>
             <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="my-connections">Connected ({connections.length})</TabsTrigger>
