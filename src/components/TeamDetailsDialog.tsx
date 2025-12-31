@@ -19,6 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { PREDEFINED_AVATARS } from "@/pages/Profile";
 
 interface Team {
   id: string;
@@ -161,7 +162,6 @@ const TeamDetailsDialog: React.FC<TeamDetailsDialogProps> = ({ team, open, onOpe
       if (error) throw error;
       showSuccess("Team details updated!");
       setEditMode(false);
-      // We'd ideally refresh the team object in parent, but for now we've updated local state
     } catch (err: any) {
       showError("Failed to update: " + err.message);
     } finally {
@@ -293,10 +293,28 @@ const TeamDetailsDialog: React.FC<TeamDetailsDialogProps> = ({ team, open, onOpe
                 <div className="flex gap-2">
                   <Label htmlFor="team-avatar" className="cursor-pointer">
                     <div className="flex items-center gap-2 px-3 py-1.5 rounded-md border text-sm hover:bg-muted">
-                      <Upload className="h-4 w-4" /> Upload Avatar
+                      <Upload className="h-4 w-4" /> Upload Custom
                     </div>
                     <input id="team-avatar" type="file" accept="image/*" className="hidden" onChange={handleFileUpload} disabled={updatingTeam} />
                   </Label>
+                </div>
+                
+                <div className="w-full space-y-2">
+                  <Label className="text-xs text-muted-foreground block text-center">Or choose a team avatar</Label>
+                  <ScrollArea className="h-32 w-full border rounded-md p-2">
+                    <div className="grid grid-cols-6 gap-2">
+                      {PREDEFINED_AVATARS.map((url, i) => (
+                        <button 
+                          key={i}
+                          type="button"
+                          onClick={() => setAvatarUrl(url)}
+                          className={`aspect-square rounded-full overflow-hidden border-2 transition-all ${avatarUrl === url ? 'border-primary ring-2 ring-primary/30' : 'border-transparent hover:border-muted'}`}
+                        >
+                          <img src={url} alt={`Option ${i+1}`} className="h-full w-full object-cover" />
+                        </button>
+                      ))}
+                    </div>
+                  </ScrollArea>
                 </div>
               </div>
 

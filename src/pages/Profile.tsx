@@ -26,14 +26,32 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-// Predefined anime/character avatars using DiceBear
-const PREDEFINED_AVATARS = [
+// Expanded list of 24 diverse avatars using various DiceBear styles
+export const PREDEFINED_AVATARS = [
   "https://api.dicebear.com/7.x/adventurer/svg?seed=Felix",
   "https://api.dicebear.com/7.x/adventurer/svg?seed=Aneka",
   "https://api.dicebear.com/7.x/adventurer/svg?seed=Molly",
   "https://api.dicebear.com/7.x/adventurer/svg?seed=Buster",
-  "https://api.dicebear.com/7.x/adventurer/svg?seed=Shadow",
-  "https://api.dicebear.com/7.x/adventurer/svg?seed=Coco",
+  "https://api.dicebear.com/7.x/avataaars/svg?seed=Jasper",
+  "https://api.dicebear.com/7.x/avataaars/svg?seed=Lucky",
+  "https://api.dicebear.com/7.x/avataaars/svg?seed=Pepper",
+  "https://api.dicebear.com/7.x/avataaars/svg?seed=Bear",
+  "https://api.dicebear.com/7.x/bottts/svg?seed=Simba",
+  "https://api.dicebear.com/7.x/bottts/svg?seed=Toby",
+  "https://api.dicebear.com/7.x/bottts/svg?seed=Zoe",
+  "https://api.dicebear.com/7.x/bottts/svg?seed=Max",
+  "https://api.dicebear.com/7.x/pixel-art/svg?seed=Luna",
+  "https://api.dicebear.com/7.x/pixel-art/svg?seed=Oliver",
+  "https://api.dicebear.com/7.x/pixel-art/svg?seed=Chloe",
+  "https://api.dicebear.com/7.x/pixel-art/svg?seed=Milo",
+  "https://api.dicebear.com/7.x/notionists/svg?seed=Sophie",
+  "https://api.dicebear.com/7.x/notionists/svg?seed=Jack",
+  "https://api.dicebear.com/7.x/notionists/svg?seed=Leo",
+  "https://api.dicebear.com/7.x/notionists/svg?seed=Mia",
+  "https://api.dicebear.com/7.x/croodles/svg?seed=Nala",
+  "https://api.dicebear.com/7.x/croodles/svg?seed=Oscar",
+  "https://api.dicebear.com/7.x/croodles/svg?seed=Ruby",
+  "https://api.dicebear.com/7.x/croodles/svg?seed=Sam",
 ];
 
 interface CustomProperty {
@@ -441,21 +459,22 @@ const Profile = () => {
 
               <div className="space-y-2 w-full">
                 <Label className="text-xs text-muted-foreground text-center block">Or choose an avatar</Label>
-                <div className="grid grid-cols-3 gap-2">
-                  {PREDEFINED_AVATARS.map((url, i) => (
-                    <button 
-                      key={i}
-                      type="button"
-                      onClick={() => {
-                        setAvatarUrl(url);
-                        // Optional: auto-save on select too if desired, currently user hits save
-                      }}
-                      className={`rounded-full overflow-hidden border-2 transition-all ${avatarUrl === url ? 'border-primary ring-2 ring-primary/30' : 'border-transparent hover:border-muted'}`}
-                    >
-                      <img src={url} alt="Avatar option" className="h-full w-full object-cover" />
-                    </button>
-                  ))}
-                </div>
+                <ScrollArea className="h-40 w-full border rounded-md p-2">
+                  <div className="grid grid-cols-3 gap-2">
+                    {PREDEFINED_AVATARS.map((url, i) => (
+                      <button 
+                        key={i}
+                        type="button"
+                        onClick={() => {
+                          setAvatarUrl(url);
+                        }}
+                        className={`aspect-square rounded-full overflow-hidden border-2 transition-all ${avatarUrl === url ? 'border-primary ring-2 ring-primary/30' : 'border-transparent hover:border-muted'}`}
+                      >
+                        <img src={url} alt={`Avatar option ${i + 1}`} className="h-full w-full object-cover" />
+                      </button>
+                    ))}
+                  </div>
+                </ScrollArea>
               </div>
             </CardContent>
           </Card>
