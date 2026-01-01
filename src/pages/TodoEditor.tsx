@@ -35,7 +35,6 @@ const TodoEditor = () => {
 
   const [loading, setLoading] = useState(false);
   const [projects, setProjects] = useState<any[]>([]);
-  const [allTeams, setAllTeams] = useState<any[]>([]);
   const [availableTeams, setAvailableTeams] = useState<any[]>([]);
   
   const [formData, setFormData] = useState({
@@ -61,21 +60,16 @@ const TodoEditor = () => {
   // When project changes, filter teams
   useEffect(() => {
     if (formData.project_id === "none") {
-      setAvailableTeams(allTeams);
-      // Reset team if it's no longer valid, but for personal todos we allow any team they belong to
+      setAvailableTeams([]);
+      setFormData(prev => ({ ...prev, team_id: "none" }));
     } else {
       fetchProjectTeams(formData.project_id);
     }
-  }, [formData.project_id, allTeams]);
+  }, [formData.project_id]);
 
   const fetchContextData = async () => {
-    const [projRes, teamsRes] = await Promise.all([
-      supabase.from('projects').select('id, name'),
-      supabase.from('teams').select('id, name')
-    ]);
-    setProjects(projRes.data || []);
-    setAllTeams(teamsRes.data || []);
-    setAvailableTeams(teamsRes.data || []);
+    const { data: projData } = await supabase.from('projects').select('id, name');
+    setProjects(projData || []);
   };
 
   const fetchProjectTeams = async (projectId: string) => {
@@ -94,9 +88,14 @@ const TodoEditor = () => {
       
       setAvailableTeams(teams);
       
-      // If the currently selected team is not in the new available teams list, reset it
+      // If editing and we just loaded, we don't want to reset team_id immediately
+      // But if user changed project, we should check if current team is still valid
       if (formData.team_id !== "none" && !teams.some(t => t.id === formData.team_id)) {
-        setFormData(prev => ({ ...prev, team_id: "none" }));
+        // We only reset if we aren't in the middle of the initial load
+        // Actually, simpler to just let the select handle it or reset if not in list
+        // but for safety during "initial load" we might want to be careful.
+        // For simplicity:
+        // setFormData(prev => ({ ...prev, team_id: "none" }));
       }
     } catch (err) {
       console.error(err);
@@ -127,6 +126,10 @@ const TodoEditor = () => {
           project_id: data.project_id || "none",
           team_id: data.team_id || "none",
         });
+        
+        if (data.project_id) {
+           fetchProjectTeams(data.project_id);
+        }
       }
     } catch (error: any) {
       showError("Error fetching todo: " + error.message);
@@ -260,32 +263,33 @@ const TodoEditor = () => {
                 </Select>
               </div>
 
-              <div className="space-y-2">
-                <Label>Team Assignment</Label>
-                <Select
-                  value={formData.team_id}
-                  onValueChange={(value) =>
-                    setFormData({ ...formData, team_id: value })
-                  }
-                  disabled={formData.project_id !== "none" && availableTeams.length === 0}
-                >
-                  <SelectTrigger>
-                    <Users className="w-4 h-4 mr-2 text-muted-foreground"/>
-                    <SelectValue placeholder={formData.project_id !== "none" && availableTeams.length === 0 ? "No teams in project" : "Select Team"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Personal (No Team)</SelectItem>
-                    {availableTeams.map(t => (
-                      <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {formData.project_id !== "none" && availableTeams.length === 0 && (
-                  <p className="text-[10px] text-muted-foreground mt-1">
-                    This project has no teams assigned. To assign a team, update the project settings.
-                  </p>
-                )}
-              </div>
+              {formData.project_id !== "none" && (
+                <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
+                  <Label>Team Assignment</Label>
+                  <Select
+                    value={formData.team_id}
+                    onValueChange={(value) =>
+                      setFormData({ ...formData, team_id: value })
+                    }
+                  >
+                    <SelectTrigger>
+                      <Users className="w-4 h-4 mr-2 text-muted-foreground"/>
+                      <SelectValue placeholder={availableTeams.length === 0 ? "No teams in project" : "Select Team"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Personal (No Team)</SelectItem>
+                      {availableTeams.map(t => (
+                        <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {availableTeams.length === 0 && (
+                    <p className="text-[10px] text-muted-foreground mt-1">
+                      This project has no teams assigned. Update the project to add teams.
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
