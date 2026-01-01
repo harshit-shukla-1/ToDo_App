@@ -90,7 +90,6 @@ const AudioPlayer = ({ src }: { src: string }) => {
         {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
       </Button>
       <div className="flex-1 h-1 bg-primary/30 rounded-full overflow-hidden">
-        {/* Simple visualizer placeholder */}
         <div className={cn("h-full bg-primary transition-all duration-200", isPlaying && "animate-pulse")} style={{ width: '100%' }} />
       </div>
       <audio 
@@ -109,7 +108,6 @@ const Messages = () => {
   const navigate = useNavigate();
   const { id: routeId } = useParams();
   
-  // Use URL param as the selected user ID
   const selectedUserId = routeId || null;
 
   const [conversations, setConversations] = useState<Map<string, { profile: Profile, lastMessage: Message }>>(new Map());
@@ -120,32 +118,22 @@ const Messages = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeProfile, setActiveProfile] = useState<Profile | null>(null);
   
-  // Current user profile state
   const [currentUserProfile, setCurrentUserProfile] = useState<Profile | null>(null);
   const [hasUsername, setHasUsername] = useState(true);
 
-  // File Upload State
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [fileToEdit, setFileToEdit] = useState<File | null>(null);
 
-  // Audio Recording State
   const [isRecording, setIsRecording] = useState(false);
   const [recordingDuration, setRecordingDuration] = useState(0);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Editing State
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
-  
-  // Deleting State
   const [deleteMessageId, setDeleteMessageId] = useState<string | null>(null);
-
-  // Blocking State
   const [blockDialogOpen, setBlockDialogOpen] = useState(false);
-
-  // Enlarged Image State
   const [viewImage, setViewImage] = useState<string | null>(null);
   const [viewingViewOnceId, setViewingViewOnceId] = useState<string | null>(null);
 
@@ -184,7 +172,6 @@ const Messages = () => {
           fetchConversations();
           if (selectedUserId && (payload.new as any).sender_id === selectedUserId) {
             if (payload.eventType === 'INSERT') {
-               // Add new message to the start of the array (since we display reverse)
                setMessages(prev => [payload.new as Message, ...prev]);
                markAsRead([payload.new.id]);
             } else if (payload.eventType === 'UPDATE') {
@@ -219,7 +206,6 @@ const Messages = () => {
     }
   }, [selectedUserId, user, conversations]);
 
-  // Clean up recording timer on unmount
   useEffect(() => {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
@@ -283,7 +269,6 @@ const Messages = () => {
       .from('messages')
       .select('*')
       .or(`and(sender_id.eq.${user?.id},receiver_id.eq.${otherId}),and(sender_id.eq.${otherId},receiver_id.eq.${user?.id})`)
-      // Sort DESCENDING so we get newest first, which works with flex-col-reverse
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -321,7 +306,6 @@ const Messages = () => {
     }
 
     if (editingMessageId && !hasImage && !hasAudio) {
-      // Update existing message
       const { error } = await supabase
         .from('messages')
         .update({ 
@@ -344,7 +328,6 @@ const Messages = () => {
       setEditingMessageId(null);
       setNewMessage("");
     } else {
-      // Send new message
       const msg = {
         sender_id: user.id,
         receiver_id: selectedUserId,
@@ -357,17 +340,11 @@ const Messages = () => {
       const { data, error } = await supabase.from('messages').insert([msg]).select().single();
 
       if (error) {
-        if (error.message.includes('Rate limit')) {
-           showError("Rate limit exceeded.");
-        } else if (error.code === '42501') {
-           showError("Failed to send. Blocked or restricted.");
-        } else {
-           showError("Failed to send message: " + error.message);
-        }
+        showError("Failed to send message: " + error.message);
         return;
       }
 
-      setMessages([data, ...messages]); // Add to start of array for reverse view
+      setMessages([data, ...messages]);
       setNewMessage("");
       fetchConversations();
     }
@@ -398,7 +375,6 @@ const Messages = () => {
       if (uploadError) throw uploadError;
 
       const { data } = supabase.storage.from('chat_bucket').getPublicUrl(filePath);
-      
       await handleSend(data.publicUrl, undefined, caption, isViewOnce);
       
     } catch (error: any) {
@@ -407,8 +383,6 @@ const Messages = () => {
       setIsUploading(false);
     }
   };
-
-  // --- Voice Recording Logic ---
 
   const startRecording = async () => {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
@@ -445,14 +419,12 @@ const Messages = () => {
 
   const stopRecording = (shouldSend: boolean) => {
     if (mediaRecorderRef.current && isRecording) {
-      // We need to define onstop before calling stop() to ensure we capture the blob
       mediaRecorderRef.current.onstop = async () => {
         if (shouldSend && user) {
           const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
           await uploadAndSendAudio(audioBlob);
         }
         
-        // Cleanup tracks
         if (mediaRecorderRef.current) {
           mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
         }
@@ -482,8 +454,6 @@ const Messages = () => {
       if (uploadError) throw uploadError;
 
       const { data } = supabase.storage.from('chat_bucket').getPublicUrl(filePath);
-      
-      // Send with empty content
       await handleSend(undefined, data.publicUrl, "", false);
       
     } catch (error: any) {
@@ -499,8 +469,6 @@ const Messages = () => {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // --- End Voice Recording Logic ---
-
   const handleDeleteClick = (id: string) => {
     setDeleteMessageId(id);
   };
@@ -514,12 +482,8 @@ const Messages = () => {
       .eq('id', deleteMessageId)
       .single();
 
-    if (msg?.image_url) {
-      await deleteFile(msg.image_url);
-    }
-    if (msg?.audio_url) {
-      await deleteFile(msg.audio_url);
-    }
+    if (msg?.image_url) await deleteFile(msg.image_url);
+    if (msg?.audio_url) await deleteFile(msg.audio_url);
 
     const { error } = await supabase.from('messages').delete().eq('id', deleteMessageId);
     if (error) {
@@ -581,7 +545,6 @@ const Messages = () => {
       return;
     }
 
-    // Search by username, first_name, or last_name
     const { data } = await supabase
       .from('profiles')
       .select('id, username, first_name, last_name, avatar_url')
@@ -600,17 +563,12 @@ const Messages = () => {
 
   const getInitials = (profile: Profile | null) => {
     if (!profile) return "U";
-    if (profile.first_name && profile.last_name) {
-      return `${profile.first_name[0]}${profile.last_name[0]}`.toUpperCase();
-    }
-    if (profile.first_name) return profile.first_name[0].toUpperCase();
+    if (profile.first_name && profile.last_name) return `${profile.first_name[0]}${profile.last_name[0]}`.toUpperCase();
     if (profile.username) return profile.username[0].toUpperCase();
     return "U";
   };
 
-  const isEdited = (msg: Message) => {
-    return !!msg.updated_at;
-  };
+  const isEdited = (msg: Message) => !!msg.updated_at;
 
   const handleViewOnceClick = (msg: Message) => {
     if (msg.image_url) {
@@ -670,9 +628,7 @@ const Messages = () => {
                       </Avatar>
                       <div className="flex flex-col overflow-hidden">
                         <span className="text-sm font-medium truncate">
-                           {p.first_name && p.last_name 
-                             ? `${p.first_name} ${p.last_name}` 
-                             : p.username}
+                           {p.first_name && p.last_name ? `${p.first_name} ${p.last_name}` : p.username}
                         </span>
                         <span className="text-xs text-muted-foreground truncate">@{p.username}</span>
                       </div>
@@ -683,7 +639,6 @@ const Messages = () => {
             )}
           </div>
           
-          {/* ScrollArea with min-h-0 for proper flex sizing */}
           <div className="flex-1 min-h-0 overflow-y-auto">
             <div className="flex flex-col">
               {loading ? (
@@ -733,7 +688,7 @@ const Messages = () => {
 
         {/* Chat Area */}
         <div className={cn(
-          "flex-1 flex-col overflow-hidden flex bg-background/50 h-full",
+          "flex-1 flex-col overflow-hidden flex bg-background/50 h-full relative",
           !selectedUserId ? "hidden md:flex" : "flex"
         )}>
           {!selectedUserId ? (
@@ -743,7 +698,6 @@ const Messages = () => {
             </div>
           ) : (
             <>
-              {/* Chat Header */}
               <div className="p-3 border-b flex items-center gap-3 bg-card z-10 shadow-sm flex-none justify-between h-[60px]">
                 <div className="flex items-center gap-3">
                   <Button variant="ghost" size="icon" className="md:hidden -ml-2" onClick={() => navigate('/messages')}>
@@ -754,9 +708,7 @@ const Messages = () => {
                     <AvatarFallback>{getInitials(activeProfile)}</AvatarFallback>
                   </Avatar>
                   <div className="flex flex-col">
-                    <span className="font-medium text-sm">
-                      {activeProfile?.first_name || 'User'} 
-                    </span>
+                    <span className="font-medium text-sm">{activeProfile?.first_name || 'User'}</span>
                     {activeProfile?.username && <span className="text-[10px] text-muted-foreground">@{activeProfile.username}</span>}
                   </div>
                 </div>
@@ -773,10 +725,7 @@ const Messages = () => {
                         <Eye className="mr-2 h-4 w-4" /> View Profile
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
-                      <DropdownMenuItem 
-                        onClick={() => setBlockDialogOpen(true)} 
-                        className="text-destructive focus:text-destructive"
-                      >
+                      <DropdownMenuItem onClick={() => setBlockDialogOpen(true)} className="text-destructive focus:text-destructive">
                         <Ban className="mr-2 h-4 w-4" /> Block User
                       </DropdownMenuItem>
                     </DropdownMenuContent>
@@ -784,87 +733,55 @@ const Messages = () => {
                 )}
               </div>
 
-              {/* Messages List - REVERSED DIRECTION */}
               <div className="flex-1 overflow-y-auto bg-slate-50 dark:bg-black/20 p-4 min-h-0 flex flex-col-reverse space-y-reverse space-y-4">
                 {messages.length === 0 ? (
                   <p className="text-center text-xs text-muted-foreground mt-10 mb-auto">No messages yet. Say hello!</p>
                 ) : (
                   messages.map((msg) => {
                     const isMe = msg.sender_id === user?.id;
-                    const isViewOnce = msg.is_view_once;
-                    const isViewed = isViewOnce && !msg.image_url;
+                    const isViewed = msg.is_view_once && !msg.image_url;
 
                     return (
                       <div key={msg.id} className={cn("flex", isMe ? "justify-end" : "justify-start")}>
-                        <div className={cn(
-                          "max-w-[80%] relative group",
-                          isMe ? "items-end" : "items-start"
-                        )}>
+                        <div className={cn("max-w-[80%] relative group", isMe ? "items-end" : "items-start")}>
                           <div className={cn(
                             "px-4 py-2 rounded-2xl text-sm shadow-sm",
                             isMe ? "bg-primary text-primary-foreground rounded-tr-none" : "bg-card text-card-foreground border rounded-tl-none"
                           )}>
                             {msg.image_url ? (
-                              isViewOnce ? (
+                              msg.is_view_once ? (
                                 <div className="mb-2 -mx-2 -mt-1 p-2">
-                                  <button 
-                                    onClick={() => handleViewOnceClick(msg)}
-                                    className="flex items-center gap-2 px-3 py-2 bg-background/20 rounded-lg hover:bg-background/30 transition-colors w-full"
-                                  >
-                                    <div className="h-8 w-8 rounded-full border-2 border-current flex items-center justify-center">
-                                      <span className="font-bold text-xs">1</span>
-                                    </div>
+                                  <button onClick={() => handleViewOnceClick(msg)} className="flex items-center gap-2 px-3 py-2 bg-background/20 rounded-lg hover:bg-background/30 transition-colors w-full">
+                                    <div className="h-8 w-8 rounded-full border-2 border-current flex items-center justify-center"><span className="font-bold text-xs">1</span></div>
                                     <span className="font-medium text-sm">Photo</span>
                                   </button>
                                 </div>
                               ) : (
                                 <div className="mb-2 -mx-2 -mt-1">
-                                  <img 
-                                    src={msg.image_url} 
-                                    alt="Shared" 
-                                    className="rounded-lg max-h-[300px] object-cover cursor-pointer hover:opacity-95"
-                                    onClick={() => setViewImage(msg.image_url || null)}
-                                  />
+                                  <img src={msg.image_url} alt="Shared" className="rounded-lg max-h-[300px] object-cover cursor-pointer hover:opacity-95" onClick={() => setViewImage(msg.image_url || null)}/>
                                 </div>
                               )
                             ) : isViewed ? (
-                               <div className="mb-1 flex items-center gap-2 text-muted-foreground/80 italic">
-                                 <Timer className="h-4 w-4" /> Photo viewed
-                               </div>
+                               <div className="mb-1 flex items-center gap-2 text-muted-foreground/80 italic"><Timer className="h-4 w-4" /> Photo viewed</div>
                             ) : msg.audio_url ? (
-                               <div className="mb-1 -mx-2 mt-1 px-2">
-                                 <AudioPlayer src={msg.audio_url} />
-                               </div>
+                               <div className="mb-1 -mx-2 mt-1 px-2"><AudioPlayer src={msg.audio_url} /></div>
                             ) : null}
                             
                             {msg.content && <p>{msg.content}</p>}
                             
                             <div className="flex items-center justify-end gap-1 mt-1">
-                               {isEdited(msg) && (
-                                 <span className="text-[9px] opacity-70 italic mr-1 flex items-center">
-                                   <Pencil className="h-[8px] w-[8px] mr-0.5 inline" /> edited
-                                 </span>
-                               )}
-                               <p className={cn("text-[9px] opacity-70", isMe ? "text-primary-foreground" : "text-muted-foreground")}>
-                                {format(new Date(msg.created_at), 'h:mm a')}
-                              </p>
-                              {/* Menu Trigger */}
+                               {isEdited(msg) && <span className="text-[9px] opacity-70 italic mr-1 flex items-center"><Pencil className="h-[8px] w-[8px] mr-0.5 inline" /> edited</span>}
+                               <p className={cn("text-[9px] opacity-70", isMe ? "text-primary-foreground" : "text-muted-foreground")}>{format(new Date(msg.created_at), 'h:mm a')}</p>
                               {isMe && (
                                 <DropdownMenu>
                                   <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="h-4 w-4 p-0 opacity-0 group-hover:opacity-100 transition-opacity ml-1">
-                                      <MoreVertical className="h-3 w-3" />
-                                    </Button>
+                                    <Button variant="ghost" size="icon" className="h-4 w-4 p-0 opacity-0 group-hover:opacity-100 transition-opacity ml-1"><MoreVertical className="h-3 w-3" /></Button>
                                   </DropdownMenuTrigger>
                                   <DropdownMenuContent align="end">
-                                    {msg.content && !isViewOnce && !msg.audio_url && (
-                                      <DropdownMenuItem onClick={() => startEditing(msg)}>
-                                        <Pencil className="mr-2 h-3 w-3" /> Edit
-                                      </DropdownMenuItem>
+                                    {msg.content && !msg.is_view_once && !msg.audio_url && (
+                                      <DropdownMenuItem onClick={() => startEditing(msg)}><Pencil className="mr-2 h-3 w-3" /> Edit</DropdownMenuItem>
                                     )}
-                                    <DropdownMenuItem onClick={() => handleDeleteClick(msg.id)} className="text-destructive">
-                                      <Trash2 className="mr-2 h-3 w-3" /> Delete
-                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handleDeleteClick(msg.id)} className="text-destructive"><Trash2 className="mr-2 h-3 w-3" /> Delete</DropdownMenuItem>
                                   </DropdownMenuContent>
                                 </DropdownMenu>
                               )}
@@ -877,17 +794,14 @@ const Messages = () => {
                 )}
               </div>
 
-              {/* Input Area */}
-              <div className="p-3 bg-card border-t flex flex-col gap-2 flex-none">
+              <div className="p-3 pb-safe bg-card border-t flex flex-col gap-2 flex-none z-20">
                  {!hasUsername ? (
                     <Alert variant="destructive" className="py-2">
                        <AlertCircle className="h-4 w-4" />
                        <AlertTitle className="text-sm font-medium">Username Required</AlertTitle>
                        <AlertDescription className="text-xs flex items-center justify-between">
                          <span>You must set a username to chat.</span>
-                         <Link to="/profile">
-                            <Button size="sm" variant="secondary" className="h-6 text-xs">Set Username</Button>
-                         </Link>
+                         <Link to="/profile"><Button size="sm" variant="secondary" className="h-6 text-xs">Set Username</Button></Link>
                        </AlertDescription>
                     </Alert>
                  ) : (
@@ -895,9 +809,7 @@ const Messages = () => {
                     {editingMessageId && (
                       <div className="flex items-center justify-between text-xs text-muted-foreground bg-muted/30 p-2 rounded">
                         <span>Editing message...</span>
-                        <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={cancelEditing}>
-                          <X className="h-3 w-3" />
-                        </Button>
+                        <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={cancelEditing}><X className="h-3 w-3" /></Button>
                       </div>
                     )}
                     
@@ -906,29 +818,14 @@ const Messages = () => {
                          <div className="flex-1 flex items-center gap-2 bg-red-500/10 text-red-500 rounded-full px-4 h-10">
                            <Mic className="h-4 w-4 animate-pulse" />
                            <span className="text-sm font-medium">{formatDuration(recordingDuration)}</span>
-                           <span className="text-xs opacity-70 ml-2">Recording...</span>
                          </div>
-                         <Button variant="ghost" size="icon" onClick={() => stopRecording(false)} className="rounded-full text-destructive hover:bg-destructive/10">
-                           <X className="h-5 w-5" />
-                         </Button>
-                         <Button size="icon" onClick={() => stopRecording(true)} className="rounded-full bg-red-500 hover:bg-red-600 text-white">
-                           <Send className="h-4 w-4" />
-                         </Button>
+                         <Button variant="ghost" size="icon" onClick={() => stopRecording(false)} className="rounded-full text-destructive"><X className="h-5 w-5" /></Button>
+                         <Button size="icon" onClick={() => stopRecording(true)} className="rounded-full bg-red-500 hover:bg-red-600 text-white"><Send className="h-4 w-4" /></Button>
                       </div>
                     ) : (
                       <div className="flex gap-2 items-center">
-                        <input 
-                          type="file" 
-                          accept="image/png, image/jpeg, image/webp" 
-                          className="hidden" 
-                          ref={fileInputRef} 
-                          onChange={handleFileSelect} 
-                        />
-                        
-                        <Button variant="ghost" size="icon" onClick={() => fileInputRef.current?.click()} disabled={isUploading} className="shrink-0 text-muted-foreground">
-                          <ImageIcon className="h-5 w-5" />
-                        </Button>
-
+                        <input type="file" accept="image/png, image/jpeg, image/webp" className="hidden" ref={fileInputRef} onChange={handleFileSelect} />
+                        <Button variant="ghost" size="icon" onClick={() => fileInputRef.current?.click()} disabled={isUploading} className="shrink-0 text-muted-foreground"><ImageIcon className="h-5 w-5" /></Button>
                         <Input 
                           value={newMessage}
                           onChange={(e) => setNewMessage(e.target.value)}
@@ -937,26 +834,12 @@ const Messages = () => {
                           className="flex-1 bg-muted/50 rounded-full px-4"
                           disabled={isUploading}
                         />
-                        
                         {newMessage.trim() ? (
-                           <Button 
-                            size="icon" 
-                            onClick={() => handleSend()} 
-                            disabled={isUploading} 
-                            className="rounded-full h-10 w-10 shrink-0"
-                          >
+                           <Button size="icon" onClick={() => handleSend()} disabled={isUploading} className="rounded-full h-10 w-10 shrink-0">
                              {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                           </Button>
                         ) : (
-                          <Button 
-                            size="icon" 
-                            onClick={startRecording}
-                            disabled={isUploading} 
-                            variant="secondary"
-                            className="rounded-full h-10 w-10 shrink-0"
-                          >
-                             <Mic className="h-4 w-4" />
-                          </Button>
+                          <Button size="icon" onClick={startRecording} disabled={isUploading} variant="secondary" className="rounded-full h-10 w-10 shrink-0"><Mic className="h-4 w-4" /></Button>
                         )}
                       </div>
                     )}
@@ -968,7 +851,6 @@ const Messages = () => {
         </div>
       </div>
 
-       {/* Image Editor Overlay */}
       {fileToEdit && (
         <ImageEditor
           file={fileToEdit}
@@ -981,41 +863,13 @@ const Messages = () => {
         />
       )}
       
-      {/* Modals/Dialogs */}
-      <ConfirmDialog
-        open={!!deleteMessageId}
-        onOpenChange={(open) => !open && setDeleteMessageId(null)}
-        title="Delete Message"
-        description="Are you sure you want to delete this message? This action cannot be undone."
-        onConfirm={confirmDeleteMessage}
-        confirmText="Delete"
-        variant="destructive"
-      />
-
-      <ConfirmDialog
-        open={blockDialogOpen}
-        onOpenChange={setBlockDialogOpen}
-        title={`Block @${activeProfile?.username}?`}
-        description="They will no longer be able to message you or see your profile. This action will also remove any existing connection."
-        onConfirm={confirmBlockUser}
-        confirmText="Block User"
-        variant="destructive"
-      />
-
-      {/* Image Viewer */}
-      <Dialog open={!!viewImage} onOpenChange={(open) => {
-         if (!open) handleCloseImageViewer();
-      }}>
+      <ConfirmDialog open={!!deleteMessageId} onOpenChange={(open) => !open && setDeleteMessageId(null)} title="Delete Message" description="Are you sure you want to delete this message?" onConfirm={confirmDeleteMessage} confirmText="Delete" variant="destructive" />
+      <ConfirmDialog open={blockDialogOpen} onOpenChange={setBlockDialogOpen} title={`Block @${activeProfile?.username}?`} description="They will no longer be able to message you or see your profile." onConfirm={confirmBlockUser} confirmText="Block User" variant="destructive" />
+      <Dialog open={!!viewImage} onOpenChange={(open) => !open && handleCloseImageViewer()}>
         <DialogContent className="max-w-4xl p-0 overflow-hidden bg-transparent border-none shadow-none flex items-center justify-center">
             <DialogTitle className="sr-only">View Image</DialogTitle>
             <DialogDescription className="sr-only">Full size view of the shared image</DialogDescription>
-            {viewImage && (
-              <img 
-                src={viewImage} 
-                alt="Full size" 
-                className="max-w-full max-h-[90vh] object-contain rounded-md"
-              />
-            )}
+            {viewImage && <img src={viewImage} alt="Full size" className="max-w-full max-h-[90vh] object-contain rounded-md" />}
         </DialogContent>
       </Dialog>
     </div>

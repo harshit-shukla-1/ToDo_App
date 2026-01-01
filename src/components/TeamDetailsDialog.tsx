@@ -111,25 +111,36 @@ const TeamDetailsDialog: React.FC<TeamDetailsDialogProps> = ({ team, open, onOpe
     if (!team || !currentUserId) return;
     setLoading(true);
     try {
-      // 1. Fetch Team Todos & Projects
-      const [todosRes, projectsRes] = await Promise.all([
-        supabase.from('todos').select('*').eq('team_id', team.id).order('created_at', { ascending: false }),
-        supabase.from('projects').select('*').eq('team_id', team.id).order('created_at', { ascending: false })
-      ]);
+      // 1. Fetch Team Todos
+      const { data: todosData } = await supabase
+        .from('todos')
+        .select('*')
+        .eq('team_id', team.id)
+        .order('created_at', { ascending: false });
       
-      setTodos(todosRes.data || []);
-      setProjects(projectsRes.data || []);
+      setTodos(todosData || []);
 
-      // 2. Fetch Personal items (available to be assigned)
+      // 2. Fetch Team Projects via join table
+      const { data: teamProjectsData } = await supabase
+        .from('project_teams')
+        .select('project_id, projects(*)')
+        .eq('team_id', team.id);
+      
+      setProjects(teamProjectsData?.map(tp => tp.projects) as Project[] || []);
+
+      // 3. Fetch Personal items (available to be assigned)
       const [pTodosRes, pProjectsRes] = await Promise.all([
         supabase.from('todos').select('*').is('team_id', null).eq('user_id', currentUserId).eq('archived', false),
-        supabase.from('projects').select('*').is('team_id', null).eq('user_id', currentUserId)
+        supabase.from('projects').select('*').eq('user_id', currentUserId)
       ]);
       
       setPersonalTodos(pTodosRes.data || []);
-      setPersonalProjects(pProjectsRes.data || []);
+      
+      // Filter personal projects that aren't already assigned to THIS team
+      const assignedProjectIds = new Set(teamProjectsData?.map(tp => tp.project_id) || []);
+      setPersonalProjects((pProjectsRes.data || []).filter(p => !assignedProjectIds.has(p.id)));
 
-      // 3. Fetch Team Members
+      // 4. Fetch Team Members
       const { data: teamMembersData } = await supabase
         .from('team_members')
         .select('user_id, role')
@@ -152,7 +163,7 @@ const TeamDetailsDialog: React.FC<TeamDetailsDialogProps> = ({ team, open, onOpe
         setMembers([]);
       }
 
-      // 4. Fetch Connections
+      // 5. Fetch Connections
       const { data: connData, error: connError } = await supabase
         .from('connections')
         .select(`
@@ -167,11 +178,9 @@ const TeamDetailsDialog: React.FC<TeamDetailsDialogProps> = ({ team, open, onOpe
       if (connError) throw connError;
 
       const profiles = connData?.map((c: any) => {
-        // If I am the requester, return the recipient. Otherwise return the requester.
         return c.requester_id === currentUserId ? c.recipient : c.requester;
       }).filter(p => p && p.id !== currentUserId) || [];
 
-      // Filter out people who are already in the team
       const currentMemberIds = new Set(memberIds);
       const filteredConnections = profiles.filter(p => p && !currentMemberIds.has(p.id));
       
@@ -212,7 +221,10 @@ const TeamDetailsDialog: React.FC<TeamDetailsDialogProps> = ({ team, open, onOpe
   const assignProjectToTeam = async (projectId: string) => {
     if (!team) return;
     try {
-      const { error } = await supabase.from('projects').update({ team_id: team.id }).eq('id', projectId);
+      const { error } = await supabase.from('project_teams').insert({ 
+        project_id: projectId, 
+        team_id: team.id 
+      });
       if (error) throw error;
       fetchData();
       showSuccess("Project assigned to team");
@@ -223,8 +235,13 @@ const TeamDetailsDialog: React.FC<TeamDetailsDialogProps> = ({ team, open, onOpe
 
   const removeProjectFromTeam = async (projectId: string, e: React.MouseEvent) => {
     e.stopPropagation();
+    if (!team) return;
     try {
-      const { error } = await supabase.from('projects').update({ team_id: null }).eq('id', projectId);
+      const { error } = await supabase
+        .from('project_teams')
+        .delete()
+        .match({ project_id: projectId, team_id: team.id });
+      
       if (error) throw error;
       fetchData();
       showSuccess("Project removed from team");
@@ -436,7 +453,7 @@ const TeamDetailsDialog: React.FC<TeamDetailsDialogProps> = ({ team, open, onOpe
                   <div className="border rounded-lg p-2 shrink-0">
                     <h4 className="text-sm font-medium mb-2 px-2">Assign from Personal</h4>
                     <div className="space-y-1">
-                      {personalProjects.length === 0 ? <p className="text-center py-4 text-xs text-muted-foreground">No unassigned personal projects.</p> : (
+                      {personalProjects.length === 0 ? <p className="text-center py-4 text-xs text-muted-foreground">No available personal projects.</p> : (
                         personalProjects.map(p => (
                             <div 
                               key={p.id} 
