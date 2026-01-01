@@ -540,38 +540,45 @@ const Messages = () => {
 
   const searchUsers = async (query: string) => {
     setSearchQuery(query);
-    if (query.length < 3) {
+    if (!query.trim() || query.length < 2) {
       setSearchResults([]);
       return;
     }
 
     if (!user) return;
 
-    // 1. Fetch connection IDs first
-    const { data: connData } = await supabase
-      .from('connections')
-      .select('requester_id, recipient_id')
-      .eq('status', 'accepted')
-      .or(`requester_id.eq.${user.id},recipient_id.eq.${user.id}`);
+    try {
+      // 1. Fetch connection IDs first
+      const { data: connData } = await supabase
+        .from('connections')
+        .select(`
+          requester_id,
+          recipient_id,
+          requester:profiles!requester_id(id, username, first_name, last_name, avatar_url),
+          recipient:profiles!recipient_id(id, username, first_name, last_name, avatar_url)
+        `)
+        .eq('status', 'accepted')
+        .or(`requester_id.eq.${user.id},recipient_id.eq.${user.id}`);
 
-    if (!connData || connData.length === 0) {
-      setSearchResults([]);
-      return;
+      if (!connData || connData.length === 0) {
+        setSearchResults([]);
+        return;
+      }
+
+      // Filter locally for better performance and to handle the OR condition across display names/usernames
+      const queryLower = query.toLowerCase();
+      const results = connData.map(c => 
+        c.requester_id === user.id ? c.recipient : c.requester
+      ).filter((p: any) => 
+        p.username?.toLowerCase().includes(queryLower) ||
+        p.first_name?.toLowerCase().includes(queryLower) ||
+        p.last_name?.toLowerCase().includes(queryLower)
+      );
+
+      setSearchResults(results as Profile[]);
+    } catch (err) {
+      console.error("Search error:", err);
     }
-
-    const connectionIds = connData.map(c => 
-      c.requester_id === user.id ? c.recipient_id : c.requester_id
-    );
-
-    // 2. Fetch connection profiles matching the search query
-    const { data: profiles } = await supabase
-      .from('profiles')
-      .select('id, username, first_name, last_name, avatar_url')
-      .in('id', connectionIds)
-      .or(`username.ilike.%${query}%,first_name.ilike.%${query}%,last_name.ilike.%${query}%`)
-      .limit(10);
-
-    setSearchResults(profiles || []);
   };
 
   const selectConversation = (id: string) => {
