@@ -23,7 +23,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/integrations/supabase/auth";
 import { format } from "date-fns";
-import { Calendar as CalendarIcon, Save, ArrowLeft, Loader2, Bell, AlertCircle, FolderKanban } from "lucide-react";
+import { Calendar as CalendarIcon, Save, ArrowLeft, Loader2, Bell, AlertCircle, FolderKanban, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { showSuccess, showError } from "@/utils/toast";
 
@@ -35,6 +35,8 @@ const TodoEditor = () => {
 
   const [loading, setLoading] = useState(false);
   const [projects, setProjects] = useState<any[]>([]);
+  const [teams, setTeams] = useState<any[]>([]);
+  
   const [formData, setFormData] = useState({
     text: "",
     category: "Personal",
@@ -43,20 +45,25 @@ const TodoEditor = () => {
     completed: false,
     reminder_minutes_before: "0",
     project_id: "none",
+    team_id: "none",
   });
 
   useEffect(() => {
     if (user) {
-      fetchProjects();
+      fetchContextData();
       if (isEditing) {
         fetchTodo();
       }
     }
   }, [id, user]);
 
-  const fetchProjects = async () => {
-    const { data } = await supabase.from('projects').select('id, name');
-    setProjects(data || []);
+  const fetchContextData = async () => {
+    const [projRes, teamsRes] = await Promise.all([
+      supabase.from('projects').select('id, name'),
+      supabase.from('teams').select('id, name')
+    ]);
+    setProjects(projRes.data || []);
+    setTeams(teamsRes.data || []);
   };
 
   const fetchTodo = async () => {
@@ -81,6 +88,7 @@ const TodoEditor = () => {
             ? data.reminder_minutes_before.toString() 
             : "0",
           project_id: data.project_id || "none",
+          team_id: data.team_id || "none",
         });
       }
     } catch (error: any) {
@@ -112,6 +120,7 @@ const TodoEditor = () => {
         due_date: formData.due_date ? formData.due_date.toISOString() : null,
         reminder_minutes_before: reminderValue,
         project_id: formData.project_id === "none" ? null : formData.project_id,
+        team_id: formData.team_id === "none" ? null : formData.team_id,
       };
 
       if (isEditing) {
@@ -194,6 +203,27 @@ const TodoEditor = () => {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
+                <Label>Team Assignment</Label>
+                <Select
+                  value={formData.team_id}
+                  onValueChange={(value) =>
+                    setFormData({ ...formData, team_id: value })
+                  }
+                >
+                  <SelectTrigger>
+                    <Users className="w-4 h-4 mr-2 text-muted-foreground"/>
+                    <SelectValue placeholder="No Team" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No Team (Personal)</SelectItem>
+                    {teams.map(t => (
+                      <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
                 <Label>Project</Label>
                 <Select
                   value={formData.project_id}
@@ -213,7 +243,9 @@ const TodoEditor = () => {
                   </SelectContent>
                 </Select>
               </div>
+            </div>
 
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
                 <Label>Category</Label>
                 <Select
@@ -231,9 +263,7 @@ const TodoEditor = () => {
                   </SelectContent>
                 </Select>
               </div>
-            </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                <div className="space-y-2">
                 <Label>Priority</Label>
                 <Select
@@ -251,29 +281,6 @@ const TodoEditor = () => {
                     <SelectItem value="normal">Normal</SelectItem>
                     <SelectItem value="high">High</SelectItem>
                     <SelectItem value="extreme">Extreme</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                 <Label>Reminder</Label>
-                 <Select
-                  value={formData.reminder_minutes_before}
-                  onValueChange={(value) =>
-                    setFormData({ ...formData, reminder_minutes_before: value })
-                  }
-                >
-                  <SelectTrigger>
-                    <Bell className="w-4 h-4 mr-2 text-muted-foreground"/>
-                    <SelectValue placeholder="No reminder" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="0">No reminder</SelectItem>
-                    <SelectItem value="5">5 minutes before</SelectItem>
-                    <SelectItem value="15">15 minutes before</SelectItem>
-                    <SelectItem value="30">30 minutes before</SelectItem>
-                    <SelectItem value="60">1 hour before</SelectItem>
-                    <SelectItem value="1440">1 day before</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

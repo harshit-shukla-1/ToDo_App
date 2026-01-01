@@ -58,6 +58,7 @@ const TeamDetailsDialog: React.FC<TeamDetailsDialogProps> = ({ team, open, onOpe
   const [activeTab, setActiveTab] = useState("todos");
   const [members, setMembers] = useState<Member[]>([]);
   const [todos, setTodos] = useState<Todo[]>([]);
+  const [personalTodos, setPersonalTodos] = useState<Todo[]>([]);
   const [connections, setConnections] = useState<Member[]>([]);
   const [loading, setLoading] = useState(false);
   const [updatingTeam, setUpdatingTeam] = useState(false);
@@ -85,7 +86,7 @@ const TeamDetailsDialog: React.FC<TeamDetailsDialogProps> = ({ team, open, onOpe
     if (!team) return;
     setLoading(true);
     try {
-      // 1. Fetch Todos
+      // 1. Fetch Team Todos
       const { data: todosData } = await supabase
         .from('todos')
         .select('*')
@@ -94,7 +95,17 @@ const TeamDetailsDialog: React.FC<TeamDetailsDialogProps> = ({ team, open, onOpe
       
       setTodos(todosData || []);
 
-      // 2. Fetch Team Members (IDs and Roles)
+      // 2. Fetch Personal Todos (available to be assigned)
+      const { data: pTodos } = await supabase
+        .from('todos')
+        .select('*')
+        .is('team_id', null)
+        .eq('user_id', currentUserId)
+        .eq('archived', false);
+      
+      setPersonalTodos(pTodos || []);
+
+      // 3. Fetch Team Members
       const { data: teamMembersData } = await supabase
         .from('team_members')
         .select('user_id, role')
@@ -103,24 +114,21 @@ const TeamDetailsDialog: React.FC<TeamDetailsDialogProps> = ({ team, open, onOpe
       const memberIds = teamMembersData?.map(m => m.user_id) || [];
       const roleMap = new Map(teamMembersData?.map(m => [m.user_id, m.role]));
 
-      // 3. Fetch Profiles for those members
-      let formattedMembers: Member[] = [];
-      
       if (memberIds.length > 0) {
         const { data: profilesData } = await supabase
           .from('profiles')
           .select('*')
           .in('id', memberIds);
 
-        formattedMembers = (profilesData || []).map((p: any) => ({
+        setMembers((profilesData || []).map((p: any) => ({
           ...p,
           role: roleMap.get(p.id) || 'member'
-        }));
+        })));
+      } else {
+        setMembers([]);
       }
-      
-      setMembers(formattedMembers);
 
-      // 4. Fetch Connections (for adding new members)
+      // 4. Fetch Connections
       const { data: connData } = await supabase
         .from('connections')
         .select(`
@@ -134,7 +142,6 @@ const TeamDetailsDialog: React.FC<TeamDetailsDialogProps> = ({ team, open, onOpe
         return c.requester_id === currentUserId ? c.recipient : c.requester;
       }).filter(p => p && p.id !== currentUserId) || [];
 
-      // Filter out existing members
       const currentMemberIds = new Set(memberIds);
       setConnections(profiles.filter(p => !currentMemberIds.has(p.id)));
 
@@ -146,51 +153,61 @@ const TeamDetailsDialog: React.FC<TeamDetailsDialogProps> = ({ team, open, onOpe
     }
   };
 
+  const assignTodoToTeam = async (todoId: string) => {
+    if (!team) return;
+    try {
+      const { error } = await supabase
+        .from('todos')
+        .update({ team_id: team.id })
+        .eq('id', todoId);
+
+      if (error) throw error;
+      
+      const todo = personalTodos.find(t => t.id === todoId);
+      if (todo) {
+        setTodos([todo, ...todos]);
+        setPersonalTodos(personalTodos.filter(t => t.id !== todoId));
+      }
+      showSuccess("Todo assigned to team");
+    } catch (err) {
+      showError("Assignment failed");
+    }
+  };
+
+  const removeTodoFromTeam = async (todoId: string) => {
+    try {
+      const { error } = await supabase
+        .from('todos')
+        .update({ team_id: null })
+        .eq('id', todoId);
+
+      if (error) throw error;
+      
+      const todo = todos.find(t => t.id === todoId);
+      if (todo) {
+        setPersonalTodos([todo, ...personalTodos]);
+        setTodos(todos.filter(t => t.id !== todoId));
+      }
+      showSuccess("Todo removed from team");
+    } catch (err) {
+      showError("Removal failed");
+    }
+  };
+
   const updateTeamDetails = async () => {
     if (!team) return;
     setUpdatingTeam(true);
     try {
       const { error } = await supabase
         .from('teams')
-        .update({ 
-          name, 
-          description, 
-          avatar_url: avatarUrl 
-        })
+        .update({ name, description, avatar_url: avatarUrl })
         .eq('id', team.id);
 
       if (error) throw error;
-      showSuccess("Team details updated!");
+      showSuccess("Team updated!");
       setEditMode(false);
     } catch (err: any) {
-      showError("Failed to update: " + err.message);
-    } finally {
-      setUpdatingTeam(false);
-    }
-  };
-
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    try {
-      if (!event.target.files || event.target.files.length === 0 || !team) return;
-      
-      const file = event.target.files[0];
-      const fileExt = file.name.split('.').pop();
-      const fileName = `team_${team.id}_${Date.now()}.${fileExt}`;
-      const filePath = `teams/${fileName}`;
-
-      setUpdatingTeam(true);
-      
-      const { error: uploadError } = await supabase.storage
-        .from('avatar_bucket')
-        .upload(filePath, file);
-
-      if (uploadError) throw uploadError;
-
-      const { data } = supabase.storage.from('avatar_bucket').getPublicUrl(filePath);
-      setAvatarUrl(data.publicUrl);
-      showSuccess("Avatar uploaded. Click Save to apply.");
-    } catch (error: any) {
-      showError("Upload failed: " + error.message);
+      showError(err.message);
     } finally {
       setUpdatingTeam(false);
     }
@@ -199,29 +216,17 @@ const TeamDetailsDialog: React.FC<TeamDetailsDialogProps> = ({ team, open, onOpe
   const addMember = async (userId: string) => {
     if (!team) return;
     setAddingMemberId(userId);
-
-    const userToAdd = connections.find(c => c.id === userId);
-    if (userToAdd) {
-       setMembers(prev => [...prev, { ...userToAdd, role: 'member' }]);
-       setConnections(prev => prev.filter(c => c.id !== userId));
-    }
-
     try {
       const { error } = await supabase.from('team_members').insert({
         team_id: team.id,
         user_id: userId,
         role: 'member'
       });
-
       if (error) throw error;
-      showSuccess("Member added successfully");
-    } catch (err: any) {
-      console.error(err);
+      fetchData();
+      showSuccess("Member added");
+    } catch (err) {
       showError("Failed to add member");
-      if (userToAdd) {
-        setMembers(prev => prev.filter(m => m.id !== userId));
-        setConnections(prev => [...prev, userToAdd]);
-      }
     } finally {
       setAddingMemberId(null);
     }
@@ -229,34 +234,16 @@ const TeamDetailsDialog: React.FC<TeamDetailsDialogProps> = ({ team, open, onOpe
 
   const removeMember = async (userId: string) => {
     if (!team) return;
-    
-    const removedMember = members.find(m => m.id === userId);
-    setMembers(prev => prev.filter(m => m.id !== userId));
-    if (removedMember) {
-       setConnections(prev => [...prev, removedMember]);
-    }
-
     try {
       const { error } = await supabase.from('team_members').delete()
         .eq('team_id', team.id)
         .eq('user_id', userId);
-
       if (error) throw error;
+      fetchData();
       showSuccess("Member removed");
-    } catch (err: any) {
+    } catch (err) {
       showError("Failed to remove member");
-      if (removedMember) {
-         setMembers(prev => [...prev, removedMember]);
-         setConnections(prev => prev.filter(c => c.id !== userId));
-      }
     }
-  };
-
-  const getInitials = (p: any) => {
-    if (!p) return "U";
-    if (p.first_name && p.last_name) return `${p.first_name[0]}${p.last_name[0]}`.toUpperCase();
-    if (p.username) return p.username[0].toUpperCase();
-    return "U";
   };
 
   return (
@@ -290,17 +277,8 @@ const TeamDetailsDialog: React.FC<TeamDetailsDialogProps> = ({ team, open, onOpe
                   <AvatarImage src={avatarUrl} />
                   <AvatarFallback className="text-2xl"><Users className="h-10 w-10" /></AvatarFallback>
                 </Avatar>
-                <div className="flex gap-2">
-                  <Label htmlFor="team-avatar" className="cursor-pointer">
-                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-md border text-sm hover:bg-muted">
-                      <Upload className="h-4 w-4" /> Upload Custom
-                    </div>
-                    <input id="team-avatar" type="file" accept="image/*" className="hidden" onChange={handleFileUpload} disabled={updatingTeam} />
-                  </Label>
-                </div>
-                
                 <div className="w-full space-y-2">
-                  <Label className="text-xs text-muted-foreground block text-center">Or choose a team avatar</Label>
+                  <Label className="text-xs text-muted-foreground block text-center">Choose a team avatar</Label>
                   <ScrollArea className="h-32 w-full border rounded-md p-2">
                     <div className="grid grid-cols-6 gap-2">
                       {PREDEFINED_AVATARS.map((url, i) => (
@@ -342,115 +320,79 @@ const TeamDetailsDialog: React.FC<TeamDetailsDialogProps> = ({ team, open, onOpe
             </TabsList>
 
             <div className="flex-1 min-h-0 mt-4 overflow-hidden relative">
-              {loading ? (
-                <div className="absolute inset-0 flex items-center justify-center bg-background/50 z-10">
-                  <Loader2 className="animate-spin h-8 w-8 text-primary" />
-                </div>
-              ) : null}
+              {loading && <div className="absolute inset-0 flex items-center justify-center bg-background/50 z-10"><Loader2 className="animate-spin h-8 w-8 text-primary" /></div>}
 
-              <TabsContent value="todos" className="h-[400px] m-0">
-                <ScrollArea className="h-full pr-4">
-                  {todos.length === 0 ? (
-                    <div className="text-center py-12 text-muted-foreground border rounded-lg border-dashed">
-                      <p>No todos assigned to this team.</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      {todos.map(todo => (
-                        <div key={todo.id} className="flex items-start gap-3 p-3 border rounded-lg hover:bg-muted/50">
-                          {todo.completed ? (
-                            <CheckCircle2 className="h-5 w-5 text-green-500 mt-0.5 shrink-0" />
-                          ) : (
-                            <Circle className="h-5 w-5 text-orange-500 mt-0.5 shrink-0" />
-                          )}
-                          <div className="flex-1 min-w-0">
-                            <p className={`font-medium text-sm ${todo.completed ? 'line-through text-muted-foreground' : ''}`}>
-                              {todo.text}
-                            </p>
-                            <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
-                              <Badge variant="secondary" className="text-[10px] h-5">{todo.category}</Badge>
-                              {todo.due_date && (
-                                <span className="flex items-center gap-1">
-                                  <Calendar className="h-3 w-3" />
-                                  {format(new Date(todo.due_date), 'MMM d')}
-                                </span>
-                              )}
+              <TabsContent value="todos" className="h-[400px] m-0 flex flex-col gap-4">
+                <div className="flex-1 border rounded-lg p-2 min-h-0">
+                   <h4 className="text-sm font-medium mb-2 px-2">Team Tasks</h4>
+                   <ScrollArea className="h-[180px]">
+                      {todos.length === 0 ? <p className="text-center py-8 text-xs text-muted-foreground">No tasks in this team.</p> : (
+                        <div className="space-y-1">
+                          {todos.map(t => (
+                            <div key={t.id} className="flex items-center justify-between p-2 rounded hover:bg-muted/30">
+                              <span className="text-sm truncate">{t.text}</span>
+                              <Button size="icon" variant="ghost" className="h-6 w-6 text-destructive" onClick={() => removeTodoFromTeam(t.id)}>
+                                <X className="h-4 w-4" />
+                              </Button>
                             </div>
-                          </div>
+                          ))}
                         </div>
-                      ))}
-                    </div>
-                  )}
-                </ScrollArea>
+                      )}
+                   </ScrollArea>
+                </div>
+
+                <div className="flex-1 border rounded-lg p-2 min-h-0">
+                  <h4 className="text-sm font-medium mb-2 px-2">Assign from Personal</h4>
+                  <ScrollArea className="h-[150px]">
+                    {personalTodos.length === 0 ? <p className="text-center py-8 text-xs text-muted-foreground">No unassigned personal tasks.</p> : (
+                       <div className="space-y-1">
+                         {personalTodos.map(t => (
+                            <div key={t.id} className="flex items-center justify-between p-2 rounded border hover:bg-muted/30">
+                               <span className="text-sm truncate">{t.text}</span>
+                               <Button size="icon" variant="ghost" onClick={() => assignTodoToTeam(t.id)}>
+                                 <Plus className="h-4 w-4" />
+                               </Button>
+                            </div>
+                         ))}
+                       </div>
+                    )}
+                  </ScrollArea>
+                </div>
               </TabsContent>
 
               <TabsContent value="members" className="h-[400px] m-0 flex flex-col gap-4">
-                <div className="flex-1 min-h-0 flex flex-col gap-4">
-                  {/* Current Members List */}
-                  <div className="flex-1 min-h-0 border rounded-lg p-2">
-                     <h4 className="text-sm font-medium mb-2 px-2">Current Members</h4>
-                     <ScrollArea className="h-[150px] sm:h-[180px]">
-                        <div className="space-y-1 p-1">
-                          {members.map(m => (
-                            <div key={m.id} className="flex items-center justify-between p-2 rounded bg-muted/30">
-                              <div className="flex items-center gap-2">
-                                <Avatar className="h-6 w-6">
-                                  <AvatarImage src={m.avatar_url} />
-                                  <AvatarFallback>{getInitials(m)}</AvatarFallback>
-                                </Avatar>
-                                <div className="flex flex-col">
-                                  <span className="text-sm font-medium">{m.first_name || m.username}</span>
-                                  <span className="text-[10px] text-muted-foreground">@{m.username}</span>
-                                </div>
-                                {m.role === 'owner' && <Crown className="h-3 w-3 text-yellow-500 ml-1" />}
-                              </div>
-                              {isOwner && m.role !== 'owner' && (
-                                <Button size="icon" variant="ghost" className="h-6 w-6 text-destructive" onClick={() => removeMember(m.id)}>
-                                  <Trash2 className="h-3 w-3" />
-                                </Button>
-                              )}
+                 <div className="flex-1 border rounded-lg p-2 min-h-0">
+                    <h4 className="text-sm font-medium mb-2 px-2">Current Members</h4>
+                    <ScrollArea className="h-[180px]">
+                      <div className="space-y-1">
+                        {members.map(m => (
+                          <div key={m.id} className="flex items-center justify-between p-2 rounded bg-muted/30">
+                            <div className="flex items-center gap-2">
+                              <Avatar className="h-6 w-6"><AvatarImage src={m.avatar_url} /><AvatarFallback>{m.username[0]}</AvatarFallback></Avatar>
+                              <span className="text-sm">{m.first_name || m.username}</span>
+                              {m.role === 'owner' && <Crown className="h-3 w-3 text-yellow-500" />}
+                            </div>
+                            {isOwner && m.role !== 'owner' && <Button size="icon" variant="ghost" className="h-6 w-6 text-destructive" onClick={() => removeMember(m.id)}><Trash2 className="h-3 w-3" /></Button>}
+                          </div>
+                        ))}
+                      </div>
+                    </ScrollArea>
+                 </div>
+                 {isOwner && (
+                   <div className="flex-1 border rounded-lg p-2 min-h-0">
+                     <h4 className="text-sm font-medium mb-2 px-2">Add from Connections</h4>
+                     <ScrollArea className="h-[150px]">
+                        <div className="space-y-1">
+                          {connections.map(c => (
+                            <div key={c.id} className="flex items-center justify-between p-2 rounded border hover:bg-muted/30">
+                              <span className="text-sm">{c.first_name || c.username}</span>
+                              <Button size="icon" variant="ghost" onClick={() => addMember(c.id)} disabled={addingMemberId === c.id}><Plus className="h-4 w-4" /></Button>
                             </div>
                           ))}
                         </div>
                      </ScrollArea>
-                  </div>
-
-                  {/* Add Members Section (Owner Only) */}
-                  {isOwner && (
-                    <div className="flex-1 min-h-0 border rounded-lg p-2">
-                      <h4 className="text-sm font-medium mb-2 px-2">Add from Connections</h4>
-                      <ScrollArea className="h-[120px]">
-                         {connections.length === 0 ? (
-                           <div className="text-center py-4 text-xs text-muted-foreground">
-                             No more connections to add.
-                           </div>
-                         ) : (
-                           <div className="space-y-1 p-1">
-                             {connections.map(c => (
-                               <div key={c.id} className="flex items-center justify-between p-2 rounded border hover:bg-muted/50">
-                                 <div className="flex items-center gap-2">
-                                    <Avatar className="h-6 w-6">
-                                      <AvatarImage src={c.avatar_url} />
-                                      <AvatarFallback>{getInitials(c)}</AvatarFallback>
-                                    </Avatar>
-                                    <span className="text-sm">{c.first_name || c.username}</span>
-                                 </div>
-                                 <Button 
-                                    size="sm" 
-                                    variant="ghost" 
-                                    onClick={() => addMember(c.id)} 
-                                    disabled={addingMemberId === c.id}
-                                  >
-                                   {addingMemberId === c.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-                                 </Button>
-                               </div>
-                             ))}
-                           </div>
-                         )}
-                      </ScrollArea>
-                    </div>
-                  )}
-                </div>
+                   </div>
+                 )}
               </TabsContent>
             </div>
           </Tabs>

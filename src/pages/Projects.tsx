@@ -8,37 +8,51 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { showSuccess, showError } from "@/utils/toast";
-import { Loader2, Plus, FolderKanban, Trash2, Pencil, ListTodo } from "lucide-react";
+import { Loader2, Plus, FolderKanban, Trash2, Pencil, ListTodo, Users } from "lucide-react";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import { useNavigate } from "react-router-dom";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
 
 interface Project {
   id: string;
   name: string;
   description: string;
   created_at: string;
+  team_id?: string | null;
 }
 
 const Projects = () => {
   const { user } = useSession();
   const navigate = useNavigate();
   const [projects, setProjects] = useState<Project[]>([]);
+  const [teams, setTeams] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   
   const [newProjectName, setNewProjectName] = useState("");
   const [newProjectDesc, setNewProjectDesc] = useState("");
+  const [newProjectTeamId, setNewProjectTeamId] = useState("none");
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [editProjectName, setEditProjectName] = useState("");
   const [editProjectDesc, setEditProjectDesc] = useState("");
+  const [editProjectTeamId, setEditProjectTeamId] = useState("none");
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   
   const [deleteProjectId, setDeleteProjectId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (user) fetchProjects();
+    if (user) {
+      fetchProjects();
+      fetchTeams();
+    }
   }, [user]);
+
+  const fetchTeams = async () => {
+    const { data } = await supabase.from('teams').select('id, name');
+    setTeams(data || []);
+  };
 
   const fetchProjects = async () => {
     try {
@@ -61,7 +75,8 @@ const Projects = () => {
         .insert({ 
           name: newProjectName, 
           description: newProjectDesc,
-          user_id: user?.id 
+          user_id: user?.id,
+          team_id: newProjectTeamId === "none" ? null : newProjectTeamId
         })
         .select()
         .single();
@@ -71,6 +86,7 @@ const Projects = () => {
       setProjects([data, ...projects]);
       setNewProjectName("");
       setNewProjectDesc("");
+      setNewProjectTeamId("none");
       setCreateDialogOpen(false);
       showSuccess("Project created!");
     } catch (err: any) {
@@ -83,12 +99,8 @@ const Projects = () => {
     setEditingProject(project);
     setEditProjectName(project.name);
     setEditProjectDesc(project.description || "");
+    setEditProjectTeamId(project.team_id || "none");
     setEditDialogOpen(true);
-  };
-
-  const handleDeleteClick = (projectId: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setDeleteProjectId(projectId);
   };
 
   const updateProject = async () => {
@@ -96,12 +108,21 @@ const Projects = () => {
     try {
       const { error } = await supabase
         .from('projects')
-        .update({ name: editProjectName, description: editProjectDesc })
+        .update({ 
+          name: editProjectName, 
+          description: editProjectDesc,
+          team_id: editProjectTeamId === "none" ? null : editProjectTeamId
+        })
         .eq('id', editingProject.id);
 
       if (error) throw error;
       
-      setProjects(projects.map(p => p.id === editingProject.id ? { ...p, name: editProjectName, description: editProjectDesc } : p));
+      setProjects(projects.map(p => p.id === editingProject.id ? { 
+        ...p, 
+        name: editProjectName, 
+        description: editProjectDesc,
+        team_id: editProjectTeamId === "none" ? null : editProjectTeamId
+      } : p));
       setEditDialogOpen(false);
       showSuccess("Project updated");
     } catch (err: any) {
@@ -127,6 +148,12 @@ const Projects = () => {
     }
   };
 
+  const getTeamName = (id?: string | null) => {
+    if (!id) return null;
+    const team = teams.find(t => t.id === id);
+    return team ? team.name : "Unknown Team";
+  };
+
   return (
     <div className="max-w-4xl mx-auto space-y-6 pb-20">
       <div className="flex justify-between items-center">
@@ -146,6 +173,7 @@ const Projects = () => {
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div className="space-y-2">
+                <Label>Project Name</Label>
                 <Input 
                   placeholder="Project Name" 
                   value={newProjectName}
@@ -153,6 +181,21 @@ const Projects = () => {
                 />
               </div>
               <div className="space-y-2">
+                <Label>Team (Optional)</Label>
+                <Select value={newProjectTeamId} onValueChange={setNewProjectTeamId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="No Team" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No Team (Personal)</SelectItem>
+                    {teams.map(t => (
+                      <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Description</Label>
                 <Input 
                   placeholder="Short Description (Optional)" 
                   value={newProjectDesc}
@@ -187,6 +230,11 @@ const Projects = () => {
                 <FolderKanban className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent className="flex-1">
+                {project.team_id && (
+                  <Badge variant="outline" className="mb-2 bg-purple-50 text-purple-600 border-purple-200 flex items-center gap-1 w-fit">
+                    <Users className="h-3 w-3" /> {getTeamName(project.team_id)}
+                  </Badge>
+                )}
                 <p className="text-sm text-muted-foreground line-clamp-2">
                   {project.description || "No description provided."}
                 </p>
@@ -201,7 +249,7 @@ const Projects = () => {
                    <Button variant="ghost" size="icon" onClick={(e) => handleEditClick(project, e)}>
                      <Pencil className="h-4 w-4" />
                    </Button>
-                   <Button variant="ghost" size="icon" className="text-destructive" onClick={(e) => handleDeleteClick(project.id, e)}>
+                   <Button variant="ghost" size="icon" className="text-destructive" onClick={(e) => { e.stopPropagation(); setDeleteProjectId(project.id); }}>
                      <Trash2 className="h-4 w-4" />
                    </Button>
                  </div>
@@ -219,6 +267,7 @@ const Projects = () => {
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
+              <Label>Project Name</Label>
               <Input 
                 placeholder="Project Name" 
                 value={editProjectName}
@@ -226,6 +275,21 @@ const Projects = () => {
               />
             </div>
             <div className="space-y-2">
+              <Label>Team Association</Label>
+              <Select value={editProjectTeamId} onValueChange={setEditProjectTeamId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="No Team" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No Team (Personal)</SelectItem>
+                  {teams.map(t => (
+                    <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Description</Label>
               <Input 
                 placeholder="Description" 
                 value={editProjectDesc}
