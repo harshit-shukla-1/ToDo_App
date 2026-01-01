@@ -13,7 +13,11 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
 import { showSuccess, showError } from "@/utils/toast";
-import { Loader2, Plus, Trash2, Crown, CheckCircle2, Circle, Users, Calendar, Pencil, Upload, Save, Info, X } from "lucide-react";
+import { 
+  Loader2, Plus, Trash2, Crown, CheckCircle2, Circle, 
+  Users, Calendar, Pencil, Upload, Save, Info, X, 
+  FolderKanban, ListTodo 
+} from "lucide-react";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -47,6 +51,12 @@ interface Todo {
   priority?: string;
 }
 
+interface Project {
+  id: string;
+  name: string;
+  description?: string;
+}
+
 interface TeamDetailsDialogProps {
   team: Team | null;
   open: boolean;
@@ -58,7 +68,9 @@ const TeamDetailsDialog: React.FC<TeamDetailsDialogProps> = ({ team, open, onOpe
   const [activeTab, setActiveTab] = useState("todos");
   const [members, setMembers] = useState<Member[]>([]);
   const [todos, setTodos] = useState<Todo[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [personalTodos, setPersonalTodos] = useState<Todo[]>([]);
+  const [personalProjects, setPersonalProjects] = useState<Project[]>([]);
   const [connections, setConnections] = useState<Member[]>([]);
   const [loading, setLoading] = useState(false);
   const [updatingTeam, setUpdatingTeam] = useState(false);
@@ -86,24 +98,23 @@ const TeamDetailsDialog: React.FC<TeamDetailsDialogProps> = ({ team, open, onOpe
     if (!team) return;
     setLoading(true);
     try {
-      // 1. Fetch Team Todos
-      const { data: todosData } = await supabase
-        .from('todos')
-        .select('*')
-        .eq('team_id', team.id)
-        .order('created_at', { ascending: false });
+      // 1. Fetch Team Todos & Projects
+      const [todosRes, projectsRes] = await Promise.all([
+        supabase.from('todos').select('*').eq('team_id', team.id).order('created_at', { ascending: false }),
+        supabase.from('projects').select('*').eq('team_id', team.id).order('created_at', { ascending: false })
+      ]);
       
-      setTodos(todosData || []);
+      setTodos(todosRes.data || []);
+      setProjects(projectsRes.data || []);
 
-      // 2. Fetch Personal Todos (available to be assigned)
-      const { data: pTodos } = await supabase
-        .from('todos')
-        .select('*')
-        .is('team_id', null)
-        .eq('user_id', currentUserId)
-        .eq('archived', false);
+      // 2. Fetch Personal items (available to be assigned)
+      const [pTodosRes, pProjectsRes] = await Promise.all([
+        supabase.from('todos').select('*').is('team_id', null).eq('user_id', currentUserId).eq('archived', false),
+        supabase.from('projects').select('*').is('team_id', null).eq('user_id', currentUserId)
+      ]);
       
-      setPersonalTodos(pTodos || []);
+      setPersonalTodos(pTodosRes.data || []);
+      setPersonalProjects(pProjectsRes.data || []);
 
       // 3. Fetch Team Members
       const { data: teamMembersData } = await supabase
@@ -156,18 +167,9 @@ const TeamDetailsDialog: React.FC<TeamDetailsDialogProps> = ({ team, open, onOpe
   const assignTodoToTeam = async (todoId: string) => {
     if (!team) return;
     try {
-      const { error } = await supabase
-        .from('todos')
-        .update({ team_id: team.id })
-        .eq('id', todoId);
-
+      const { error } = await supabase.from('todos').update({ team_id: team.id }).eq('id', todoId);
       if (error) throw error;
-      
-      const todo = personalTodos.find(t => t.id === todoId);
-      if (todo) {
-        setTodos([todo, ...todos]);
-        setPersonalTodos(personalTodos.filter(t => t.id !== todoId));
-      }
+      fetchData();
       showSuccess("Todo assigned to team");
     } catch (err) {
       showError("Assignment failed");
@@ -176,19 +178,33 @@ const TeamDetailsDialog: React.FC<TeamDetailsDialogProps> = ({ team, open, onOpe
 
   const removeTodoFromTeam = async (todoId: string) => {
     try {
-      const { error } = await supabase
-        .from('todos')
-        .update({ team_id: null })
-        .eq('id', todoId);
-
+      const { error } = await supabase.from('todos').update({ team_id: null }).eq('id', todoId);
       if (error) throw error;
-      
-      const todo = todos.find(t => t.id === todoId);
-      if (todo) {
-        setPersonalTodos([todo, ...personalTodos]);
-        setTodos(todos.filter(t => t.id !== todoId));
-      }
+      fetchData();
       showSuccess("Todo removed from team");
+    } catch (err) {
+      showError("Removal failed");
+    }
+  };
+
+  const assignProjectToTeam = async (projectId: string) => {
+    if (!team) return;
+    try {
+      const { error } = await supabase.from('projects').update({ team_id: team.id }).eq('id', projectId);
+      if (error) throw error;
+      fetchData();
+      showSuccess("Project assigned to team");
+    } catch (err) {
+      showError("Assignment failed");
+    }
+  };
+
+  const removeProjectFromTeam = async (projectId: string) => {
+    try {
+      const { error } = await supabase.from('projects').update({ team_id: null }).eq('id', projectId);
+      if (error) throw error;
+      fetchData();
+      showSuccess("Project removed from team");
     } catch (err) {
       showError("Removal failed");
     }
@@ -248,7 +264,7 @@ const TeamDetailsDialog: React.FC<TeamDetailsDialogProps> = ({ team, open, onOpe
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col">
+      <DialogContent className="sm:max-w-2xl max-h-[95vh] flex flex-col">
         <DialogHeader>
           <div className="flex items-center justify-between pr-6">
             <div className="flex items-center gap-3">
@@ -256,8 +272,8 @@ const TeamDetailsDialog: React.FC<TeamDetailsDialogProps> = ({ team, open, onOpe
                 <AvatarImage src={avatarUrl} />
                 <AvatarFallback><Users className="h-5 w-5" /></AvatarFallback>
               </Avatar>
-              <div>
-                <DialogTitle className="text-xl">{name}</DialogTitle>
+              <div className="overflow-hidden">
+                <DialogTitle className="text-xl truncate">{name}</DialogTitle>
                 <p className="text-xs text-muted-foreground truncate max-w-[200px] sm:max-w-md">
                   {description || "No description set"}
                 </p>
@@ -314,83 +330,118 @@ const TeamDetailsDialog: React.FC<TeamDetailsDialogProps> = ({ team, open, onOpe
           </ScrollArea>
         ) : (
           <Tabs defaultValue="todos" value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
-            <TabsList className="grid w-full grid-cols-2">
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="todos">Todos ({todos.length})</TabsTrigger>
+              <TabsTrigger value="projects">Projects ({projects.length})</TabsTrigger>
               <TabsTrigger value="members">Members ({members.length})</TabsTrigger>
             </TabsList>
 
             <div className="flex-1 min-h-0 mt-4 overflow-hidden relative">
               {loading && <div className="absolute inset-0 flex items-center justify-center bg-background/50 z-10"><Loader2 className="animate-spin h-8 w-8 text-primary" /></div>}
 
-              <TabsContent value="todos" className="h-[400px] m-0 flex flex-col gap-4">
-                <div className="flex-1 border rounded-lg p-2 min-h-0">
-                   <h4 className="text-sm font-medium mb-2 px-2">Team Tasks</h4>
-                   <ScrollArea className="h-[180px]">
-                      {todos.length === 0 ? <p className="text-center py-8 text-xs text-muted-foreground">No tasks in this team.</p> : (
-                        <div className="space-y-1">
-                          {todos.map(t => (
-                            <div key={t.id} className="flex items-center justify-between p-2 rounded hover:bg-muted/30">
-                              <span className="text-sm truncate">{t.text}</span>
-                              <Button size="icon" variant="ghost" className="h-6 w-6 text-destructive" onClick={() => removeTodoFromTeam(t.id)}>
-                                <X className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          ))}
-                        </div>
+              <TabsContent value="todos" className="h-[450px] m-0 flex flex-col gap-4 overflow-y-auto pr-2">
+                <div className="border rounded-lg p-2 shrink-0">
+                   <h4 className="text-sm font-medium mb-2 px-2 flex items-center gap-2">
+                     <ListTodo className="h-4 w-4 text-primary" /> Team Tasks
+                   </h4>
+                   <div className="space-y-1">
+                      {todos.length === 0 ? <p className="text-center py-4 text-xs text-muted-foreground">No tasks in this team.</p> : (
+                        todos.map(t => (
+                          <div key={t.id} className="flex items-center justify-between p-2 rounded hover:bg-muted/30 border border-transparent hover:border-border">
+                            <span className="text-sm truncate pr-2">{t.text}</span>
+                            <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive shrink-0" onClick={() => removeTodoFromTeam(t.id)}>
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ))
                       )}
-                   </ScrollArea>
+                   </div>
                 </div>
 
-                <div className="flex-1 border rounded-lg p-2 min-h-0">
+                <div className="border rounded-lg p-2 shrink-0">
                   <h4 className="text-sm font-medium mb-2 px-2">Assign from Personal</h4>
-                  <ScrollArea className="h-[150px]">
-                    {personalTodos.length === 0 ? <p className="text-center py-8 text-xs text-muted-foreground">No unassigned personal tasks.</p> : (
-                       <div className="space-y-1">
-                         {personalTodos.map(t => (
-                            <div key={t.id} className="flex items-center justify-between p-2 rounded border hover:bg-muted/30">
-                               <span className="text-sm truncate">{t.text}</span>
-                               <Button size="icon" variant="ghost" onClick={() => assignTodoToTeam(t.id)}>
-                                 <Plus className="h-4 w-4" />
-                               </Button>
-                            </div>
-                         ))}
-                       </div>
+                  <div className="space-y-1">
+                    {personalTodos.length === 0 ? <p className="text-center py-4 text-xs text-muted-foreground">No unassigned personal tasks.</p> : (
+                       personalTodos.map(t => (
+                          <div key={t.id} className="flex items-center justify-between p-2 rounded border hover:bg-muted/30">
+                             <span className="text-sm truncate pr-2">{t.text}</span>
+                             <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0" onClick={() => assignTodoToTeam(t.id)}>
+                               <Plus className="h-4 w-4" />
+                             </Button>
+                          </div>
+                       ))
                     )}
-                  </ScrollArea>
+                  </div>
                 </div>
               </TabsContent>
 
-              <TabsContent value="members" className="h-[400px] m-0 flex flex-col gap-4">
-                 <div className="flex-1 border rounded-lg p-2 min-h-0">
-                    <h4 className="text-sm font-medium mb-2 px-2">Current Members</h4>
-                    <ScrollArea className="h-[180px]">
-                      <div className="space-y-1">
-                        {members.map(m => (
-                          <div key={m.id} className="flex items-center justify-between p-2 rounded bg-muted/30">
-                            <div className="flex items-center gap-2">
-                              <Avatar className="h-6 w-6"><AvatarImage src={m.avatar_url} /><AvatarFallback>{m.username[0]}</AvatarFallback></Avatar>
-                              <span className="text-sm">{m.first_name || m.username}</span>
-                              {m.role === 'owner' && <Crown className="h-3 w-3 text-yellow-500" />}
-                            </div>
-                            {isOwner && m.role !== 'owner' && <Button size="icon" variant="ghost" className="h-6 w-6 text-destructive" onClick={() => removeMember(m.id)}><Trash2 className="h-3 w-3" /></Button>}
+              <TabsContent value="projects" className="h-[450px] m-0 flex flex-col gap-4 overflow-y-auto pr-2">
+                <div className="border rounded-lg p-2 shrink-0">
+                   <h4 className="text-sm font-medium mb-2 px-2 flex items-center gap-2">
+                     <FolderKanban className="h-4 w-4 text-primary" /> Team Projects
+                   </h4>
+                   <div className="space-y-1">
+                      {projects.length === 0 ? <p className="text-center py-4 text-xs text-muted-foreground">No projects in this team.</p> : (
+                        projects.map(p => (
+                          <div key={p.id} className="flex items-center justify-between p-2 rounded hover:bg-muted/30 border border-transparent hover:border-border">
+                            <span className="text-sm truncate pr-2 font-medium">{p.name}</span>
+                            <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive shrink-0" onClick={() => removeProjectFromTeam(p.id)}>
+                              <X className="h-4 w-4" />
+                            </Button>
                           </div>
-                        ))}
-                      </div>
-                    </ScrollArea>
+                        ))
+                      )}
+                   </div>
+                </div>
+
+                <div className="border rounded-lg p-2 shrink-0">
+                  <h4 className="text-sm font-medium mb-2 px-2">Assign from Personal</h4>
+                  <div className="space-y-1">
+                    {personalProjects.length === 0 ? <p className="text-center py-4 text-xs text-muted-foreground">No unassigned personal projects.</p> : (
+                       personalProjects.map(p => (
+                          <div key={p.id} className="flex items-center justify-between p-2 rounded border hover:bg-muted/30">
+                             <span className="text-sm truncate pr-2">{p.name}</span>
+                             <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0" onClick={() => assignProjectToTeam(p.id)}>
+                               <Plus className="h-4 w-4" />
+                             </Button>
+                          </div>
+                       ))
+                    )}
+                  </div>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="members" className="h-[450px] m-0 flex flex-col gap-4 overflow-y-auto pr-2">
+                 <div className="border rounded-lg p-2 shrink-0">
+                    <h4 className="text-sm font-medium mb-2 px-2">Current Members</h4>
+                    <div className="space-y-1">
+                      {members.map(m => (
+                        <div key={m.id} className="flex items-center justify-between p-2 rounded bg-muted/30">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <Avatar className="h-6 w-6"><AvatarImage src={m.avatar_url} /><AvatarFallback>{m.username[0]}</AvatarFallback></Avatar>
+                            <span className="text-sm truncate">{m.first_name || m.username}</span>
+                            {m.role === 'owner' && <Crown className="h-3 w-3 text-yellow-500 shrink-0" />}
+                          </div>
+                          {isOwner && m.role !== 'owner' && <Button size="icon" variant="ghost" className="h-6 w-6 text-destructive shrink-0" onClick={() => removeMember(m.id)}><Trash2 className="h-3 w-3" /></Button>}
+                        </div>
+                      ))}
+                    </div>
                  </div>
                  {isOwner && (
-                   <div className="flex-1 border rounded-lg p-2 min-h-0">
+                   <div className="border rounded-lg p-2 shrink-0">
                      <h4 className="text-sm font-medium mb-2 px-2">Add from Connections</h4>
-                     <ScrollArea className="h-[150px]">
-                        <div className="space-y-1">
-                          {connections.map(c => (
+                     <div className="space-y-1">
+                        {connections.length === 0 ? <p className="text-center py-4 text-xs text-muted-foreground">No more connections to add.</p> : (
+                          connections.map(c => (
                             <div key={c.id} className="flex items-center justify-between p-2 rounded border hover:bg-muted/30">
-                              <span className="text-sm">{c.first_name || c.username}</span>
-                              <Button size="icon" variant="ghost" onClick={() => addMember(c.id)} disabled={addingMemberId === c.id}><Plus className="h-4 w-4" /></Button>
+                              <span className="text-sm truncate pr-2">{c.first_name || c.username}</span>
+                              <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0" onClick={() => addMember(c.id)} disabled={addingMemberId === c.id}>
+                                <Plus className="h-4 w-4" />
+                              </Button>
                             </div>
-                          ))}
-                        </div>
-                     </ScrollArea>
+                          ))
+                        )}
+                     </div>
                    </div>
                  )}
               </TabsContent>
