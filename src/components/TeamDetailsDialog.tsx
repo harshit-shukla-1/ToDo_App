@@ -98,17 +98,17 @@ const TeamDetailsDialog: React.FC<TeamDetailsDialogProps> = ({ team, open, onOpe
   const isOwner = team?.created_by === currentUserId;
 
   useEffect(() => {
-    if (open && team) {
+    if (open && team && currentUserId) {
       fetchData();
       setName(team.name);
       setDescription(team.description || "");
       setAvatarUrl(team.avatar_url || "");
       setEditMode(false);
     }
-  }, [open, team]);
+  }, [open, team, currentUserId]);
 
   const fetchData = async () => {
-    if (!team) return;
+    if (!team || !currentUserId) return;
     setLoading(true);
     try {
       // 1. Fetch Team Todos & Projects
@@ -153,24 +153,32 @@ const TeamDetailsDialog: React.FC<TeamDetailsDialogProps> = ({ team, open, onOpe
       }
 
       // 4. Fetch Connections
-      const { data: connData } = await supabase
+      const { data: connData, error: connError } = await supabase
         .from('connections')
         .select(`
+          requester_id,
+          recipient_id,
           requester:profiles!requester_id(*),
           recipient:profiles!recipient_id(*)
         `)
         .or(`requester_id.eq.${currentUserId},recipient_id.eq.${currentUserId}`)
         .eq('status', 'accepted');
 
+      if (connError) throw connError;
+
       const profiles = connData?.map((c: any) => {
+        // If I am the requester, return the recipient. Otherwise return the requester.
         return c.requester_id === currentUserId ? c.recipient : c.requester;
       }).filter(p => p && p.id !== currentUserId) || [];
 
+      // Filter out people who are already in the team
       const currentMemberIds = new Set(memberIds);
-      setConnections(profiles.filter(p => !currentMemberIds.has(p.id)));
+      const filteredConnections = profiles.filter(p => p && !currentMemberIds.has(p.id));
+      
+      setConnections(filteredConnections);
 
     } catch (err) {
-      console.error(err);
+      console.error("Team data fetch error:", err);
       showError("Failed to load team details");
     } finally {
       setLoading(false);
@@ -245,7 +253,7 @@ const TeamDetailsDialog: React.FC<TeamDetailsDialogProps> = ({ team, open, onOpe
   };
 
   const addMember = async (userId: string) => {
-    if (!team || userId === "none") return;
+    if (!team || userId === "none" || !userId) return;
     setAddingMemberId(userId);
     try {
       const { error } = await supabase.from('team_members').insert({
