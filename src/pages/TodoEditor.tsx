@@ -23,7 +23,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/integrations/supabase/auth";
 import { format } from "date-fns";
-import { Calendar as CalendarIcon, Save, ArrowLeft, Loader2, Bell, AlertCircle, FolderKanban, Users } from "lucide-react";
+import { Calendar as CalendarIcon, Save, ArrowLeft, Loader2, AlertCircle, FolderKanban, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { showSuccess, showError } from "@/utils/toast";
 
@@ -35,7 +35,8 @@ const TodoEditor = () => {
 
   const [loading, setLoading] = useState(false);
   const [projects, setProjects] = useState<any[]>([]);
-  const [teams, setTeams] = useState<any[]>([]);
+  const [allTeams, setAllTeams] = useState<any[]>([]);
+  const [availableTeams, setAvailableTeams] = useState<any[]>([]);
   
   const [formData, setFormData] = useState({
     text: "",
@@ -57,13 +58,49 @@ const TodoEditor = () => {
     }
   }, [id, user]);
 
+  // When project changes, filter teams
+  useEffect(() => {
+    if (formData.project_id === "none") {
+      setAvailableTeams(allTeams);
+      // Reset team if it's no longer valid, but for personal todos we allow any team they belong to
+    } else {
+      fetchProjectTeams(formData.project_id);
+    }
+  }, [formData.project_id, allTeams]);
+
   const fetchContextData = async () => {
     const [projRes, teamsRes] = await Promise.all([
       supabase.from('projects').select('id, name'),
       supabase.from('teams').select('id, name')
     ]);
     setProjects(projRes.data || []);
-    setTeams(teamsRes.data || []);
+    setAllTeams(teamsRes.data || []);
+    setAvailableTeams(teamsRes.data || []);
+  };
+
+  const fetchProjectTeams = async (projectId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('project_teams')
+        .select('team_id, teams(name)')
+        .eq('project_id', projectId);
+
+      if (error) throw error;
+      
+      const teams = data?.map(d => ({
+        id: d.team_id,
+        name: (d.teams as any)?.name
+      })) || [];
+      
+      setAvailableTeams(teams);
+      
+      // If the currently selected team is not in the new available teams list, reset it
+      if (formData.team_id !== "none" && !teams.some(t => t.id === formData.team_id)) {
+        setFormData(prev => ({ ...prev, team_id: "none" }));
+      }
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   const fetchTodo = async () => {
@@ -203,27 +240,6 @@ const TodoEditor = () => {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
-                <Label>Team Assignment</Label>
-                <Select
-                  value={formData.team_id}
-                  onValueChange={(value) =>
-                    setFormData({ ...formData, team_id: value })
-                  }
-                >
-                  <SelectTrigger>
-                    <Users className="w-4 h-4 mr-2 text-muted-foreground"/>
-                    <SelectValue placeholder="No Team" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">No Team (Personal)</SelectItem>
-                    {teams.map(t => (
-                      <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
                 <Label>Project</Label>
                 <Select
                   value={formData.project_id}
@@ -236,12 +252,39 @@ const TodoEditor = () => {
                     <SelectValue placeholder="Select project" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">Miscellaneous</SelectItem>
+                    <SelectItem value="none">Miscellaneous (No Project)</SelectItem>
                     {projects.map(p => (
                       <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Team Assignment</Label>
+                <Select
+                  value={formData.team_id}
+                  onValueChange={(value) =>
+                    setFormData({ ...formData, team_id: value })
+                  }
+                  disabled={formData.project_id !== "none" && availableTeams.length === 0}
+                >
+                  <SelectTrigger>
+                    <Users className="w-4 h-4 mr-2 text-muted-foreground"/>
+                    <SelectValue placeholder={formData.project_id !== "none" && availableTeams.length === 0 ? "No teams in project" : "Select Team"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Personal (No Team)</SelectItem>
+                    {availableTeams.map(t => (
+                      <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {formData.project_id !== "none" && availableTeams.length === 0 && (
+                  <p className="text-[10px] text-muted-foreground mt-1">
+                    This project has no teams assigned. To assign a team, update the project settings.
+                  </p>
+                )}
               </div>
             </div>
 
