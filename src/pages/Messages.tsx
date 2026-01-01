@@ -545,14 +545,33 @@ const Messages = () => {
       return;
     }
 
-    const { data } = await supabase
+    if (!user) return;
+
+    // 1. Fetch connection IDs first
+    const { data: connData } = await supabase
+      .from('connections')
+      .select('requester_id, recipient_id')
+      .eq('status', 'accepted')
+      .or(`requester_id.eq.${user.id},recipient_id.eq.${user.id}`);
+
+    if (!connData || connData.length === 0) {
+      setSearchResults([]);
+      return;
+    }
+
+    const connectionIds = connData.map(c => 
+      c.requester_id === user.id ? c.recipient_id : c.requester_id
+    );
+
+    // 2. Fetch connection profiles matching the search query
+    const { data: profiles } = await supabase
       .from('profiles')
       .select('id, username, first_name, last_name, avatar_url')
+      .in('id', connectionIds)
       .or(`username.ilike.%${query}%,first_name.ilike.%${query}%,last_name.ilike.%${query}%`)
-      .neq('id', user?.id)
-      .limit(20);
+      .limit(10);
 
-    setSearchResults(data || []);
+    setSearchResults(profiles || []);
   };
 
   const selectConversation = (id: string) => {
@@ -607,7 +626,7 @@ const Messages = () => {
              <div className="relative">
               <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input 
-                placeholder="Search users..." 
+                placeholder="Search connections..." 
                 className="pl-8 bg-muted/50 h-9" 
                 value={searchQuery}
                 onChange={(e) => searchUsers(e.target.value)}
@@ -616,6 +635,7 @@ const Messages = () => {
             {searchResults.length > 0 && (
               <div className="absolute top-full mt-2 left-0 z-50 w-full px-4">
                 <div className="bg-popover border rounded-md shadow-md p-2 max-h-60 overflow-y-auto">
+                  <p className="text-[10px] text-muted-foreground px-2 pb-2 uppercase font-bold tracking-wider">From your connections</p>
                   {searchResults.map(p => (
                     <div 
                       key={p.id} 
@@ -644,7 +664,10 @@ const Messages = () => {
               {loading ? (
                 <div className="flex justify-center p-4"><Loader2 className="animate-spin" /></div>
               ) : Array.from(conversations.entries()).length === 0 ? (
-                <p className="text-center text-muted-foreground p-8 text-sm">No conversations yet.</p>
+                <div className="flex flex-col items-center justify-center p-8 text-center gap-2">
+                   <p className="text-muted-foreground text-sm">No conversations yet.</p>
+                   <p className="text-xs text-muted-foreground/60">Search your connections above to start a chat.</p>
+                </div>
               ) : (
                 Array.from(conversations.entries()).map(([id, data]) => (
                   <button
