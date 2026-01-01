@@ -618,8 +618,8 @@ const Messages = () => {
   };
 
   return (
-    <div className="flex flex-col h-full w-full md:p-4">
-      <div className="flex flex-1 overflow-hidden bg-card md:border md:rounded-lg shadow-sm h-full">
+    <div className="flex flex-col flex-1 min-h-0 w-full md:p-4">
+      <div className="flex flex-1 overflow-hidden bg-card md:border md:rounded-lg shadow-sm min-h-0">
         
         {/* Sidebar */}
         <div className={cn(
@@ -718,7 +718,7 @@ const Messages = () => {
 
         {/* Chat Area */}
         <div className={cn(
-          "flex-1 flex-col overflow-hidden flex bg-background/50 h-full relative",
+          "flex-1 flex-col overflow-hidden flex bg-background/50 relative min-h-0",
           !selectedUserId ? "hidden md:flex" : "flex"
         )}>
           {!selectedUserId ? (
@@ -824,7 +824,7 @@ const Messages = () => {
                 )}
               </div>
 
-              <div className="p-3 pb-safe bg-card border-t flex flex-col gap-2 flex-none z-20">
+              <div className="p-3 bg-card border-t flex flex-col gap-2 flex-none z-20">
                  {!hasUsername ? (
                     <Alert variant="destructive" className="py-2">
                        <AlertCircle className="h-4 w-4" />

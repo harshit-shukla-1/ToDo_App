@@ -256,7 +256,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         )}>
           {isFixedLayout ? (
             <div className={cn(
-              "flex-1 flex flex-col h-full w-full min-h-0 pb-[64px] md:pb-0 p-4 md:p-8 max-w-5xl mx-auto"
+              "flex-1 flex flex-col w-full min-h-0 md:pb-0 p-4 md:p-8 max-w-5xl mx-auto",
+              "pb-[80px]" // Explicit padding for fixed layout on mobile to clear bottom nav
             )}>
               {children}
             </div>
