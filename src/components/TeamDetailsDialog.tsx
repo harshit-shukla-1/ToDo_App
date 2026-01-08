@@ -16,7 +16,8 @@ import { showSuccess, showError } from "@/utils/toast";
 import { 
   Loader2, Plus, Trash2, Crown, 
   Users, Pencil, Save, X, 
-  FolderKanban, ListTodo, ExternalLink
+  FolderKanban, ListTodo, ExternalLink,
+  UserPlus
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -305,13 +306,13 @@ const TeamDetailsDialog: React.FC<TeamDetailsDialogProps> = ({ team, open, onOpe
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-2xl max-h-[95vh] flex flex-col">
-          <DialogHeader>
-            <div className="flex items-center justify-between pr-6">
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col p-0 overflow-hidden">
+          <DialogHeader className="p-6 pb-2">
+            <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <Avatar className="h-10 w-10 border">
+                <Avatar className="h-12 w-12 border">
                   <AvatarImage src={avatarUrl} />
-                  <AvatarFallback><Users className="h-5 w-5" /></AvatarFallback>
+                  <AvatarFallback><Users className="h-6 w-6" /></AvatarFallback>
                 </Avatar>
                 <div className="overflow-hidden">
                   <DialogTitle className="text-xl truncate">{name}</DialogTitle>
@@ -327,16 +328,16 @@ const TeamDetailsDialog: React.FC<TeamDetailsDialogProps> = ({ team, open, onOpe
           </DialogHeader>
 
           {editMode ? (
-            <ScrollArea className="flex-1 px-1">
-              <div className="space-y-4 py-4 pr-4">
+            <ScrollArea className="flex-1 px-6 pb-6">
+              <div className="space-y-4 pt-2">
                 <div className="flex flex-col items-center gap-4 mb-4">
-                  <Avatar className="h-20 w-20 border-2">
+                  <Avatar className="h-24 w-24 border-2">
                     <AvatarImage src={avatarUrl} />
-                    <AvatarFallback className="text-2xl"><Users className="h-10 w-10" /></AvatarFallback>
+                    <AvatarFallback className="text-2xl"><Users className="h-12 w-12" /></AvatarFallback>
                   </Avatar>
                   <div className="w-full space-y-2">
-                    <Label className="text-xs text-muted-foreground block text-center">Choose a team avatar</Label>
-                    <ScrollArea className="h-32 w-full border rounded-md p-2">
+                    <Label className="text-xs text-muted-foreground block text-center uppercase tracking-wider font-semibold">Change Team Avatar</Label>
+                    <ScrollArea className="h-28 w-full border rounded-md p-2 bg-muted/20">
                       <div className="grid grid-cols-6 gap-2">
                         {PREDEFINED_AVATARS.map((url, i) => (
                           <button 
@@ -360,10 +361,10 @@ const TeamDetailsDialog: React.FC<TeamDetailsDialogProps> = ({ team, open, onOpe
 
                 <div className="space-y-2">
                   <Label>Description</Label>
-                  <Textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Describe your team..." className="min-h-[100px]" />
+                  <Textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Describe your team..." className="min-h-[80px]" />
                 </div>
 
-                <Button onClick={updateTeamDetails} className="w-full" disabled={updatingTeam || !name.trim()}>
+                <Button onClick={updateTeamDetails} className="w-full mt-4" disabled={updatingTeam || !name.trim()}>
                   {updatingTeam ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                   Save Team Details
                 </Button>
@@ -371,120 +372,145 @@ const TeamDetailsDialog: React.FC<TeamDetailsDialogProps> = ({ team, open, onOpe
             </ScrollArea>
           ) : (
             <Tabs defaultValue="todos" value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="todos">Todos ({todos.length})</TabsTrigger>
-                <TabsTrigger value="projects">Projects ({projects.length})</TabsTrigger>
-                <TabsTrigger value="members">Members ({members.length})</TabsTrigger>
-              </TabsList>
+              <div className="px-6">
+                <TabsList className="grid w-full grid-cols-3">
+                  <TabsTrigger value="todos">Todos ({todos.length})</TabsTrigger>
+                  <TabsTrigger value="projects">Projects ({projects.length})</TabsTrigger>
+                  <TabsTrigger value="members">Members ({members.length})</TabsTrigger>
+                </TabsList>
+              </div>
 
               <div className="flex-1 min-h-0 mt-4 overflow-hidden relative">
                 {loading && <div className="absolute inset-0 flex items-center justify-center bg-background/50 z-10"><Loader2 className="animate-spin h-8 w-8 text-primary" /></div>}
 
-                <TabsContent value="todos" className="h-[450px] m-0 flex flex-col gap-4 overflow-y-auto pr-2">
-                  <div className="border rounded-lg p-2 shrink-0">
-                    <h4 className="text-sm font-medium mb-2 px-2 flex items-center gap-2">
-                      <ListTodo className="h-4 w-4 text-primary" /> Team Tasks
-                    </h4>
-                    <div className="space-y-1">
-                        {todos.length === 0 ? <p className="text-center py-4 text-xs text-muted-foreground">No tasks in this team.</p> : (
-                          todos.map(t => (
-                            <div 
-                              key={t.id} 
-                              className="flex items-center justify-between p-2 rounded hover:bg-muted/50 border border-transparent hover:border-border cursor-pointer transition-colors"
-                              onClick={() => setViewTodo(t)}
-                            >
-                              <span className="text-sm truncate pr-2">{t.text}</span>
-                              <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive shrink-0" onClick={(e) => removeTodoFromTeam(t.id, e)}>
-                                <X className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          ))
-                        )}
-                    </div>
-                  </div>
+                <TabsContent value="todos" className="h-full m-0 flex flex-col min-h-0">
+                  <ScrollArea className="flex-1 px-6 pb-6">
+                    <div className="space-y-6">
+                      <div className="border rounded-lg p-3 bg-card shadow-sm">
+                        <h4 className="text-sm font-semibold mb-3 px-1 flex items-center gap-2">
+                          <ListTodo className="h-4 w-4 text-primary" /> Team Tasks
+                        </h4>
+                        <div className="space-y-1">
+                            {todos.length === 0 ? <p className="text-center py-6 text-xs text-muted-foreground bg-muted/20 rounded border border-dashed">No tasks in this team.</p> : (
+                              todos.map(t => (
+                                <div 
+                                  key={t.id} 
+                                  className="flex items-center justify-between p-3 rounded-md hover:bg-muted/50 border border-transparent hover:border-border cursor-pointer transition-colors group"
+                                  onClick={() => setViewTodo(t)}
+                                >
+                                  <div className="flex flex-col min-w-0">
+                                    <span className="text-sm font-medium truncate pr-2">{t.text}</span>
+                                    {t.priority && <span className="text-[10px] uppercase font-bold opacity-70">{t.priority}</span>}
+                                  </div>
+                                  <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive shrink-0 opacity-0 group-hover:opacity-100" onClick={(e) => removeTodoFromTeam(t.id, e)}>
+                                    <X className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              ))
+                            )}
+                        </div>
+                      </div>
 
-                  <div className="border rounded-lg p-2 shrink-0">
-                    <h4 className="text-sm font-medium mb-2 px-2">Assign from Personal</h4>
-                    <div className="space-y-1">
-                      {personalTodos.length === 0 ? <p className="text-center py-4 text-xs text-muted-foreground">No unassigned personal tasks.</p> : (
-                        personalTodos.map(t => (
-                            <div 
-                              key={t.id} 
-                              className="flex items-center justify-between p-2 rounded border hover:bg-muted/30 cursor-pointer"
-                              onClick={() => setViewTodo(t)}
-                            >
-                              <span className="text-sm truncate pr-2">{t.text}</span>
-                              <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0" onClick={(e) => { e.stopPropagation(); assignTodoToTeam(t.id); }}>
-                                <Plus className="h-4 w-4" />
-                              </Button>
-                            </div>
-                        ))
-                      )}
+                      <div className="border rounded-lg p-3 bg-muted/5">
+                        <h4 className="text-sm font-semibold mb-3 px-1 flex items-center gap-2">
+                           <Plus className="h-4 w-4 text-muted-foreground" /> Assign from Personal
+                        </h4>
+                        <div className="space-y-1">
+                          {personalTodos.length === 0 ? <p className="text-center py-6 text-xs text-muted-foreground">No unassigned personal tasks.</p> : (
+                            personalTodos.map(t => (
+                                <div 
+                                  key={t.id} 
+                                  className="flex items-center justify-between p-3 rounded-md border bg-card hover:bg-muted/30 cursor-pointer transition-all"
+                                  onClick={() => setViewTodo(t)}
+                                >
+                                  <span className="text-sm truncate pr-2">{t.text}</span>
+                                  <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0 hover:bg-primary hover:text-primary-foreground" onClick={(e) => { e.stopPropagation(); assignTodoToTeam(t.id); }}>
+                                    <Plus className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                            ))
+                          )}
+                        </div>
+                      </div>
                     </div>
-                  </div>
+                  </ScrollArea>
                 </TabsContent>
 
-                <TabsContent value="projects" className="h-[450px] m-0 flex flex-col gap-4 overflow-y-auto pr-2">
-                  <div className="border rounded-lg p-2 shrink-0">
-                    <h4 className="text-sm font-medium mb-2 px-2 flex items-center gap-2">
-                      <FolderKanban className="h-4 w-4 text-primary" /> Team Projects
-                    </h4>
-                    <div className="space-y-1">
-                        {projects.length === 0 ? <p className="text-center py-4 text-xs text-muted-foreground">No projects in this team.</p> : (
-                          projects.map(p => (
-                            <div 
-                              key={p.id} 
-                              className="flex items-center justify-between p-2 rounded hover:bg-muted/50 border border-transparent hover:border-border cursor-pointer"
-                              onClick={() => { onOpenChange(false); navigate(`/todos?project=${p.id}`); }}
-                            >
-                              <div className="flex items-center gap-2 min-w-0">
-                                <span className="text-sm truncate pr-2 font-medium">{p.name}</span>
-                                <ExternalLink className="h-3 w-3 text-muted-foreground" />
-                              </div>
-                              <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive shrink-0" onClick={(e) => removeProjectFromTeam(p.id, e)}>
-                                <X className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          ))
-                        )}
-                    </div>
-                  </div>
+                <TabsContent value="projects" className="h-full m-0 flex flex-col min-h-0">
+                  <ScrollArea className="flex-1 px-6 pb-6">
+                    <div className="space-y-6">
+                      <div className="border rounded-lg p-3 bg-card shadow-sm">
+                        <h4 className="text-sm font-semibold mb-3 px-1 flex items-center gap-2">
+                          <FolderKanban className="h-4 w-4 text-primary" /> Team Projects
+                        </h4>
+                        <div className="space-y-1">
+                            {projects.length === 0 ? <p className="text-center py-6 text-xs text-muted-foreground bg-muted/20 rounded border border-dashed">No projects in this team.</p> : (
+                              projects.map(p => (
+                                <div 
+                                  key={p.id} 
+                                  className="flex items-center justify-between p-3 rounded-md hover:bg-muted/50 border border-transparent hover:border-border cursor-pointer transition-colors group"
+                                  onClick={() => { onOpenChange(false); navigate(`/todos?project=${p.id}`); }}
+                                >
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    <span className="text-sm truncate pr-2 font-medium">{p.name}</span>
+                                    <ExternalLink className="h-3 w-3 text-muted-foreground opacity-50" />
+                                  </div>
+                                  <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive shrink-0 opacity-0 group-hover:opacity-100" onClick={(e) => removeProjectFromTeam(p.id, e)}>
+                                    <X className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              ))
+                            )}
+                        </div>
+                      </div>
 
-                  <div className="border rounded-lg p-2 shrink-0">
-                    <h4 className="text-sm font-medium mb-2 px-2">Assign from Personal</h4>
-                    <div className="space-y-1">
-                      {personalProjects.length === 0 ? <p className="text-center py-4 text-xs text-muted-foreground">No available personal projects.</p> : (
-                        personalProjects.map(p => (
-                            <div 
-                              key={p.id} 
-                              className="flex items-center justify-between p-2 rounded border hover:bg-muted/30 cursor-pointer"
-                              onClick={() => { onOpenChange(false); navigate(`/todos?project=${p.id}`); }}
-                            >
-                              <span className="text-sm truncate pr-2">{p.name}</span>
-                              <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0" onClick={(e) => { e.stopPropagation(); assignProjectToTeam(p.id); }}>
-                                <Plus className="h-4 w-4" />
-                              </Button>
-                            </div>
-                        ))
-                      )}
+                      <div className="border rounded-lg p-3 bg-muted/5">
+                        <h4 className="text-sm font-semibold mb-3 px-1">Assign from Personal</h4>
+                        <div className="space-y-1">
+                          {personalProjects.length === 0 ? <p className="text-center py-6 text-xs text-muted-foreground">No available personal projects.</p> : (
+                            personalProjects.map(p => (
+                                <div 
+                                  key={p.id} 
+                                  className="flex items-center justify-between p-3 rounded-md border bg-card hover:bg-muted/30 cursor-pointer"
+                                  onClick={() => { onOpenChange(false); navigate(`/todos?project=${p.id}`); }}
+                                >
+                                  <span className="text-sm truncate pr-2">{p.name}</span>
+                                  <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" onClick={(e) => { e.stopPropagation(); assignProjectToTeam(p.id); }}>
+                                    <Plus className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                            ))
+                          )}
+                        </div>
+                      </div>
                     </div>
-                  </div>
+                  </ScrollArea>
                 </TabsContent>
 
-                <TabsContent value="members" className="h-[450px] m-0 flex flex-col gap-4 overflow-y-auto pr-2">
-                  {isOwner && (
-                    <div className="border-b pb-4 mb-4">
-                      <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 block">Add Connections</Label>
+                <TabsContent value="members" className="h-full m-0 flex flex-col min-h-0">
+                   {/* ADD MEMBER SECTION - MOVED TO TOP OF TAB */}
+                   {isOwner && (
+                    <div className="px-6 py-4 bg-muted/30 border-b shrink-0">
+                      <Label className="text-[10px] font-bold uppercase tracking-[0.1em] text-muted-foreground mb-2 block">Invite Connections</Label>
                       <div className="flex gap-2">
                         <Select onValueChange={addMember} disabled={addingMemberId !== null}>
-                          <SelectTrigger className="flex-1">
-                            <SelectValue placeholder={connections.length > 0 ? "Select a connection..." : "No connections to add"} />
+                          <SelectTrigger className="flex-1 bg-card">
+                            <div className="flex items-center gap-2">
+                              <UserPlus className="h-4 w-4 text-muted-foreground" />
+                              <SelectValue placeholder={connections.length > 0 ? "Choose connection to add..." : "No connections found"} />
+                            </div>
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="none" disabled>Select to add</SelectItem>
+                            <SelectItem value="none" disabled>Select a connection</SelectItem>
                             {connections.map(c => (
                               <SelectItem key={c.id} value={c.id}>
-                                {c.first_name ? `${c.first_name} ${c.last_name || ''}` : `@${c.username}`}
+                                <div className="flex items-center gap-2">
+                                   <Avatar className="h-5 w-5">
+                                      <AvatarImage src={c.avatar_url} />
+                                      <AvatarFallback>{c.username[0].toUpperCase()}</AvatarFallback>
+                                   </Avatar>
+                                   <span>{c.first_name ? `${c.first_name} ${c.last_name || ''}` : `@${c.username}`}</span>
+                                </div>
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -493,37 +519,37 @@ const TeamDetailsDialog: React.FC<TeamDetailsDialogProps> = ({ team, open, onOpe
                     </div>
                   )}
 
-                  <div className="flex-1">
-                      <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 block">Current Members</Label>
-                      <div className="space-y-2">
+                  <ScrollArea className="flex-1 px-6 pb-6 pt-4">
+                      <Label className="text-[10px] font-bold uppercase tracking-[0.1em] text-muted-foreground mb-3 block">Team Roster</Label>
+                      <div className="space-y-3">
                         {members.map(m => (
-                          <div key={m.id} className="flex items-center justify-between p-2 rounded bg-muted/30 border">
+                          <div key={m.id} className="flex items-center justify-between p-3 rounded-lg bg-card border shadow-sm group">
                             <div className="flex items-center gap-3 min-w-0">
-                              <Avatar className="h-8 w-8">
+                              <Avatar className="h-10 w-10 border-2">
                                 <AvatarImage src={m.avatar_url} />
-                                <AvatarFallback>{(m.first_name?.[0] || m.username?.[0] || "U").toUpperCase()}</AvatarFallback>
+                                <AvatarFallback className="bg-muted text-muted-foreground">{(m.first_name?.[0] || m.username?.[0] || "U").toUpperCase()}</AvatarFallback>
                               </Avatar>
                               <div className="flex flex-col min-w-0">
-                                <span className="text-sm font-medium truncate">
+                                <span className="text-sm font-semibold truncate leading-tight">
                                   {m.first_name ? `${m.first_name} ${m.last_name || ''}` : m.username}
                                 </span>
-                                <span className="text-[10px] text-muted-foreground truncate">@{m.username}</span>
+                                <span className="text-xs text-muted-foreground truncate">@{m.username}</span>
                               </div>
                               {m.role === 'owner' && (
-                                <Badge variant="secondary" className="h-5 px-1.5 bg-yellow-100 text-yellow-700 hover:bg-yellow-100 dark:bg-yellow-900/30 dark:text-yellow-400 gap-1 text-[10px]">
-                                  <Crown className="h-3 w-3" /> Owner
+                                <Badge variant="secondary" className="h-5 px-1.5 bg-yellow-100 text-yellow-700 border-yellow-200 gap-1 text-[9px] font-bold">
+                                  <Crown className="h-2.5 w-2.5" /> OWNER
                                 </Badge>
                               )}
                             </div>
                             {isOwner && m.role !== 'owner' && (
-                              <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive shrink-0" onClick={() => removeMember(m.id)}>
+                              <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive shrink-0 opacity-0 group-hover:opacity-100" onClick={() => removeMember(m.id)}>
                                 <Trash2 className="h-4 w-4" />
                               </Button>
                             )}
                           </div>
                         ))}
                       </div>
-                  </div>
+                  </ScrollArea>
                 </TabsContent>
               </div>
             </Tabs>

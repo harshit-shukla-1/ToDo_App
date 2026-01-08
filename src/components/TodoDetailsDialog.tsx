@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -11,9 +11,12 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { CalendarIcon, Tag, AlertCircle, CheckCircle2, Circle } from "lucide-react";
+import { CalendarIcon, Tag, AlertCircle, CheckCircle2, Circle, UserCheck, Users } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface Todo {
   id: string;
@@ -23,6 +26,7 @@ interface Todo {
   due_date: string | null;
   priority?: string;
   created_at: string;
+  team_id?: string | null;
 }
 
 interface TodoDetailsDialogProps {
@@ -38,6 +42,24 @@ const TodoDetailsDialog: React.FC<TodoDetailsDialogProps> = ({
   todo,
   onEdit 
 }) => {
+  const [assignments, setAssignments] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (open && todo) {
+      fetchAssignments();
+    }
+  }, [open, todo]);
+
+  const fetchAssignments = async () => {
+    if (!todo) return;
+    const { data } = await supabase
+      .from('todo_assignments')
+      .select('profiles(*)')
+      .eq('todo_id', todo.id);
+    
+    setAssignments(data?.map(d => d.profiles) || []);
+  };
+
   if (!todo) return null;
 
   const getPriorityColor = (priority?: string) => {
@@ -74,49 +96,71 @@ const TodoDetailsDialog: React.FC<TodoDetailsDialogProps> = ({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid gap-4 py-4">
-          <div className="flex items-center gap-4 p-3 rounded-lg border bg-card/50">
-             <div className="flex items-center gap-3 flex-1">
-                <div className="h-8 w-8 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400">
-                  <Tag className="h-4 w-4" />
+        <ScrollArea className="max-h-[60vh] pr-4 -mr-4">
+          <div className="grid gap-4 py-4 pr-1">
+            {/* Assigned Users Section */}
+            {assignments.length > 0 && (
+              <div className="p-3 rounded-lg border bg-primary/5 space-y-3">
+                <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-primary">
+                   <UserCheck className="h-3 w-3" /> Assigned To
                 </div>
-                <div>
-                  <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Category</p>
-                  <p className="font-medium text-sm">{todo.category}</p>
+                <div className="flex flex-wrap gap-2">
+                   {assignments.map((profile) => (
+                      <div key={profile.id} className="flex items-center gap-2 bg-background border rounded-full px-2 py-1">
+                         <Avatar className="h-5 w-5">
+                            <AvatarImage src={profile.avatar_url} />
+                            <AvatarFallback className="text-[10px]">{profile.username?.[0].toUpperCase()}</AvatarFallback>
+                         </Avatar>
+                         <span className="text-xs font-medium">@{profile.username}</span>
+                      </div>
+                   ))}
                 </div>
-             </div>
-          </div>
+              </div>
+            )}
 
-          <div className="flex items-center gap-4 p-3 rounded-lg border bg-card/50">
-             <div className="flex items-center gap-3 flex-1">
-                <div className="h-8 w-8 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center text-purple-600 dark:text-purple-400">
-                  <CalendarIcon className="h-4 w-4" />
-                </div>
-                <div>
-                  <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Due Date</p>
-                  <p className="font-medium text-sm">
-                    {todo.due_date 
-                      ? format(new Date(todo.due_date), "PPP 'at' p") 
-                      : "No due date set"}
-                  </p>
-                </div>
-             </div>
-          </div>
+            <div className="flex items-center gap-4 p-3 rounded-lg border bg-card/50">
+              <div className="flex items-center gap-3 flex-1">
+                  <div className="h-8 w-8 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400">
+                    <Tag className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Category</p>
+                    <p className="font-medium text-sm">{todo.category}</p>
+                  </div>
+              </div>
+            </div>
 
-          <div className="flex items-center gap-4 p-3 rounded-lg border bg-card/50">
-             <div className="flex items-center gap-3 flex-1">
-                <div className={cn("h-8 w-8 rounded-full flex items-center justify-center border", getPriorityColor(todo.priority))}>
-                  <AlertCircle className="h-4 w-4" />
-                </div>
-                <div>
-                  <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Priority</p>
-                  <p className="font-medium text-sm capitalize">{todo.priority || "Normal"}</p>
-                </div>
-             </div>
-          </div>
-        </div>
+            <div className="flex items-center gap-4 p-3 rounded-lg border bg-card/50">
+              <div className="flex items-center gap-3 flex-1">
+                  <div className="h-8 w-8 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center text-purple-600 dark:text-purple-400">
+                    <CalendarIcon className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Due Date</p>
+                    <p className="font-medium text-sm">
+                      {todo.due_date 
+                        ? format(new Date(todo.due_date), "PPP 'at' p") 
+                        : "No due date set"}
+                    </p>
+                  </div>
+              </div>
+            </div>
 
-        <DialogFooter className="flex-row gap-2 sm:justify-end">
+            <div className="flex items-center gap-4 p-3 rounded-lg border bg-card/50">
+              <div className="flex items-center gap-3 flex-1">
+                  <div className={cn("h-8 w-8 rounded-full flex items-center justify-center border", getPriorityColor(todo.priority))}>
+                    <AlertCircle className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Priority</p>
+                    <p className="font-medium text-sm capitalize">{todo.priority || "Normal"}</p>
+                  </div>
+              </div>
+            </div>
+          </div>
+        </ScrollArea>
+
+        <DialogFooter className="flex-row gap-2 sm:justify-end border-t pt-4">
           <Button variant="outline" onClick={() => onOpenChange(false)} className="flex-1 sm:flex-none">
             Close
           </Button>

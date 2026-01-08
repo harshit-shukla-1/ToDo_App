@@ -23,9 +23,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/integrations/supabase/auth";
 import { format } from "date-fns";
-import { Calendar as CalendarIcon, Save, ArrowLeft, Loader2, AlertCircle, FolderKanban, Users } from "lucide-react";
+import { Calendar as CalendarIcon, Save, ArrowLeft, Loader2, AlertCircle, FolderKanban, Users, UserCheck, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { showSuccess, showError } from "@/utils/toast";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Checkbox } from "@/components/ui/checkbox";
 
 const TodoEditor = () => {
   const { id } = useParams();
@@ -36,6 +39,7 @@ const TodoEditor = () => {
   const [loading, setLoading] = useState(false);
   const [projects, setProjects] = useState<any[]>([]);
   const [availableTeams, setAvailableTeams] = useState<any[]>([]);
+  const [teamMembers, setTeamMembers] = useState<any[]>([]);
   
   const [formData, setFormData] = useState({
     text: "",
@@ -47,6 +51,8 @@ const TodoEditor = () => {
     project_id: "none",
     team_id: "none",
   });
+
+  const [assignedUserIds, setAssignedUserIds] = useState<string[]>([]);
 
   useEffect(() => {
     if (user) {
@@ -66,6 +72,16 @@ const TodoEditor = () => {
       fetchProjectTeams(formData.project_id);
     }
   }, [formData.project_id]);
+
+  // When team changes, fetch members
+  useEffect(() => {
+    if (formData.team_id === "none") {
+      setTeamMembers([]);
+      setAssignedUserIds([]);
+    } else {
+      fetchTeamMembers(formData.team_id);
+    }
+  }, [formData.team_id]);
 
   const fetchContextData = async () => {
     const { data: projData } = await supabase.from('projects').select('id, name');
@@ -87,16 +103,22 @@ const TodoEditor = () => {
       })) || [];
       
       setAvailableTeams(teams);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const fetchTeamMembers = async (teamId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('team_members')
+        .select('user_id, profiles(*)')
+        .eq('team_id', teamId);
+
+      if (error) throw error;
       
-      // If editing and we just loaded, we don't want to reset team_id immediately
-      // But if user changed project, we should check if current team is still valid
-      if (formData.team_id !== "none" && !teams.some(t => t.id === formData.team_id)) {
-        // We only reset if we aren't in the middle of the initial load
-        // Actually, simpler to just let the select handle it or reset if not in list
-        // but for safety during "initial load" we might want to be careful.
-        // For simplicity:
-        // setFormData(prev => ({ ...prev, team_id: "none" }));
-      }
+      const members = data?.map(d => d.profiles) || [];
+      setTeamMembers(members);
     } catch (err) {
       console.error(err);
     }
@@ -127,9 +149,13 @@ const TodoEditor = () => {
           team_id: data.team_id || "none",
         });
         
-        if (data.project_id) {
-           fetchProjectTeams(data.project_id);
-        }
+        // Fetch assignments
+        const { data: assignments } = await supabase
+          .from('todo_assignments')
+          .select('user_id')
+          .eq('todo_id', id);
+        
+        setAssignedUserIds(assignments?.map(a => a.user_id) || []);
       }
     } catch (error: any) {
       showError("Error fetching todo: " + error.message);
@@ -163,27 +189,45 @@ const TodoEditor = () => {
         team_id: formData.team_id === "none" ? null : formData.team_id,
       };
 
+      let todoId = id;
+
       if (isEditing) {
         const { error } = await supabase
           .from("todos")
           .update(basePayload)
           .eq("id", id);
         if (error) throw error;
-        showSuccess("Todo updated successfully");
       } else {
-        const { error } = await supabase.from("todos").insert([{
+        const { data, error } = await supabase.from("todos").insert([{
           ...basePayload,
           user_id: user?.id
-        }]);
+        }]).select('id').single();
         if (error) throw error;
-        showSuccess("Todo created successfully");
+        todoId = data.id;
       }
+
+      // Handle assignments
+      if (todoId) {
+        await supabase.from('todo_assignments').delete().eq('todo_id', todoId);
+        if (assignedUserIds.length > 0) {
+          const assignments = assignedUserIds.map(uid => ({ todo_id: todoId, user_id: uid }));
+          await supabase.from('todo_assignments').insert(assignments);
+        }
+      }
+
+      showSuccess(isEditing ? "Todo updated" : "Todo created");
       navigate("/todos");
     } catch (error: any) {
       showError("Error saving todo: " + error.message);
     } finally {
       setLoading(false);
     }
+  };
+
+  const toggleAssignment = (userId: string) => {
+    setAssignedUserIds(prev => 
+      prev.includes(userId) ? prev.filter(id => id !== userId) : [...prev, userId]
+    );
   };
 
   const handleDateSelect = (date: Date | undefined) => {
@@ -263,34 +307,61 @@ const TodoEditor = () => {
                 </Select>
               </div>
 
-              {formData.project_id !== "none" && (
-                <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
-                  <Label>Team Assignment</Label>
-                  <Select
-                    value={formData.team_id}
-                    onValueChange={(value) =>
-                      setFormData({ ...formData, team_id: value })
-                    }
-                  >
-                    <SelectTrigger>
-                      <Users className="w-4 h-4 mr-2 text-muted-foreground"/>
-                      <SelectValue placeholder={availableTeams.length === 0 ? "No teams in project" : "Select Team"} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">Personal (No Team)</SelectItem>
-                      {availableTeams.map(t => (
-                        <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {availableTeams.length === 0 && (
-                    <p className="text-[10px] text-muted-foreground mt-1">
-                      This project has no teams assigned. Update the project to add teams.
-                    </p>
-                  )}
-                </div>
-              )}
+              <div className="space-y-2">
+                <Label>Team Assignment</Label>
+                <Select
+                  value={formData.team_id}
+                  onValueChange={(value) =>
+                    setFormData({ ...formData, team_id: value })
+                  }
+                >
+                  <SelectTrigger>
+                    <Users className="w-4 h-4 mr-2 text-muted-foreground"/>
+                    <SelectValue placeholder={formData.project_id === 'none' ? "Personal Todo" : "Select Team"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Personal (No Team)</SelectItem>
+                    {availableTeams.map(t => (
+                      <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
+
+            {/* Assignments Section - Only show if team is selected */}
+            {formData.team_id !== "none" && teamMembers.length > 0 && (
+               <div className="space-y-3 animate-in fade-in slide-in-from-top-2 duration-300">
+                  <Label className="flex items-center gap-2">
+                     <UserCheck className="h-4 w-4 text-primary" /> Assign to Members
+                  </Label>
+                  <ScrollArea className="h-40 border rounded-md p-2 bg-muted/20">
+                     <div className="space-y-2">
+                        {teamMembers.map((member) => (
+                           <div key={member.id} className="flex items-center space-x-3 p-2 rounded-md hover:bg-card border border-transparent hover:border-border transition-colors">
+                              <Checkbox 
+                                 id={`assign-${member.id}`} 
+                                 checked={assignedUserIds.includes(member.id)}
+                                 onCheckedChange={() => toggleAssignment(member.id)}
+                              />
+                              <label htmlFor={`assign-${member.id}`} className="flex items-center gap-3 cursor-pointer flex-1">
+                                 <Avatar className="h-8 w-8">
+                                    <AvatarImage src={member.avatar_url} />
+                                    <AvatarFallback>{member.username?.[0].toUpperCase()}</AvatarFallback>
+                                 </Avatar>
+                                 <div className="flex flex-col">
+                                    <span className="text-sm font-medium">{member.first_name || member.username}</span>
+                                    {member.first_name && <span className="text-[10px] text-muted-foreground">@{member.username}</span>}
+                                 </div>
+                              </label>
+                              {assignedUserIds.includes(member.id) && <Check className="h-4 w-4 text-primary" />}
+                           </div>
+                        ))}
+                     </div>
+                  </ScrollArea>
+                  <p className="text-[10px] text-muted-foreground italic">You can assign this task to one or multiple members of the team.</p>
+               </div>
+            )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
